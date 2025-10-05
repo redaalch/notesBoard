@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import path from "path";
 
 import notesRoutes from "./routes/notesRoutes.js";
-import { connectDB } from "./config/db.js";
+import { connectDb } from "./config/db.js";
 import rateLimiter from "./middleware/rateLimiter.js";
 
 dotenv.config();
@@ -40,7 +40,7 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-connectDB().then(() => {
+connectDb().then(() => {
   app.listen(PORT, () => {
     console.log("Server started on PORT:", PORT);
   });
