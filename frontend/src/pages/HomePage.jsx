@@ -3,11 +3,13 @@ import Navbar from "../Components/Navbar";
 import RateLimitedUI from "../Components/RateLimitedUI";
 import axios from "axios";
 import toast from "react-hot-toast";
+import NoteCard from "../Components/NoteCard";
 
 function HomePage() {
   const [isRateLimited, setIsRateLimited] = useState(false);
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     const fetchNotes = async () => {
       try {
@@ -27,6 +29,7 @@ function HomePage() {
     };
     fetchNotes();
   }, []);
+
   return (
     <div className="min-h-screen">
       <Navbar />
@@ -38,8 +41,10 @@ function HomePage() {
           </div>
         )}
         {notes.length > 0 && !isRateLimited && (
-          <div className="grid grid-cols-1 mid:grid-cols2 lg:grid-cols-3 gap-6">
-            {notes.title} | {notes.content}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {notes.map((n) => (
+              <NoteCard key={n._id} note={n} />
+            ))}
           </div>
         )}
       </div>
