@@ -1,4 +1,4 @@
-import { PlusIcon } from "lucide-react";
+import { MenuIcon, PlusIcon } from "lucide-react";
 import React from "react";
 import { Link } from "react-router-dom";
 
@@ -21,7 +21,7 @@ const getPreferredTheme = () => {
   return LIGHT_THEME;
 };
 
-function Navbar() {
+function Navbar({ onToggleFilters = () => {} }) {
   const [theme, setTheme] = React.useState(getPreferredTheme);
   const isDark = theme === DARK_THEME;
 
@@ -50,10 +50,20 @@ function Navbar() {
   return (
     <header className="bg-base-300 border-b border-base-content/10">
       <div className="mx-auto max-w-6xl p-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-primary font-mono tracking-tight">
-            NotesBoard
-          </h1>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="btn btn-ghost btn-square lg:hidden"
+              onClick={onToggleFilters}
+              aria-label="Toggle filters"
+            >
+              <MenuIcon className="size-5" />
+            </button>
+            <h1 className="text-3xl font-bold text-primary font-mono tracking-tight">
+              NotesBoard
+            </h1>
+          </div>
           <div className="flex items-center gap-4">
             <Link to="/create" className="btn btn-primary">
               <PlusIcon className="size-5" />

@@ -113,7 +113,8 @@ function NoteDetailPage() {
               </Link>
               <button
                 onClick={openConfirm}
-                className="btn btn-error btn-outline"
+                className="tooltip btn btn-error btn-outline"
+                data-tip="Delete this note"
               >
                 <Trash2Icon className="h-5 w-5" />
                 Delete Note
