@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { PenSquareIcon, Trash2Icon } from "lucide-react";
+import { CalendarClockIcon, PenSquareIcon, Trash2Icon } from "lucide-react";
 import { Link } from "react-router-dom";
-import { formatDate } from "../lib/Utils.js";
+import { countWords, formatDate, formatRelativeTime } from "../lib/Utils.js";
 import api from "../lib/axios.js";
 import toast from "react-hot-toast";
 import ConfirmDialog from "./ConfirmDialog.jsx";
@@ -36,31 +36,94 @@ function NoteCard({ note, setNotes }) {
     }
   };
 
+  const createdAt = new Date(note.createdAt);
+  const updatedAt = note.updatedAt ? new Date(note.updatedAt) : createdAt;
+  const wordCount = countWords(note.content);
+  const isRecentlyUpdated = Date.now() - updatedAt.getTime() < 172_800_000; // 48h
+
   return (
     <>
-      <Link
-        to={`/note/${note._id}`}
-        className="card bg-base-100 hover:shadow-lg transition-all duration-200 border-t-4 border-solid border-[#00FF9d]"
-      >
-        <div className="card-body">
-          <h3 className="card-title text-base-content">{note.title}</h3>
-          <p className="text-base-content/70 line-clamp-3">{note.content}</p>
-          <div className="card-actions justify-between items-center mt-4">
-            <span className="text-sm text-base-content/60">
-              {formatDate(new Date(note.createdAt))}
-            </span>
-            <div className="flex items-center gap-1">
-              <PenSquareIcon className="size-4" />
-              <button
-                className="btn btn-ghost btn-xs text-error"
-                onClick={openConfirm}
-              >
-                <Trash2Icon className="size-4" />
-              </button>
+      <article className="card bg-base-100 hover:shadow-xl transition-all duration-200 border border-base-200">
+        <div className="card-body space-y-4">
+          <header className="flex items-start justify-between gap-2">
+            <div>
+              <h3 className="card-title text-base-content flex items-center gap-2">
+                {note.title}
+                {isRecentlyUpdated && (
+                  <span className="badge badge-success badge-sm">New</span>
+                )}
+              </h3>
+              <p className="text-sm text-base-content/60 flex items-center gap-1">
+                <CalendarClockIcon className="size-4" />
+                Updated {formatRelativeTime(updatedAt)}
+              </p>
+            </div>
+            <div className="tooltip tooltip-left" data-tip="Open note details">
+              <Link to={`/note/${note._id}`} className="btn btn-ghost btn-sm">
+                <PenSquareIcon className="size-4" />
+              </Link>
+            </div>
+          </header>
+
+          <p className="text-base-content/70 line-clamp-3 leading-relaxed">
+            {note.content}
+          </p>
+
+          <div className="collapse collapse-arrow bg-base-200/60">
+            <input type="checkbox" />
+            <div className="collapse-title text-sm font-medium">
+              Quick note insights
+            </div>
+            <div className="collapse-content text-sm text-base-content/70">
+              <dl className="space-y-2">
+                <div className="flex justify-between">
+                  <dt className="font-semibold">Created</dt>
+                  <dd>{formatDate(createdAt)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="font-semibold">Last updated</dt>
+                  <dd>{formatDate(updatedAt)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="font-semibold">Word count</dt>
+                  <dd>
+                    <span className="badge badge-outline badge-sm">
+                      {wordCount} words
+                    </span>
+                  </dd>
+                </div>
+              </dl>
             </div>
           </div>
+
+          <footer className="card-actions justify-between items-center">
+            <span className="text-xs text-base-content/60">
+              Created {formatRelativeTime(createdAt)}
+            </span>
+            <div className="flex items-center gap-2">
+              <div
+                className="tooltip tooltip-bottom"
+                data-tip="Open note details"
+              >
+                <Link
+                  to={`/note/${note._id}`}
+                  className="btn btn-primary btn-sm"
+                >
+                  View note
+                </Link>
+              </div>
+              <div className="tooltip tooltip-bottom" data-tip="Delete note">
+                <button
+                  className="btn btn-outline btn-error btn-sm"
+                  onClick={openConfirm}
+                >
+                  <Trash2Icon className="size-4" />
+                </button>
+              </div>
+            </div>
+          </footer>
         </div>
-      </Link>
+      </article>
 
       <ConfirmDialog
         open={confirmOpen}

@@ -93,6 +93,26 @@ const CreatePage = () => {
               </form>
             </div>
           </div>
+
+          <div className="mt-10 space-y-4">
+            <h3 className="text-xl font-semibold flex items-center gap-2">
+              Build a brilliant note
+            </h3>
+            <ul className="steps steps-vertical lg:steps-horizontal">
+              <li className="step step-primary" data-content="✏️">
+                Jot the headline — keep titles short and searchable.
+              </li>
+              <li className="step step-secondary" data-content="🧠">
+                Capture the core idea before the details fade away.
+              </li>
+              <li className="step step-accent" data-content="✅">
+                Add clear action items or next steps.
+              </li>
+              <li className="step" data-content="✨">
+                Tag or highlight key phrases for quick scanning later.
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>

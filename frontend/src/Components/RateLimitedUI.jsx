@@ -1,23 +1,25 @@
-import { ZapIcon } from "lucide-react";
+import { ZapIcon, XIcon } from "lucide-react";
 
-const RateLimitedUI = () => {
+const RateLimitedUI = ({ onDismiss = () => {} }) => {
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <div className="bg-primary/10 border border-primary/30 rounded-lg shadow-md">
-        <div className="flex flex-col md:flex-row items-center p-6">
-          <div className="flex-shrink-0 bg-primary/20 p-4 rounded-full mb-4 md:mb-0 md:mr-6">
-            <ZapIcon className="size-10 text-primary" />
-          </div>
-          <div className="flex-1 text-center md:text-left">
-            <h3 className="text-xl font-bold mb-2">Rate Limit Reached</h3>
-            <p className="text-base-content mb-1">
-              You've made too many requests in a short period. Please wait a moment.
-            </p>
-            <p className="text-sm text-base-content/70">
-              Try again in a few seconds for the best experience.
-            </p>
+    <div className="mx-auto w-full max-w-6xl px-4 py-4">
+      <div className="alert alert-warning shadow-lg">
+        <ZapIcon className="size-6" />
+        <div>
+          <h3 className="font-bold">Rate limit reached</h3>
+          <div className="text-sm">
+            You made too many requests in a short burst. Take a short pause
+            before trying again.
           </div>
         </div>
+        <button
+          type="button"
+          className="btn btn-sm btn-ghost"
+          onClick={onDismiss}
+          aria-label="Dismiss rate limit alert"
+        >
+          <XIcon className="size-4" />
+        </button>
       </div>
     </div>
   );
