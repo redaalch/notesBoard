@@ -15,42 +15,26 @@ const PORT = process.env.PORT || 5001;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const ROOT_DIR = path.join(__dirname, "../../"); // project root
 
-const ROOT_DIR = path.join(__dirname, "../../");
-
-app.use(express.static(path.join(ROOT_DIR, "frontend", "dist")));
-
-app.get("*", (req, res) => {
-  // Don’t hijack API routes
-  if (req.path.startsWith("/api")) return res.status(404).send("Not Found");
-  res.sendFile(path.join(ROOT_DIR, "frontend", "dist", "index.html"));
-});
-
-
-// middleware
-if (process.env.NODE_ENV !== "production") {
-  app.use(
-    cors({
-      origin: "http://localhost:5173",
-    })
-  );
-}
-app.use(express.json()); // this middleware will parse JSON bodies: req.body
+// Core middleware
+app.use(express.json());
 app.use(rateLimiter);
 
-// our simple custom middleware
-// app.use((req, res, next) => {
-//   console.log(`Req method is ${req.method} & Req URL is ${req.url}`);
-//   next();
-// });
+// CORS (dev only)
+if (process.env.NODE_ENV !== "production") {
+  app.use(cors({ origin: "http://localhost:5173" }));
+}
 
+// --- API routes FIRST ---
 app.use("/api/notes", notesRoutes);
 
+// --- Serve frontend build (production only) ---
 if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "../frontend/dist")));
-
+  const distPath = path.join(ROOT_DIR, "frontend", "dist");
+  app.use(express.static(distPath));
   app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "../frontend", "dist", "index.html"));
+    res.sendFile(path.join(distPath, "index.html"));
   });
 }
 
