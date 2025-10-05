@@ -57,6 +57,7 @@ function Navbar({ onToggleFilters = () => {} }) {
               className="btn btn-ghost btn-square lg:hidden"
               onClick={onToggleFilters}
               aria-label="Toggle filters"
+              data-drawer-toggle="filters"
             >
               <MenuIcon className="size-5" />
             </button>

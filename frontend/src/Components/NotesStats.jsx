@@ -9,17 +9,17 @@ const average = (numbers) => {
 function NotesStats({ notes, loading }) {
   if (loading) {
     return (
-      <div className="stats shadow bg-base-100">
+      <div className="stats stats-vertical sm:stats-horizontal shadow bg-base-100 w-full">
         <div className="stat">
-          <div className="skeleton h-6 w-24 mb-2" />
+          <div className="skeleton mb-2 h-6 w-24" />
           <div className="skeleton h-8 w-32" />
         </div>
         <div className="stat">
-          <div className="skeleton h-6 w-24 mb-2" />
+          <div className="skeleton mb-2 h-6 w-24" />
           <div className="skeleton h-8 w-32" />
         </div>
         <div className="stat">
-          <div className="skeleton h-6 w-24 mb-2" />
+          <div className="skeleton mb-2 h-6 w-24" />
           <div className="skeleton h-8 w-32" />
         </div>
       </div>
@@ -39,10 +39,10 @@ function NotesStats({ notes, loading }) {
     .sort((a, b) => new Date(b) - new Date(a))[0];
 
   return (
-    <div className="stats shadow bg-base-100 w-full">
+    <div className="stats stats-vertical sm:stats-horizontal shadow bg-base-100 w-full">
       <div className="stat">
         <div className="stat-figure text-primary">
-          <BarChart3Icon className="size-8" />
+          <BarChart3Icon className="size-7 sm:size-8" />
         </div>
         <div className="stat-title">Total notes</div>
         <div className="stat-value text-primary">{notes.length}</div>
@@ -53,7 +53,7 @@ function NotesStats({ notes, loading }) {
 
       <div className="stat">
         <div className="stat-figure text-secondary">
-          <FileTextIcon className="size-8" />
+          <FileTextIcon className="size-7 sm:size-8" />
         </div>
         <div className="stat-title">Average length</div>
         <div className="stat-value text-secondary">{avgWords} words</div>
@@ -64,7 +64,7 @@ function NotesStats({ notes, loading }) {
 
       <div className="stat">
         <div className="stat-figure text-accent">
-          <ClockIcon className="size-8" />
+          <ClockIcon className="size-7 sm:size-8" />
         </div>
         <div className="stat-title">Daily momentum</div>
         <div className="stat-value text-accent">

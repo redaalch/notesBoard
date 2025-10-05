@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   FilterIcon,
   RefreshCwIcon,
   SearchIcon,
   SparklesIcon,
+  XIcon,
 } from "lucide-react";
 import Navbar from "../Components/Navbar.jsx";
 import RateLimitedUI from "../Components/RateLimitedUI.jsx";
@@ -24,6 +25,7 @@ function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [minWords, setMinWords] = useState(0);
   const [sortOrder, setSortOrder] = useState("newest");
+  const filterPanelRef = useRef(null);
 
   useEffect(() => {
     const fetchNotes = async () => {
@@ -127,6 +129,45 @@ function HomePage() {
   const showFilterEmptyState =
     !loading && !isRateLimited && notes.length > 0 && !filteredNotes.length;
 
+  const filterTips = [
+    {
+      title: "Use search shortcuts",
+      description:
+        "Filter by keywords, then adjust the word slider to focus on short summaries or long-form notes.",
+      icon: FilterIcon,
+      tone: "primary",
+    },
+    {
+      title: "Switch tabs quickly",
+      description:
+        "Tabs let you jump between recent captures, long reads, or quick thoughts without losing your place.",
+      icon: SparklesIcon,
+      tone: "secondary",
+    },
+  ];
+
+  const tipToneClasses = {
+    primary: {
+      badge: "bg-primary/15 text-primary",
+    },
+    secondary: {
+      badge: "bg-secondary/15 text-secondary",
+    },
+  };
+
+  useEffect(() => {
+    if (!drawerOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (event.target.closest("[data-drawer-toggle='filters']")) return;
+      if (filterPanelRef.current?.contains(event.target)) return;
+      setDrawerOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [drawerOpen]);
+
   return (
     <div className="drawer">
       <input
@@ -174,6 +215,7 @@ function HomePage() {
                   type="button"
                   className="btn btn-outline gap-2 hidden lg:inline-flex"
                   onClick={openDrawer}
+                  data-drawer-toggle="filters"
                 >
                   <FilterIcon className="size-4" />
                   Filters
@@ -242,10 +284,24 @@ function HomePage() {
           className="drawer-overlay"
           onClick={closeDrawer}
         />
-        <div className="menu h-full w-80 max-w-full gap-6 overflow-y-auto bg-base-200 p-6">
-          <div className="flex items-center gap-2">
-            <SparklesIcon className="size-5 text-primary" />
-            <h2 className="text-lg font-semibold">Filter details</h2>
+        <div
+          ref={filterPanelRef}
+          className="menu h-full w-80 max-w-full gap-6 overflow-y-auto bg-base-200 p-6"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <SparklesIcon className="size-5 text-primary" />
+              <h2 className="text-lg font-semibold">Filter details</h2>
+            </div>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={closeDrawer}
+              data-drawer-toggle="filters"
+              aria-label="Close filters"
+            >
+              <XIcon className="size-4" />
+            </button>
           </div>
 
           <label className="form-control w-full">
@@ -298,32 +354,34 @@ function HomePage() {
           </label>
 
           <div className="divider">Tips</div>
-          <ul className="timeline timeline-vertical timeline-compact">
-            <li>
-              <div className="timeline-middle">
-                <FilterIcon className="size-4" />
-              </div>
-              <div className="timeline-end mb-4">
-                <h4 className="font-semibold">Use search shortcuts</h4>
-                <p className="text-sm text-base-content/70">
-                  Filter by keywords, then adjust the word slider to focus on
-                  short summaries or long-form notes.
-                </p>
-              </div>
-            </li>
-            <li>
-              <div className="timeline-middle">
-                <SparklesIcon className="size-4" />
-              </div>
-              <div className="timeline-end mb-4">
-                <h4 className="font-semibold">Switch tabs quickly</h4>
-                <p className="text-sm text-base-content/70">
-                  Tabs let you jump between recent captures, long reads, or
-                  quick thoughts.
-                </p>
-              </div>
-            </li>
-          </ul>
+          <div className="space-y-3">
+            {filterTips.map(({ title, description, icon: Icon, tone }) => {
+              const toneClass = tipToneClasses[tone] ?? tipToneClasses.primary;
+
+              return (
+                <div
+                  key={title}
+                  className="card border border-base-300 bg-base-100/80 shadow-sm"
+                >
+                  <div className="card-body flex flex-row items-start gap-3 p-4">
+                    <span
+                      className={`inline-flex h-10 w-10 items-center justify-center rounded-full ${toneClass.badge}`}
+                    >
+                      <Icon className="size-5" />
+                    </span>
+                    <div className="space-y-1">
+                      <h4 className="font-semibold text-base-content">
+                        {title}
+                      </h4>
+                      <p className="text-sm text-base-content/70">
+                        {description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
           <button
             type="button"
