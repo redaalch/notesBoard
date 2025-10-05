@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import Navbar from "../Components/Navbar";
-import RateLimitedUI from "../Components/RateLimitedUI";
-import api from "../lib/axios.js"
+import Navbar from "../Components/Navbar.jsx";
+import RateLimitedUI from "../Components/RateLimitedUI.jsx";
+import api from "../lib/axios.js";
 import toast from "react-hot-toast";
-import NoteCard from "../Components/NoteCard";
+import NoteCard from "../Components/NoteCard.jsx";
+import NotesNotFound from "../Components/NotesNotFound.jsx";
 
 function HomePage() {
   const [isRateLimited, setIsRateLimited] = useState(false);
@@ -40,6 +41,7 @@ function HomePage() {
             Loading notes ...
           </div>
         )}
+        {notes.length ===0 && !isRateLimited && <NotesNotFound />}
         {notes.length > 0 && !isRateLimited && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {notes.map((n) => (
