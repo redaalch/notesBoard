@@ -147,12 +147,8 @@ function HomePage() {
   ];
 
   const tipToneClasses = {
-    primary: {
-      badge: "bg-primary/15 text-primary",
-    },
-    secondary: {
-      badge: "bg-secondary/15 text-secondary",
-    },
+    primary: "text-primary",
+    secondary: "text-secondary",
   };
 
   useEffect(() => {
@@ -178,7 +174,7 @@ function HomePage() {
         onChange={(event) => setDrawerOpen(event.target.checked)}
       />
       <div className="drawer-content flex min-h-screen flex-col">
-        <Navbar onToggleFilters={openDrawer} />
+        <Navbar onMobileFilterClick={openDrawer} />
 
         {isRateLimited && (
           <RateLimitedUI onDismiss={() => setIsRateLimited(false)} />
@@ -220,20 +216,20 @@ function HomePage() {
                   <FilterIcon className="size-4" />
                   Filters
                 </button>
-                <div className="join">
-                  <div className="join-item input input-bordered flex items-center gap-2">
+                <div className="join w-full sm:w-auto">
+                  <div className="join-item input input-bordered flex items-center gap-2 flex-1 min-w-0">
                     <SearchIcon className="size-4 opacity-70" />
                     <input
                       type="search"
                       value={searchQuery}
                       onChange={(event) => setSearchQuery(event.target.value)}
                       placeholder="Search notes..."
-                      className="grow bg-transparent outline-none"
+                      className="w-full bg-transparent outline-none"
                     />
                   </div>
                   <button
                     type="button"
-                    className="btn join-item"
+                    className="btn join-item shrink-0"
                     onClick={() => {
                       setSearchQuery("");
                       setMinWords(0);
@@ -353,30 +349,27 @@ function HomePage() {
             </select>
           </label>
 
-          <div className="divider">Tips</div>
-          <div className="space-y-3">
-            {filterTips.map(({ title, description, icon: Icon, tone }) => {
-              const toneClass = tipToneClasses[tone] ?? tipToneClasses.primary;
+          <div className="divider" data-content="Helpful tips" />
+          <div className="space-y-2">
+            {filterTips.map(({ title, description, icon, tone }) => {
+              const IconComponent = icon;
 
               return (
                 <div
                   key={title}
-                  className="card border border-base-300 bg-base-100/80 shadow-sm"
+                  className="collapse collapse-arrow border border-base-300 bg-base-100/90 shadow-sm"
                 >
-                  <div className="card-body flex flex-row items-start gap-3 p-4">
-                    <span
-                      className={`inline-flex h-10 w-10 items-center justify-center rounded-full ${toneClass.badge}`}
-                    >
-                      <Icon className="size-5" />
-                    </span>
-                    <div className="space-y-1">
-                      <h4 className="font-semibold text-base-content">
-                        {title}
-                      </h4>
-                      <p className="text-sm text-base-content/70">
-                        {description}
-                      </p>
-                    </div>
+                  <input type="checkbox" className="peer" />
+                  <div className="collapse-title flex items-center gap-3 text-base font-semibold">
+                    <IconComponent
+                      className={`size-5 ${
+                        tipToneClasses[tone] ?? "text-primary"
+                      }`}
+                    />
+                    <span>{title}</span>
+                  </div>
+                  <div className="collapse-content text-sm text-base-content/70">
+                    <p>{description}</p>
                   </div>
                 </div>
               );
