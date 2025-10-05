@@ -6,11 +6,11 @@ const rateLimiter = async (req, res, next) => {
     if (!success) {
       return res
         .status(429)
-        .json({ message: "Too many requests please try gain later" });
+        .json({ message: "Too many requests please try again later" });
     }
     next();
   } catch (error) {
-    console.log("Rate limit error", error);
+    console.log("Rate limit error", error); //If something throws (e.g., Upstash is unreachable),
     next(error);
   }
 };
