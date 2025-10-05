@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
+import { fileURLToPath } from "url";
 
 import notesRoutes from "./routes/notesRoutes.js";
 import { connectDb } from "./config/db.js";
@@ -11,7 +12,20 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5001;
-const __dirname = path.resolve();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const ROOT_DIR = path.join(__dirname, "../../");
+
+app.use(express.static(path.join(ROOT_DIR, "frontend", "dist")));
+
+app.get("*", (req, res) => {
+  // Don’t hijack API routes
+  if (req.path.startsWith("/api")) return res.status(404).send("Not Found");
+  res.sendFile(path.join(ROOT_DIR, "frontend", "dist", "index.html"));
+});
+
 
 // middleware
 if (process.env.NODE_ENV !== "production") {
