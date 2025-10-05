@@ -19,6 +19,9 @@ function NoteCard({ note, setNotes }) {
     }
   };
 
+
+
+  
   return (
     <Link
       to={`/note/${note._id}`}
