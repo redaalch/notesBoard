@@ -217,19 +217,19 @@ function HomePage() {
                   Filters
                 </button>
                 <div className="join w-full sm:w-auto">
-                  <div className="join-item input input-bordered flex items-center gap-2 flex-1 min-w-0">
-                    <SearchIcon className="size-4 opacity-70" />
+                  <label className="join-item input input-bordered flex items-center gap-3 flex-1 min-w-0 rounded-full bg-base-200/70 shadow-sm transition focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/40">
+                    <SearchIcon className="size-4 text-base-content/60" />
                     <input
                       type="search"
                       value={searchQuery}
                       onChange={(event) => setSearchQuery(event.target.value)}
                       placeholder="Search notes..."
-                      className="w-full bg-transparent outline-none"
+                      className="w-full bg-transparent text-sm sm:text-base outline-none"
                     />
-                  </div>
+                  </label>
                   <button
                     type="button"
-                    className="btn join-item shrink-0"
+                    className="btn btn-outline join-item shrink-0 rounded-full sm:rounded-l-none"
                     onClick={() => {
                       setSearchQuery("");
                       setMinWords(0);
