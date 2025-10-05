@@ -19,19 +19,29 @@ const __dirname = path.dirname(__filename);
 const ROOT = path.join(__dirname, "../../");
 const dist = path.join(ROOT, "frontend", "dist");
 
-app.use(express.json());
-
 // dev CORS only
-if (process.env.NODE_ENV !== "production") {
-  app.use(cors({ origin: "http://localhost:5173" }));
-}
-
+const allowed = ["http://localhost:5173", "http://127.0.0.1:5173"];
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      // allow tools like curl/Postman (no origin)
+      if (!origin) return cb(null, true);
+      cb(null, allowed.includes(origin));
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true, // only if you’ll send cookies
+  })
+);
+app.options("*", cors());
+app.use(express.json());
 // ✅ Health check (quick way to see server is alive)
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 // ✅ Rate limiter ONLY if configured, and ONLY for /api
 const hasUpstash =
-  !!process.env.UPSTASH_REDIS_REST_URL && !!process.env.UPSTASH_REDIS_REST_TOKEN;
+  !!process.env.UPSTASH_REDIS_REST_URL &&
+  !!process.env.UPSTASH_REDIS_REST_TOKEN;
 if (hasUpstash) app.use("/api", rateLimiter);
 
 // ✅ API routes FIRST

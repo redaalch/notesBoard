@@ -1,8 +1,52 @@
 import { PlusIcon } from "lucide-react";
 import React from "react";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
+
+const LIGHT_THEME = "forest";
+const DARK_THEME = "dark";
+const SUPPORTED_THEMES = new Set([LIGHT_THEME, DARK_THEME]);
+
+const getPreferredTheme = () => {
+  if (typeof window === "undefined") return LIGHT_THEME;
+
+  const stored = localStorage.getItem("theme");
+  if (stored && SUPPORTED_THEMES.has(stored)) {
+    return stored;
+  }
+
+  if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
+    return DARK_THEME;
+  }
+
+  return LIGHT_THEME;
+};
 
 function Navbar() {
+  const [theme, setTheme] = React.useState(getPreferredTheme);
+  const isDark = theme === DARK_THEME;
+
+  React.useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return undefined;
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = (event) => {
+      setTheme(event.matches ? DARK_THEME : LIGHT_THEME);
+    };
+
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
+  const handleThemeToggle = () => {
+    setTheme((current) => (current === DARK_THEME ? LIGHT_THEME : DARK_THEME));
+  };
+
   return (
     <header className="bg-base-300 border-b border-base-content/10">
       <div className="mx-auto max-w-6xl p-4">
@@ -11,16 +55,18 @@ function Navbar() {
             NotesBoard
           </h1>
           <div className="flex items-center gap-4">
-            <Link to={"/create"} className="btn btn-primary">
+            <Link to="/create" className="btn btn-primary">
               <PlusIcon className="size-5" />
               <span>New Note</span>
             </Link>
+
+            {/* Theme toggle */}
             <label className="swap swap-rotate">
-              {/* this hidden checkbox controls the state */}
               <input
                 type="checkbox"
-                className="theme-controller"
-                value="dark"
+                aria-label="Toggle dark mode"
+                checked={isDark}
+                onChange={handleThemeToggle}
               />
 
               {/* sun icon */}

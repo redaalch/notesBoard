@@ -1,5 +1,5 @@
 import { PenSquareIcon, Trash2Icon } from "lucide-react";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 import { formatDate } from "../lib/Utils.js";
 import api from "../lib/axios.js";
 import toast from "react-hot-toast";
@@ -19,9 +19,6 @@ function NoteCard({ note, setNotes }) {
     }
   };
 
-
-
-  
   return (
     <Link
       to={`/note/${note._id}`}
