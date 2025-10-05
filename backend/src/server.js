@@ -1,4 +1,4 @@
-// server.js (or backend/src/server.js)
+// backend/src/server.js
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -16,36 +16,41 @@ const PORT = process.env.PORT || 5001;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const ROOT_DIR = path.join(__dirname, "../../");
-const distPath = path.join(ROOT_DIR, "frontend", "dist");
+const ROOT = path.join(__dirname, "../../");
+const dist = path.join(ROOT, "frontend", "dist");
 
 app.use(express.json());
 
-// CORS only in dev
+// dev CORS only
 if (process.env.NODE_ENV !== "production") {
   app.use(cors({ origin: "http://localhost:5173" }));
 }
 
-// ✅ Rate limiter ONLY for API, and only if configured
+// ✅ Health check (quick way to see server is alive)
+app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+// ✅ Rate limiter ONLY if configured, and ONLY for /api
 const hasUpstash =
   !!process.env.UPSTASH_REDIS_REST_URL && !!process.env.UPSTASH_REDIS_REST_TOKEN;
-if (hasUpstash) {
-  app.use("/api", rateLimiter);
-} else {
-  console.warn("Rate limiter disabled: UPSTASH env vars missing");
-}
+if (hasUpstash) app.use("/api", rateLimiter);
 
-// API routes FIRST
+// ✅ API routes FIRST
 app.use("/api/notes", notesRoutes);
 
-// Serve built frontend in production
+// serve built frontend in production
 if (process.env.NODE_ENV === "production") {
-  app.use(express.static(distPath));
+  app.use(express.static(dist));
   app.get("*", (req, res) => {
     if (req.path.startsWith("/api")) return res.status(404).send("Not Found");
-    res.sendFile(path.join(distPath, "index.html"));
+    res.sendFile(path.join(dist, "index.html"));
   });
 }
+
+// ✅ Global error handler so 500s are visible in logs + JSON to client
+app.use((err, _req, res, _next) => {
+  console.error("Unhandled error:", err);
+  res.status(err.status || 500).json({ error: err.message || "Server error" });
+});
 
 connectDb().then(() => {
   app.listen(PORT, () => console.log("Server started on", PORT));
