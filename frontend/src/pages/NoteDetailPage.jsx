@@ -4,6 +4,7 @@ import api from "../lib/axios";
 import toast from "react-hot-toast";
 import { ArrowLeftIcon, LoaderIcon, Trash2Icon } from "lucide-react";
 import ConfirmDialog from "../Components/ConfirmDialog.jsx";
+import TagInput from "../Components/TagInput.jsx";
 
 function NoteDetailPage() {
   const [note, setNote] = useState(null);
@@ -19,7 +20,7 @@ function NoteDetailPage() {
     const fetchNote = async () => {
       try {
         const res = await api.get(`/notes/${id}`);
-        setNote(res.data);
+        setNote({ ...res.data, tags: res.data.tags ?? [] });
       } catch (error) {
         console.log("Error in fetching Note", error);
 
@@ -61,12 +62,17 @@ function NoteDetailPage() {
     }
     setSaving(true);
     try {
-      await api.put(`/notes/${id}`, note);
+      await api.put(`/notes/${id}`, {
+        title: note.title,
+        content: note.content,
+        tags: note.tags ?? [],
+      });
       toast.success("Note updated successfully");
       navigate("/");
     } catch (error) {
       console.log("Error saving the note", error);
-      toast.error("Failed to update note");
+      const message = error.response?.data?.message ?? "Failed to update note";
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -148,6 +154,18 @@ function NoteDetailPage() {
                 className="textarea textarea-bordered h-32"
                 value={note.content}
                 onChange={(e) => setNote({ ...note, content: e.target.value })}
+              />
+            </div>
+            <div className="form-control mb-6">
+              <label className="label">
+                <span className="label-text">Tags</span>
+                <span className="label-text-alt text-base-content/60">
+                  Press Enter or comma to add up to 8 tags
+                </span>
+              </label>
+              <TagInput
+                value={note.tags ?? []}
+                onChange={(nextTags) => setNote({ ...note, tags: nextTags })}
               />
             </div>
             <div className="card-actions justify-end">

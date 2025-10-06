@@ -30,7 +30,7 @@ export const getNoteById = async (req, res) => {
 
 export const createNote = async (req, res) => {
   try {
-    const { title, content } = req.body;
+    const { title, content, tags } = req.body;
     if (!title || !content) {
       return res
         .status(400)
@@ -38,10 +38,13 @@ export const createNote = async (req, res) => {
     }
 
     // One-liner create:
-    const savedNote = await Note.create({ title, content });
+    const savedNote = await Note.create({ title, content, tags });
     return res.status(201).json(savedNote);
   } catch (error) {
     console.error("Error in createNote", error);
+    if (error instanceof mongoose.Error.ValidationError) {
+      return res.status(400).json({ message: error.message });
+    }
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -49,17 +52,25 @@ export const createNote = async (req, res) => {
 export const updateNote = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, content } = req.body;
+    const { title, content, tags } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "Invalid note id" });
     }
 
-    const updatedNote = await Note.findByIdAndUpdate(
-      id,
-      { title, content },
-      { new: true, runValidators: true }
-    );
+    const updates = {};
+    if (typeof title !== "undefined") updates.title = title;
+    if (typeof content !== "undefined") updates.content = content;
+    if (typeof tags !== "undefined") updates.tags = tags;
+
+    if (!Object.keys(updates).length) {
+      return res.status(400).json({ message: "No update data provided" });
+    }
+
+    const updatedNote = await Note.findByIdAndUpdate(id, updates, {
+      new: true,
+      runValidators: true,
+    });
 
     if (!updatedNote) {
       return res.status(404).json({ message: "Note not found" });
@@ -68,6 +79,9 @@ export const updateNote = async (req, res) => {
     return res.status(200).json(updatedNote);
   } catch (error) {
     console.error("Error in updateNote", error);
+    if (error instanceof mongoose.Error.ValidationError) {
+      return res.status(400).json({ message: error.message });
+    }
     return res.status(500).json({ message: "Internal server error" });
   }
 };
