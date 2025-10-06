@@ -10,6 +10,110 @@ import {
 const REFRESH_COOKIE = "nb_refresh_token";
 const isProduction = process.env.NODE_ENV === "production";
 
+const parseBoolean = (value) => {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (["true", "1", "yes", "y", "on"].includes(normalized)) return true;
+  if (["false", "0", "no", "n", "off"].includes(normalized)) return false;
+  return null;
+};
+
+const normalizeHostCandidate = (value) => {
+  if (!value || typeof value !== "string") return null;
+  const first = value.split(",")[0]?.trim();
+  if (!first) return null;
+
+  try {
+    return new URL(`http://${first}`).hostname.toLowerCase();
+  } catch (_error) {
+    return first.toLowerCase();
+  }
+};
+
+const extractIpv4FromMapped = (host) => {
+  if (!host) return host;
+  const match = /^::ffff:(.+)$/i.exec(host);
+  if (match) {
+    return match[1];
+  }
+  return host;
+};
+
+const isPrivateIpv4 = (host) => {
+  if (!host) return false;
+  const candidate = extractIpv4FromMapped(host);
+  if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(candidate)) {
+    return false;
+  }
+
+  if (candidate.startsWith("127.")) return true;
+  if (candidate.startsWith("10.")) return true;
+  if (candidate.startsWith("192.168.")) return true;
+  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(candidate)) return true;
+  if (candidate === "0.0.0.0") return true;
+  return false;
+};
+
+const isLocalHostname = (host) => {
+  if (!host) return false;
+  const normalized = extractIpv4FromMapped(host);
+  return (
+    normalized === "localhost" ||
+    normalized === "::1" ||
+    normalized === "::" ||
+    normalized.endsWith(".local") ||
+    isPrivateIpv4(normalized)
+  );
+};
+
+const shouldUseSecureCookies = (req) => {
+  const override = parseBoolean(process.env.COOKIE_SECURE);
+  if (override !== null) {
+    return override;
+  }
+
+  if (!isProduction) {
+    return false;
+  }
+
+  if (req?.secure) {
+    return true;
+  }
+
+  const forwardedProto = req?.get?.("x-forwarded-proto");
+  if (forwardedProto) {
+    const proto = forwardedProto.split(",")[0]?.trim()?.toLowerCase();
+    if (proto === "https") return true;
+    if (proto === "http") return false;
+  }
+
+  const hostCandidates = [
+    req?.get?.("x-forwarded-host"),
+    req?.get?.("x-forwarded-server"),
+    req?.hostname,
+    req?.headers?.host,
+  ];
+
+  for (const candidate of hostCandidates) {
+    const host = normalizeHostCandidate(candidate);
+    if (host && isLocalHostname(host)) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+const baseCookieOptions = (req) => {
+  const secure = shouldUseSecureCookies(req);
+  return {
+    httpOnly: true,
+    secure,
+    sameSite: secure ? "strict" : "lax",
+    path: "/",
+  };
+};
+
 const sanitizeUser = (user) => ({
   id: user.id,
   name: user.name,
@@ -28,15 +132,12 @@ const passwordOk = (password) => {
   return true;
 };
 
-const cookieOptions = (expiresAt) => ({
-  httpOnly: true,
-  secure: isProduction,
-  sameSite: "strict",
+const cookieOptions = (req, expiresAt) => ({
+  ...baseCookieOptions(req),
   expires: expiresAt,
-  path: "/",
 });
 
-const issueSession = async (user, res, meta = {}) => {
+const issueSession = async (user, req, res, meta = {}) => {
   const accessToken = generateAccessToken(user);
   const { token: refreshToken, hashed, expiresAt } = generateRefreshToken();
 
@@ -48,7 +149,7 @@ const issueSession = async (user, res, meta = {}) => {
   });
   await user.save();
 
-  res.cookie(REFRESH_COOKIE, refreshToken, cookieOptions(expiresAt));
+  res.cookie(REFRESH_COOKIE, refreshToken, cookieOptions(req, expiresAt));
 
   return {
     accessToken,
@@ -57,18 +158,13 @@ const issueSession = async (user, res, meta = {}) => {
   };
 };
 
-const clearSession = async (user, hashedToken, res) => {
+const clearSession = async (user, hashedToken, req, res) => {
   if (user && hashedToken) {
     user.removeRefreshToken(hashedToken);
     await user.save();
   }
 
-  res.clearCookie(REFRESH_COOKIE, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: "strict",
-    path: "/",
-  });
+  res.clearCookie(REFRESH_COOKIE, baseCookieOptions(req));
 };
 
 export const register = async (req, res) => {
@@ -100,7 +196,7 @@ export const register = async (req, res) => {
 
     await user.setPassword(password);
 
-    const session = await issueSession(user, res, {
+    const session = await issueSession(user, req, res, {
       userAgent: req.get("user-agent"),
       ip: req.ip,
     });
@@ -111,7 +207,10 @@ export const register = async (req, res) => {
       expiresIn: session.expiresIn,
     });
   } catch (error) {
-    logger.error("Register failed", { error: error?.message });
+    logger.error("Register failed", {
+      error: error?.message,
+      stack: error?.stack,
+    });
     if (error instanceof mongoose.Error.ValidationError) {
       return res.status(400).json({ message: error.message });
     }
@@ -137,7 +236,7 @@ export const login = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const session = await issueSession(user, res, {
+    const session = await issueSession(user, req, res, {
       userAgent: req.get("user-agent"),
       ip: req.ip,
     });
@@ -148,7 +247,10 @@ export const login = async (req, res) => {
       expiresIn: session.expiresIn,
     });
   } catch (error) {
-    logger.error("Login failed", { error: error?.message });
+    logger.error("Login failed", {
+      error: error?.message,
+      stack: error?.stack,
+    });
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -163,7 +265,7 @@ export const refresh = async (req, res) => {
     const hashed = hashToken(refreshToken);
     const user = await User.findOne({ "refreshTokens.token": hashed });
     if (!user) {
-      await clearSession(null, null, res);
+      await clearSession(null, null, req, res);
       return res.status(401).json({ message: "Invalid session" });
     }
 
@@ -171,18 +273,18 @@ export const refresh = async (req, res) => {
       (entry) => entry.token === hashed
     );
     if (!tokenEntry) {
-      await clearSession(user, hashed, res);
+      await clearSession(user, hashed, req, res);
       return res.status(401).json({ message: "Invalid session" });
     }
 
     if (tokenEntry.expiresAt < new Date()) {
-      await clearSession(user, hashed, res);
+      await clearSession(user, hashed, req, res);
       return res.status(401).json({ message: "Session expired" });
     }
 
     user.removeRefreshToken(hashed);
 
-    const session = await issueSession(user, res, {
+    const session = await issueSession(user, req, res, {
       userAgent: req.get("user-agent"),
       ip: req.ip,
     });
@@ -193,7 +295,10 @@ export const refresh = async (req, res) => {
       expiresIn: session.expiresIn,
     });
   } catch (error) {
-    logger.error("Refresh failed", { error: error?.message });
+    logger.error("Refresh failed", {
+      error: error?.message,
+      stack: error?.stack,
+    });
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -202,22 +307,20 @@ export const logout = async (req, res) => {
   try {
     const refreshToken = req.cookies?.[REFRESH_COOKIE];
     if (!refreshToken) {
-      res.clearCookie(REFRESH_COOKIE, {
-        httpOnly: true,
-        secure: isProduction,
-        sameSite: "strict",
-        path: "/",
-      });
+      res.clearCookie(REFRESH_COOKIE, baseCookieOptions(req));
       return res.status(204).send();
     }
 
     const hashed = hashToken(refreshToken);
     const user = await User.findOne({ "refreshTokens.token": hashed });
-    await clearSession(user, hashed, res);
+    await clearSession(user, hashed, req, res);
 
     return res.status(204).send();
   } catch (error) {
-    logger.error("Logout failed", { error: error?.message });
+    logger.error("Logout failed", {
+      error: error?.message,
+      stack: error?.stack,
+    });
     return res.status(500).json({ message: "Internal server error" });
   }
 };

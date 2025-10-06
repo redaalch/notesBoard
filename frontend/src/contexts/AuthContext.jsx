@@ -34,21 +34,33 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   }, [applyAccessToken]);
 
-  const handleRefresh = useCallback(async () => {
-    try {
-      const response = await api.post("/auth/refresh");
-      const { accessToken: token, user: profile } = response.data ?? {};
-      if (token) {
-        applyAccessToken(token);
-      }
-      if (profile) {
-        setUser(profile);
-      }
-      return token;
-    } catch (error) {
-      clearSession();
-      throw error;
+  const handleRefresh = useCallback(() => {
+    if (!refreshPromiseRef.current) {
+      refreshPromiseRef.current = (async () => {
+        try {
+          const response = await api.post("/auth/refresh");
+          const { accessToken: token, user: profile } = response.data ?? {};
+
+          if (!token) {
+            throw new Error("Missing access token in refresh response");
+          }
+
+          applyAccessToken(token);
+          if (profile) {
+            setUser(profile);
+          }
+
+          return token;
+        } catch (error) {
+          clearSession();
+          throw error;
+        } finally {
+          refreshPromiseRef.current = null;
+        }
+      })();
     }
+
+    return refreshPromiseRef.current;
   }, [applyAccessToken, clearSession]);
 
   useEffect(() => {
@@ -76,18 +88,13 @@ export const AuthProvider = ({ children }) => {
       async (error) => {
         const originalRequest = error.config;
         if (error.response?.status === 401 && !originalRequest?._retry) {
-          if (!refreshPromiseRef.current) {
-            refreshPromiseRef.current = handleRefresh().finally(() => {
-              refreshPromiseRef.current = null;
-            });
-          }
-
           try {
-            const newToken = await refreshPromiseRef.current;
+            const newToken = await handleRefresh();
             if (!newToken) {
               clearSession();
               return Promise.reject(error);
             }
+
             originalRequest._retry = true;
             originalRequest.headers.Authorization = `Bearer ${newToken}`;
             return api(originalRequest);

@@ -131,4 +131,44 @@ describe("Auth and notes integration", () => {
       .set(authHeaders(token2));
     expect(deleteForbidden.status).toBe(404);
   });
+
+  it("returns aggregated tag statistics for the authenticated user", async () => {
+    const registerResponse = await registerUser({ email: "stats@example.com" });
+    expect(registerResponse.status).toBe(201);
+
+    const token = registerResponse.body.accessToken;
+
+    const createNote = (payload) =>
+      request(app).post("/api/notes").set(authHeaders(token)).send(payload);
+
+    await createNote({
+      title: "Note one",
+      content: "Content A",
+      tags: ["Work", " urgent "],
+    });
+
+    await createNote({
+      title: "Note two",
+      content: "Content B",
+      tags: ["work", "ideas"],
+    });
+
+    await createNote({
+      title: "Note without tags",
+      content: "Content C",
+    });
+
+    const statsResponse = await request(app)
+      .get("/api/notes/tags/stats")
+      .set(authHeaders(token));
+
+    expect(statsResponse.status).toBe(200);
+    expect(statsResponse.body.uniqueTags).toBe(3);
+    expect(statsResponse.body.topTag).toEqual({ _id: "work", count: 2 });
+    expect(statsResponse.body.tags).toEqual([
+      { _id: "work", count: 2 },
+      { _id: "ideas", count: 1 },
+      { _id: "urgent", count: 1 },
+    ]);
+  });
 });
