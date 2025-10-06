@@ -105,3 +105,57 @@ export const deleteNote = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+export const getTagStats = async (_req, res) => {
+  try {
+    const aggregation = await Note.aggregate([
+      {
+        $match: {
+          tags: { $exists: true, $ne: [] },
+        },
+      },
+      { $unwind: "$tags" },
+      {
+        $set: {
+          normalizedTag: {
+            $regexReplace: {
+              input: {
+                $toLower: {
+                  $trim: { input: "$tags" },
+                },
+              },
+              regex: /\s+/,
+              replacement: " ",
+            },
+          },
+        },
+      },
+      {
+        $match: {
+          normalizedTag: { $ne: "" },
+        },
+      },
+      {
+        $group: {
+          _id: "$normalizedTag",
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { count: -1, _id: 1 },
+      },
+    ]);
+
+    const uniqueTags = aggregation.length;
+    const topTag = aggregation[0] ?? null;
+
+    return res.status(200).json({
+      tags: aggregation,
+      uniqueTags,
+      topTag,
+    });
+  } catch (error) {
+    console.error("Error in getTagStats", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};

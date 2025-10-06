@@ -5,11 +5,14 @@ import {
   getAllNotes,
   updateNote,
   getNoteById,
+  getTagStats,
 } from "../controllers/notesController.js";
 
 const router = express.Router();
 
 router.get("/", getAllNotes);
+
+router.get("/tags/stats", getTagStats);
 
 router.get("/:id", getNoteById);
 
