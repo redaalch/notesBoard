@@ -133,7 +133,27 @@ function NoteDetailPage() {
   const disableSave = saving || !hasChanges;
   const disableRevert = saving || !hasChanges;
   const sanitizedTitle = note?.title?.trim() ? note.title : "Untitled note";
-  const headerBadgeClass = hasChanges ? "badge-warning" : "badge-success";
+
+  const statusBadge = useMemo(() => {
+    if (hasChanges) {
+      return {
+        className: "badge-warning",
+        label: "Unsaved changes",
+        shortLabel: "Unsaved",
+        Icon: RefreshCwIcon,
+        iconClassName: "size-3 text-warning-content shrink-0",
+      };
+    }
+
+    return {
+      className: "badge-success",
+      label: "Up to date",
+      shortLabel: "Saved",
+      Icon: CheckIcon,
+      iconClassName: "size-3 text-success-content shrink-0",
+    };
+  }, [hasChanges]);
+  const StatusBadgeIcon = statusBadge.Icon;
 
   const handleTitleChange = useCallback((event) => {
     const { value } = event.target;
@@ -354,46 +374,53 @@ function NoteDetailPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-base-200">
-        <header className="sticky top-0 z-30 border-b border-base-content/10 bg-base-100/80 backdrop-blur">
-          <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-4">
-            <div className="flex items-center gap-3">
-              <Link to="/" className="btn btn-ghost btn-sm sm:btn">
-                <ArrowLeftIcon className="size-4" />
-                <span className="hidden sm:inline">Back to notes</span>
+      <div className="min-h-screen bg-gradient-to-br from-base-200 via-base-100 to-base-300">
+        <header className="sticky top-0 z-30 mx-auto max-w-3xl rounded-b-2xl shadow-lg border border-base-300/30 bg-base-100/90 backdrop-blur-lg mt-2">
+          <div className="flex w-full flex-col gap-4 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-1 min-w-0 items-start gap-4">
+              <Link
+                to="/"
+                className="btn btn-ghost btn-circle shadow-md hover:bg-primary/10"
+                aria-label="Back to notes"
+              >
+                <ArrowLeftIcon className="size-5" />
               </Link>
-              <div className="hidden sm:flex flex-col gap-1">
-                <span className="flex items-center gap-2 text-sm font-semibold text-base-content">
-                  {sanitizedTitle}
+              <div className="flex-1 min-w-0 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-lg font-bold text-base-content truncate">
+                    {sanitizedTitle}
+                  </span>
                   {note?.pinned && (
-                    <span className="badge badge-warning badge-sm">Pinned</span>
+                    <span className="badge badge-warning badge-lg flex items-center gap-2">
+                      <PinIcon className="size-4" />
+                      Pinned
+                    </span>
                   )}
-                </span>
-                <span
-                  className="flex items-center gap-1 text-xs text-base-content/60"
+                </div>
+                <div
+                  className="flex flex-wrap items-center gap-2 text-xs text-base-content/60"
                   title={lastSavedTooltip ?? undefined}
                 >
-                  <ClockIcon className="size-3.5" />
-                  {lastSavedDisplay}
-                </span>
+                  <ClockIcon className="size-4" />
+                  <span className="truncate">{lastSavedDisplay}</span>
+                  <span
+                    className={`badge items-center gap-2 ${statusBadge.className} whitespace-nowrap`}
+                  >
+                    <StatusBadgeIcon className={statusBadge.iconClassName} />
+                    {statusBadge.label}
+                  </span>
+                </div>
               </div>
-              <span className={`badge sm:hidden ${headerBadgeClass}`}>
-                {hasChanges ? "Unsaved" : "Saved"}
-              </span>
             </div>
-            <div className="flex items-center gap-2">
-              <span
-                className={`badge hidden sm:inline-flex ${headerBadgeClass}`}
-              >
-                {hasChanges ? "Unsaved changes" : "Up to date"}
-              </span>
+            <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
               <button
                 type="button"
-                className="btn btn-ghost btn-sm"
+                className={`btn btn-outline btn-md gap-2 ${
+                  note?.pinned ? "border-warning text-warning" : ""
+                }`}
                 onClick={handleTogglePinned}
                 disabled={pinning}
                 title={note?.pinned ? "Unpin note" : "Pin note"}
-                aria-label={note?.pinned ? "Unpin note" : "Pin note"}
               >
                 {pinning ? (
                   <LoaderIcon className="size-4 animate-spin" />
@@ -402,143 +429,144 @@ function NoteDetailPage() {
                 ) : (
                   <PinIcon className="size-4" />
                 )}
-                <span className="hidden sm:inline">
-                  {note?.pinned ? "Unpin" : "Pin"}
-                </span>
+                <span>{note?.pinned ? "Unpin" : "Pin"}</span>
               </button>
               <button
                 type="button"
-                className="btn btn-ghost btn-sm"
+                className="btn btn-outline btn-md gap-2"
                 onClick={handleRevert}
                 disabled={disableRevert}
+                title="Revert changes"
               >
                 <RefreshCwIcon className="size-4" />
-                <span className="hidden sm:inline">Revert</span>
+                <span>Revert</span>
               </button>
               <button
                 type="button"
-                className="btn btn-sm sm:btn border border-error/80 bg-transparent text-error hover:bg-error hover:text-error-content focus-visible:bg-error focus-visible:text-error-content"
+                className="btn btn-outline btn-error btn-md gap-2"
                 onClick={openConfirm}
                 title="Delete note"
-                aria-label="Delete note"
               >
                 <Trash2Icon className="size-4" strokeWidth={2.2} />
-                <span className="hidden sm:inline">Delete</span>
+                <span>Delete</span>
               </button>
               <button
                 type="button"
-                className="btn btn-primary btn-sm sm:btn font-semibold !text-white hover:!text-white focus-visible:!text-white disabled:bg-primary/50 disabled:!text-white/70 disabled:border-transparent"
+                className="btn btn-primary btn-md font-semibold gap-2 shadow-lg hover:scale-[1.02] transition-all duration-150"
                 onClick={handleSave}
                 disabled={disableSave}
+                title="Save changes"
               >
                 {saving ? (
                   <LoaderIcon className="size-4 animate-spin" />
                 ) : (
                   <SaveIcon className="size-4" />
                 )}
-                <span className="hidden sm:inline">Save changes</span>
-                <span className="sm:hidden">{saving ? "Saving" : "Save"}</span>
+                <span>{saving ? "Saving" : "Save changes"}</span>
               </button>
             </div>
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8">
-          <section className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-xl border border-base-300/60 bg-base-100 p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase text-base-content/60">
+        <main className="mx-auto w-full max-w-3xl space-y-8 px-4 py-10">
+          <section className="grid gap-6 sm:grid-cols-3">
+            <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-base-100 via-base-200 to-primary/10 p-5 shadow-lg">
+              <p className="text-xs font-bold uppercase text-primary tracking-wide mb-1">
                 Status
               </p>
               <p
-                className="mt-2 flex items-center gap-2 text-sm font-medium text-base-content"
+                className="mt-2 flex items-center gap-2 text-base font-semibold text-base-content"
                 title={lastSavedTooltip ?? undefined}
               >
-                <ClockIcon className="size-4 text-primary" />
+                <ClockIcon className="size-5 text-primary" />
                 {lastSavedDisplay}
               </p>
-              <p className="mt-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-base-content/60">
+              <p className="mt-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-warning">
                 {note?.pinned ? (
                   <>
-                    <PinIcon className="size-3.5 text-warning" />
+                    <PinIcon className="size-4 mr-1" />
                     <span>Pinned to top</span>
                   </>
                 ) : (
-                  <>
-                    <PinOffIcon className="size-3.5" />
-                    <span>Not pinned</span>
-                  </>
+                  <span className="text-base-content/60 flex items-center gap-1">
+                    <PinOffIcon className="size-4" />
+                    Not pinned
+                  </span>
                 )}
               </p>
-              <p className="mt-1 text-xs text-base-content/60">
-                Shortcut {shortcutLabel} to save
+              <p className="mt-3 text-xs text-base-content/60">
+                <span className="bg-base-300/40 rounded px-2 py-1 font-mono">
+                  {shortcutLabel}
+                </span>{" "}
+                to save
               </p>
             </div>
-            <div className="rounded-xl border border-base-300/60 bg-base-100 p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase text-base-content/60">
+            <div className="rounded-2xl border border-secondary/30 bg-gradient-to-br from-base-100 via-base-200 to-secondary/10 p-5 shadow-lg">
+              <p className="text-xs font-bold uppercase text-secondary tracking-wide mb-1">
                 Word count
               </p>
-              <p className="mt-2 text-2xl font-semibold text-base-content">
+              <p className="mt-2 text-3xl font-bold text-secondary">
                 {wordCount}
               </p>
-              <p className="text-xs text-base-content/60">
+              <p className="text-xs text-base-content/60 mt-1">
                 {characterCount} characters
               </p>
             </div>
-            <div className="rounded-xl border border-base-300/60 bg-base-100 p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase text-base-content/60">
+            <div className="rounded-2xl border border-accent/30 bg-gradient-to-br from-base-100 via-base-200 to-accent/10 p-5 shadow-lg">
+              <p className="text-xs font-bold uppercase text-accent tracking-wide mb-1">
                 Timeline
               </p>
-              <p className="mt-2 text-sm font-medium text-base-content">
+              <p className="mt-2 text-base font-semibold text-accent">
                 {updatedAt ? `Updated ${formatRelativeTime(updatedAt)}` : "–"}
               </p>
-              <p className="text-xs text-base-content/60">
+              <p className="text-xs text-base-content/60 mt-1">
                 Created {createdAt ? formatDate(createdAt) : "–"}
               </p>
             </div>
           </section>
 
           <section className="space-y-6">
-            <div className="card border border-base-300/60 bg-base-100 shadow-sm">
-              <div className="card-body space-y-5">
+            <div className="card border border-base-300/60 bg-base-100/90 shadow-lg rounded-2xl">
+              <div className="card-body space-y-6">
                 <label className="form-control gap-2">
-                  <span className="label-text text-sm font-semibold">
+                  <span className="label-text text-base font-bold text-primary">
                     Title
                   </span>
                   <input
                     type="text"
                     placeholder="Note title"
-                    className="input input-bordered input-lg bg-base-200/60"
+                    className="input input-bordered input-lg bg-base-200/60 rounded-xl focus:ring-2 focus:ring-primary/40 transition-all"
                     value={note.title ?? ""}
                     onChange={handleTitleChange}
                   />
                 </label>
                 <label className="form-control gap-2">
-                  <span className="label-text text-sm font-semibold">
+                  <span className="label-text text-base font-bold text-secondary">
                     Content
                   </span>
                   <textarea
                     placeholder="Write your note here..."
-                    className="textarea textarea-bordered min-h-[18rem] leading-relaxed"
+                    className="textarea textarea-bordered min-h-[18rem] leading-relaxed rounded-xl focus:ring-2 focus:ring-secondary/40 transition-all"
                     value={note.content ?? ""}
                     onChange={handleContentChange}
                   />
-                  <span className="text-right text-xs text-base-content/60">
+                  <span className="text-right text-xs text-base-content/60 mt-1">
                     {wordCount} words · {characterCount} characters
                   </span>
                 </label>
               </div>
             </div>
 
-            <div className="card border border-base-300/60 bg-base-100 shadow-sm">
-              <div className="card-body space-y-4">
+            <div className="card border border-base-300/60 bg-base-100/90 shadow-lg rounded-2xl">
+              <div className="card-body space-y-5">
                 <div className="flex items-center justify-between gap-2">
                   <div>
-                    <h3 className="text-sm font-semibold">Tags</h3>
+                    <h3 className="text-base font-bold text-accent">Tags</h3>
                     <p className="text-xs text-base-content/60">
                       Press Enter or comma to add up to {tagLimit} tags
                     </p>
                   </div>
-                  <span className="badge badge-outline text-xs">
+                  <span className="badge badge-accent badge-outline text-xs px-3 py-1">
                     {tagCount}/{tagLimit}
                   </span>
                 </div>
@@ -546,10 +574,10 @@ function NoteDetailPage() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-base-300/60 bg-base-100/80 px-4 py-4 text-xs text-base-content/70">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-primary/30 bg-base-100/80 px-6 py-4 text-xs text-base-content/70 shadow">
               <span>
-                Tip: Use{" "}
-                <span className="font-semibold text-base-content">
+                <span className="font-semibold text-primary">Tip:</span> Use{" "}
+                <span className="bg-base-300/40 rounded px-2 py-1 font-mono">
                   {shortcutLabel}
                 </span>{" "}
                 to save without leaving the editor.

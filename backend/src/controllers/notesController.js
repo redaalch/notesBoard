@@ -131,55 +131,62 @@ export const deleteNote = async (req, res) => {
 
 export const getTagStats = async (req, res) => {
   try {
-    const aggregation = await Note.aggregate([
+    const ownerId = req.user?.id;
+
+    if (!ownerId || !mongoose.Types.ObjectId.isValid(ownerId)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
+    const rawAggregation = await Note.aggregate([
       {
         $match: {
-          owner: new mongoose.Types.ObjectId(req.user.id),
+          owner: new mongoose.Types.ObjectId(ownerId),
           tags: { $exists: true, $ne: [] },
         },
       },
+      { $project: { tags: 1 } },
       { $unwind: "$tags" },
       {
-        $set: {
-          normalizedTag: {
-            $regexReplace: {
-              input: {
-                $toLower: {
-                  $trim: { input: "$tags" },
-                },
-              },
-              regex: /\s+/,
-              replacement: " ",
-            },
-          },
-        },
-      },
-      {
-        $match: {
-          normalizedTag: { $ne: "" },
-        },
-      },
-      {
         $group: {
-          _id: "$normalizedTag",
+          _id: "$tags",
           count: { $sum: 1 },
         },
       },
-      {
-        $sort: { count: -1, _id: 1 },
-      },
     ]);
 
-    const uniqueTags = aggregation.length;
-    const topTag = aggregation[0] ?? null;
+    const normalizeTag = (tag) =>
+      typeof tag === "string"
+        ? tag.trim().toLowerCase().replace(/\s+/g, " ")
+        : "";
+
+    const statsMap = rawAggregation.reduce((acc, { _id, count }) => {
+      const normalized = normalizeTag(_id);
+      if (!normalized) return acc;
+
+      const currentCount = acc.get(normalized) ?? 0;
+      acc.set(normalized, currentCount + count);
+      return acc;
+    }, new Map());
+
+    const tags = Array.from(statsMap.entries())
+      .map(([tag, count]) => ({ _id: tag, count }))
+      .sort((a, b) => {
+        if (b.count !== a.count) {
+          return b.count - a.count;
+        }
+        return a._id.localeCompare(b._id);
+      });
+
+    const uniqueTags = tags.length;
+    const topTag = tags[0] ?? null;
 
     return res.status(200).json({
-      tags: aggregation,
+      tags,
       uniqueTags,
       topTag,
     });
   } catch (error) {
-    console.error("Error in getTagStats", error);
+    logger.error("Error in getTagStats", { error: error?.message });
     return res.status(500).json({ message: "Internal server error" });
   }
 };

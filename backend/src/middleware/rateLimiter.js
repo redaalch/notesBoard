@@ -2,11 +2,11 @@ import rateLimit from "../config/upstash.js";
 import logger from "../utils/logger.js";
 
 const rateLimiter = async (req, res, next) => {
-  try {
-    const clientId = req.user?.id ?? req.ip ?? "anon";
-    const routeKey = req.baseUrl || req.originalUrl || "unknown";
-    const identifier = `rate:${clientId}:${routeKey}`;
+  const clientId = req.user?.id ?? req.ip ?? "anon";
+  const routeKey = req.baseUrl || req.originalUrl || "unknown";
+  const identifier = `rate:${clientId}:${routeKey}`;
 
+  try {
     const { success, limit, remaining, reset } = await rateLimit.limit(
       identifier
     );
@@ -44,8 +44,11 @@ const rateLimiter = async (req, res, next) => {
     logger.error("Rate limiter failure", {
       error: error?.message,
       stack: error?.stack,
+      clientId,
+      route: routeKey,
+      identifier,
     });
-    next(error);
+    next();
   }
 };
 export default rateLimiter;
