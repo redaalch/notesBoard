@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import mongoose from "mongoose";
 import User from "../models/User.js";
 import logger from "../utils/logger.js";
@@ -6,6 +7,7 @@ import {
   generateRefreshToken,
   hashToken,
 } from "../utils/tokenService.js";
+import { sendMail } from "../utils/mailer.js";
 
 const REFRESH_COOKIE = "nb_refresh_token";
 const isProduction = process.env.NODE_ENV === "production";
@@ -132,6 +134,79 @@ const passwordOk = (password) => {
   return true;
 };
 
+const DEFAULT_PASSWORD_RESET_TTL_MS = 1000 * 60 * 60; // 1 hour
+
+const getPasswordResetTtlMs = () => {
+  const raw = Number.parseInt(process.env.PASSWORD_RESET_TTL_MS || "", 10);
+  if (Number.isFinite(raw) && raw > 0) {
+    return raw;
+  }
+  return DEFAULT_PASSWORD_RESET_TTL_MS;
+};
+
+const parseUrlCandidate = (value) => {
+  if (!value || typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const allowlist = ["http:", "https:"];
+
+  try {
+    const url = new URL(trimmed);
+    if (!allowlist.includes(url.protocol)) {
+      return null;
+    }
+    return url;
+  } catch (_error) {
+    try {
+      const url = new URL(`https://${trimmed}`);
+      if (!allowlist.includes(url.protocol)) {
+        return null;
+      }
+      return url;
+    } catch (_error) {
+      return null;
+    }
+  }
+};
+
+const buildPasswordResetLink = (req, token, redirectUrl) => {
+  const candidates = [
+    redirectUrl,
+    process.env.PASSWORD_RESET_URL,
+    process.env.CLIENT_APP_URL,
+    process.env.FRONTEND_URL,
+    req?.get?.("origin"),
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (typeof candidate === "string" && candidate.includes("{token}")) {
+      return candidate.replace("{token}", encodeURIComponent(token));
+    }
+
+    const parsed = parseUrlCandidate(candidate);
+    if (parsed) {
+      parsed.searchParams.set("token", token);
+      return parsed.toString();
+    }
+  }
+
+  const protocol =
+    req?.protocol && ["http", "https"].includes(req.protocol)
+      ? req.protocol
+      : "https";
+  const host = req?.get?.("host") || "localhost";
+  const fallback = new URL("/reset-password", `${protocol}://${host}`);
+  fallback.searchParams.set("token", token);
+  return fallback.toString();
+};
+
+const PASSWORD_RESET_GENERIC_RESPONSE = {
+  message:
+    "If an account exists for that email, you'll receive a password reset email shortly.",
+};
+
 const cookieOptions = (req, expiresAt) => ({
   ...baseCookieOptions(req),
   expires: expiresAt,
@@ -219,6 +294,57 @@ export const register = async (req, res) => {
   }
 };
 
+export const requestPasswordReset = async (req, res) => {
+  try {
+    const { email, redirectUrl } = req.body ?? {};
+
+    if (!email || typeof email !== "string") {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      return res.status(200).json(PASSWORD_RESET_GENERIC_RESPONSE);
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const hashed = hashToken(token);
+    const expiresAt = new Date(Date.now() + getPasswordResetTtlMs());
+
+    user.setPasswordResetToken(hashed, expiresAt);
+    await user.save();
+
+    const resetLink = buildPasswordResetLink(req, token, redirectUrl);
+
+    try {
+      await sendMail({
+        to: user.email,
+        subject: "Reset your NotesBoard password",
+        text: `We received a request to reset your NotesBoard password. Use the link below to choose a new password:\n${resetLink}\nIf you did not request this, you can ignore this message.`,
+        html: `<!doctype html><html><body><p>We received a request to reset your NotesBoard password.</p><p><a href="${resetLink}">Reset your password</a></p><p>If you did not request this, you can safely ignore this email.</p></body></html>`,
+      });
+    } catch (error) {
+      logger.error("Password reset email failed", {
+        error: error?.message,
+        userId: user.id,
+      });
+      return res
+        .status(500)
+        .json({ message: "Failed to send password reset email" });
+    }
+
+    return res.status(200).json(PASSWORD_RESET_GENERIC_RESPONSE);
+  } catch (error) {
+    logger.error("Password reset request failed", {
+      error: error?.message,
+      stack: error?.stack,
+    });
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body ?? {};
@@ -248,6 +374,53 @@ export const login = async (req, res) => {
     });
   } catch (error) {
     logger.error("Login failed", {
+      error: error?.message,
+      stack: error?.stack,
+    });
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body ?? {};
+
+    if (!token || typeof token !== "string" || token.length < 20) {
+      return res.status(400).json({ message: "A valid token is required" });
+    }
+
+    if (!passwordOk(password)) {
+      return res.status(400).json({
+        message:
+          "Password must be at least 8 chars and include upper, lower, and number",
+      });
+    }
+
+    const hashed = hashToken(token);
+    const user = await User.findOne({ "passwordReset.token": hashed });
+
+    if (!user || !user.passwordReset?.expiresAt) {
+      return res
+        .status(400)
+        .json({ message: "Invalid or expired reset token" });
+    }
+
+    if (user.passwordReset.expiresAt < new Date()) {
+      user.clearPasswordResetToken();
+      await user.save();
+      return res
+        .status(400)
+        .json({ message: "Invalid or expired reset token" });
+    }
+
+    await user.setPassword(password);
+    user.clearPasswordResetToken();
+    user.clearRefreshTokens();
+    await user.save();
+
+    return res.status(200).json({ message: "Password updated successfully" });
+  } catch (error) {
+    logger.error("Password reset failed", {
       error: error?.message,
       stack: error?.stack,
     });

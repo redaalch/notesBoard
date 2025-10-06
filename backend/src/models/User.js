@@ -55,6 +55,11 @@ const userSchema = new mongoose.Schema(
         message: "Too many active sessions",
       },
     },
+    passwordReset: {
+      token: { type: String },
+      expiresAt: { type: Date },
+      createdAt: { type: Date },
+    },
   },
   { timestamps: true }
 );
@@ -84,6 +89,23 @@ userSchema.methods.removeRefreshToken = function removeRefreshToken(token) {
 userSchema.methods.clearRefreshTokens = function clearRefreshTokens() {
   this.refreshTokens = [];
 };
+
+userSchema.methods.setPasswordResetToken = function setPasswordResetToken(
+  token,
+  expiresAt
+) {
+  this.passwordReset = {
+    token,
+    expiresAt,
+    createdAt: new Date(),
+  };
+};
+
+userSchema.methods.clearPasswordResetToken =
+  function clearPasswordResetToken() {
+    this.passwordReset = undefined;
+    this.markModified("passwordReset");
+  };
 
 const User = mongoose.model("User", userSchema);
 
