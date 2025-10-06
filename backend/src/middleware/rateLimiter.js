@@ -2,8 +2,19 @@ import rateLimit from "../config/upstash.js";
 import logger from "../utils/logger.js";
 
 const rateLimiter = async (req, res, next) => {
-  const clientId = req.user?.id ?? req.ip ?? "anon";
-  const routeKey = req.baseUrl || req.originalUrl || "unknown";
+  const baseClientId = req.user?.id ?? req.ip ?? "anon";
+  const testClientHint =
+    process.env.NODE_ENV === "test"
+      ? req.get("x-test-client-id") ||
+        req.body?.email ||
+        req.headers?.authorization
+      : null;
+  const clientId = testClientHint
+    ? `${baseClientId}:${testClientHint}`
+    : baseClientId;
+  const routeKey = `${req.method}:${
+    req.originalUrl || req.baseUrl || "unknown"
+  }`;
   const identifier = `rate:${clientId}:${routeKey}`;
 
   try {
