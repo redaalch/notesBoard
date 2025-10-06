@@ -8,13 +8,14 @@ import React, {
 import {
   ChevronDownIcon,
   FilterIcon,
+  PlusIcon,
   RefreshCwIcon,
   SearchIcon,
   SparklesIcon,
   TagIcon,
   XIcon,
 } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import Navbar from "../Components/Navbar.jsx";
 import RateLimitedUI from "../Components/RateLimitedUI.jsx";
 import api from "../lib/axios.js";
@@ -36,6 +37,13 @@ const formatTagLabel = (tag) =>
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+
+const sortLabelMap = {
+  newest: "Newest first",
+  oldest: "Oldest first",
+  alphabetical: "A → Z",
+  updated: "Recently updated",
+};
 
 function HomePage() {
   const [isRateLimited, setIsRateLimited] = useState(false);
@@ -210,6 +218,56 @@ function HomePage() {
     { id: "short", label: "Short & sweet", badge: shortNotes.length },
   ];
 
+  const activeTabLabel =
+    tabConfig.find((tab) => tab.id === activeTab)?.label ?? "All notes";
+
+  const filtersApplied = Boolean(
+    selectedTags.length > 0 ||
+      searchQuery.trim() ||
+      Number(minWords) > 0 ||
+      sortOrder !== "newest" ||
+      activeTab !== "all"
+  );
+
+  const activeFilterChips = useMemo(() => {
+    const chips = [];
+    const trimmedQuery = searchQuery.trim();
+
+    if (trimmedQuery) {
+      chips.push({
+        key: "search",
+        label: `Search: "${trimmedQuery}"`,
+        onClear: () => setSearchQuery(""),
+      });
+    }
+
+    if (Number(minWords) > 0) {
+      chips.push({
+        key: "min",
+        label: `Minimum ${minWords} words`,
+        onClear: () => setMinWords(0),
+      });
+    }
+
+    if (sortOrder !== "newest") {
+      chips.push({
+        key: "sort",
+        label: `Sort: ${sortLabelMap[sortOrder] ?? sortOrder}`,
+        onClear: () => setSortOrder("newest"),
+      });
+    }
+
+    if (activeTab !== "all") {
+      chips.push({
+        key: "tab",
+        label: `View: ${activeTabLabel}`,
+        onClear: () => setActiveTab("all"),
+      });
+    }
+
+    return chips;
+  }, [searchQuery, minWords, sortOrder, activeTab, activeTabLabel]);
+
   const filteredNotes = useMemo(() => {
     let base = notes;
     if (activeTab === "recent") base = recentNotes;
@@ -238,6 +296,8 @@ function HomePage() {
       : byWords;
 
     const sorted = [...byTags].sort((a, b) => {
+      const pinPriority = Number(!!b.pinned) - Number(!!a.pinned);
+      if (pinPriority !== 0) return pinPriority;
       if (sortOrder === "newest") {
         return new Date(b.createdAt) - new Date(a.createdAt);
       }
@@ -381,91 +441,188 @@ function HomePage() {
               tagStats={tagInsights}
             />
 
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-wrap items-center gap-2" role="tablist">
-                {tabConfig.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    role="tab"
-                    className={`tab tab-lifted ${
-                      activeTab === tab.id ? "tab-active" : ""
-                    }`}
-                    onClick={() => setActiveTab(tab.id)}
+            <div className="sticky top-4 z-10 space-y-3">
+              <div className="rounded-2xl border border-base-300/60 bg-base-100/80 p-4 shadow-sm backdrop-blur supports-[backdrop-filter:blur(0px)]:bg-base-100/70">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div
+                    className="flex flex-wrap items-center gap-2"
+                    role="tablist"
                   >
-                    <span className="flex items-center gap-2">
-                      {tab.label}
-                      <span className="badge badge-sm badge-outline">
-                        {tab.badge}
-                      </span>
-                    </span>
-                  </button>
-                ))}
-              </div>
+                    {tabConfig.map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        role="tab"
+                        className={`tab tab-lifted ${
+                          activeTab === tab.id ? "tab-active" : ""
+                        }`}
+                        onClick={() => setActiveTab(tab.id)}
+                      >
+                        <span className="flex items-center gap-2">
+                          {tab.label}
+                          <span className="badge badge-sm badge-outline">
+                            {tab.badge}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-                <button
-                  type="button"
-                  className="btn btn-outline gap-2 hidden lg:inline-flex"
-                  onClick={openDrawer}
-                  data-drawer-toggle="filters"
-                >
-                  <FilterIcon className="size-4" />
-                  Filters
-                </button>
-                <div className="join w-full sm:w-auto">
-                  <label className="join-item input input-bordered flex items-center gap-3 flex-1 min-w-0 rounded-full bg-base-200/70 shadow-sm transition focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/40">
-                    <SearchIcon className="size-4 text-base-content/60" />
-                    <input
-                      type="search"
-                      value={searchQuery}
-                      onChange={(event) => setSearchQuery(event.target.value)}
-                      placeholder="Search notes..."
-                      className="w-full bg-transparent text-sm sm:text-base outline-none"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    className="btn btn-outline join-item shrink-0 rounded-full sm:rounded-l-none"
-                    onClick={resetFilters}
-                  >
-                    <RefreshCwIcon className="size-4" />
-                    Reset
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {selectedTags.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-base-300/60 bg-base-200/60 px-4 py-3">
-                <span className="text-sm font-medium text-base-content/70">
-                  Active tags:
-                </span>
-                {selectedTags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="badge badge-primary badge-outline gap-1"
-                  >
-                    {formatTagLabel(tag)}
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
                     <button
                       type="button"
-                      className="btn btn-ghost btn-xs btn-circle"
+                      className="btn btn-outline gap-2 sm:w-auto lg:hidden"
+                      onClick={openDrawer}
+                      data-drawer-toggle="filters"
+                    >
+                      <FilterIcon className="size-4" />
+                      Filters
+                    </button>
+                    <div className="join w-full sm:w-auto">
+                      <label className="join-item input input-bordered flex items-center gap-3 flex-1 min-w-0 rounded-full bg-base-200/70 shadow-sm transition focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/40">
+                        <SearchIcon className="size-4 text-base-content/60" />
+                        <input
+                          type="search"
+                          value={searchQuery}
+                          onChange={(event) =>
+                            setSearchQuery(event.target.value)
+                          }
+                          placeholder="Search notes..."
+                          className="w-full bg-transparent text-sm sm:text-base outline-none"
+                          aria-label="Search notes"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="btn btn-outline join-item shrink-0 rounded-full sm:rounded-l-none"
+                        onClick={resetFilters}
+                        disabled={!filtersApplied}
+                        aria-disabled={!filtersApplied}
+                        title={
+                          filtersApplied
+                            ? "Reset filters"
+                            : "No filters applied"
+                        }
+                      >
+                        <RefreshCwIcon className="size-4" />
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="hidden lg:grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                  <div className="form-control">
+                    <span className="label">
+                      <span className="label-text text-sm font-medium">
+                        Minimum words
+                      </span>
+                      <span className="label-text-alt text-xs text-base-content/60">
+                        {minWords > 0 ? `${minWords}+` : "All"}
+                      </span>
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        className="range range-primary range-sm flex-1"
+                        min="0"
+                        max="400"
+                        step="20"
+                        value={minWords}
+                        onChange={(event) =>
+                          setMinWords(Number(event.target.value))
+                        }
+                        aria-label="Minimum words filter"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        step="10"
+                        value={minWords}
+                        onChange={(event) => {
+                          const value = Number(event.target.value);
+                          if (Number.isFinite(value) && value >= 0) {
+                            const normalized = Math.min(
+                              400,
+                              Math.round(value / 10) * 10
+                            );
+                            setMinWords(normalized);
+                          } else {
+                            setMinWords(0);
+                          }
+                        }}
+                        className="input input-bordered input-sm w-20"
+                        aria-label="Minimum words value"
+                      />
+                    </div>
+                  </div>
+                  <label className="form-control max-w-xs">
+                    <span className="label">
+                      <span className="label-text text-sm font-medium">
+                        Sort notes
+                      </span>
+                    </span>
+                    <select
+                      className="select select-bordered select-sm"
+                      value={sortOrder}
+                      onChange={(event) => setSortOrder(event.target.value)}
+                    >
+                      <option value="newest">Newest first</option>
+                      <option value="oldest">Oldest first</option>
+                      <option value="alphabetical">Alphabetical</option>
+                      <option value="updated">Recently updated</option>
+                    </select>
+                  </label>
+                  <div className="flex items-end justify-end">
+                    <button
+                      type="button"
+                      className="btn btn-outline gap-2"
+                      onClick={openDrawer}
+                      data-drawer-toggle="filters"
+                    >
+                      <FilterIcon className="size-4" />
+                      Advanced filters
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {filtersApplied && (
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-base-300/60 bg-base-200/70 px-4 py-3">
+                  {activeFilterChips.map(({ key, label, onClear }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className="badge badge-outline gap-1 px-3 py-2 text-xs font-medium"
+                      onClick={onClear}
+                      aria-label={`Clear ${label}`}
+                    >
+                      <span>{label}</span>
+                      <XIcon className="size-3" />
+                    </button>
+                  ))}
+                  {selectedTags.map((tag) => (
+                    <button
+                      key={`tag-${tag}`}
+                      type="button"
+                      className="badge badge-primary badge-outline gap-1 px-3 py-2 text-xs font-medium"
                       onClick={() => removeSelectedTag(tag)}
                       aria-label={`Remove tag ${tag}`}
                     >
-                      ×
+                      <span>{formatTagLabel(tag)}</span>
+                      <XIcon className="size-3" />
                     </button>
-                  </span>
-                ))}
-                <button
-                  type="button"
-                  className="btn btn-xs btn-ghost"
-                  onClick={() => setSelectedTags([])}
-                >
-                  Clear tags
-                </button>
-              </div>
-            )}
+                  ))}
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-xs"
+                    onClick={resetFilters}
+                  >
+                    Clear all
+                  </button>
+                </div>
+              )}
+            </div>
 
             {loading && <NoteSkeleton />}
 
@@ -502,6 +659,16 @@ function HomePage() {
             )}
           </section>
         </main>
+
+        {!drawerOpen && (
+          <Link
+            to="/create"
+            className="btn btn-primary btn-circle fixed bottom-6 right-4 z-40 shadow-lg shadow-primary/30 lg:hidden"
+            aria-label="Create a new note"
+          >
+            <PlusIcon className="size-6" />
+          </Link>
+        )}
       </div>
 
       <div className="drawer-side z-30">

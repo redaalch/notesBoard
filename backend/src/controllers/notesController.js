@@ -5,7 +5,7 @@ import logger from "../utils/logger.js";
 export const getAllNotes = async (req, res) => {
   try {
     const notes = await Note.find({ owner: req.user.id })
-      .sort({ createdAt: -1 })
+      .sort({ pinned: -1, updatedAt: -1, createdAt: -1 })
       .lean();
     return res.status(200).json(notes);
   } catch (error) {
@@ -33,20 +33,25 @@ export const getNoteById = async (req, res) => {
 
 export const createNote = async (req, res) => {
   try {
-    const { title, content, tags } = req.body;
+    const { title, content, tags, pinned } = req.body;
     if (!title || !content) {
       return res
         .status(400)
         .json({ message: "title and content are required" });
     }
 
-    // One-liner create:
-    const savedNote = await Note.create({
+    const payload = {
       owner: req.user.id,
       title,
       content,
       tags,
-    });
+    };
+
+    if (typeof pinned !== "undefined") {
+      payload.pinned = typeof pinned === "boolean" ? pinned : Boolean(pinned);
+    }
+
+    const savedNote = await Note.create(payload);
     return res.status(201).json(savedNote);
   } catch (error) {
     logger.error("Error in createNote", { error: error?.message });
@@ -60,7 +65,7 @@ export const createNote = async (req, res) => {
 export const updateNote = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, content, tags } = req.body;
+    const { title, content, tags, pinned } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "Invalid note id" });
@@ -70,6 +75,9 @@ export const updateNote = async (req, res) => {
     if (typeof title !== "undefined") updates.title = title;
     if (typeof content !== "undefined") updates.content = content;
     if (typeof tags !== "undefined") updates.tags = tags;
+    if (typeof pinned !== "undefined") {
+      updates.pinned = typeof pinned === "boolean" ? pinned : Boolean(pinned);
+    }
 
     if (!Object.keys(updates).length) {
       return res.status(400).json({ message: "No update data provided" });

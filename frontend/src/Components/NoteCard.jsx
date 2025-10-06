@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { CalendarClockIcon, PenSquareIcon, Trash2Icon } from "lucide-react";
+import {
+  CalendarClockIcon,
+  LoaderIcon,
+  PenSquareIcon,
+  PinIcon,
+  PinOffIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { countWords, formatDate, formatRelativeTime } from "../lib/Utils.js";
 import api from "../lib/axios.js";
@@ -25,6 +32,7 @@ function NoteCard({
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [pinning, setPinning] = useState(false);
 
   const openConfirm = (event) => {
     event.preventDefault();
@@ -53,6 +61,55 @@ function NoteCard({
     }
   };
 
+  const handleTogglePin = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (pinning) return;
+
+    const desiredPinned = !note.pinned;
+    setPinning(true);
+
+    try {
+      const response = await api.put(`/notes/${note._id}`, {
+        pinned: desiredPinned,
+      });
+
+      const responseData = response?.data ?? {};
+      const updatedPinned =
+        typeof responseData.pinned === "boolean"
+          ? responseData.pinned
+          : desiredPinned;
+      const updatedTags = Array.isArray(responseData.tags)
+        ? responseData.tags
+        : note.tags ?? [];
+
+      setNotes((prev) =>
+        prev.map((item) =>
+          item._id === note._id
+            ? {
+                ...item,
+                ...responseData,
+                pinned: updatedPinned,
+                tags: updatedTags,
+              }
+            : item
+        )
+      );
+
+      toast.success(
+        updatedPinned ? "Note pinned to top" : "Note removed from pinned"
+      );
+      onNoteChange?.();
+    } catch (error) {
+      console.log("Error toggling pin state", error);
+      const message =
+        error.response?.data?.message ?? "Failed to update pin status";
+      toast.error(message);
+    } finally {
+      setPinning(false);
+    }
+  };
+
   const createdAt = new Date(note.createdAt);
   const updatedAt = note.updatedAt ? new Date(note.updatedAt) : createdAt;
   const wordCount = countWords(note.content);
@@ -69,16 +126,44 @@ function NoteCard({
                 {isRecentlyUpdated && (
                   <span className="badge badge-success badge-sm">New</span>
                 )}
+                {note.pinned && (
+                  <span className="badge badge-warning badge-sm">Pinned</span>
+                )}
               </h3>
               <p className="text-sm text-base-content/60 flex items-center gap-1">
                 <CalendarClockIcon className="size-4" />
                 Updated {formatRelativeTime(updatedAt)}
               </p>
             </div>
-            <div className="tooltip tooltip-left" data-tip="Open note details">
-              <Link to={`/note/${note._id}`} className="btn btn-ghost btn-sm">
-                <PenSquareIcon className="size-4" />
-              </Link>
+            <div className="flex items-center gap-1">
+              <div
+                className="tooltip tooltip-left"
+                data-tip={note.pinned ? "Unpin note" : "Pin note"}
+              >
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={handleTogglePin}
+                  disabled={pinning}
+                  aria-label={note.pinned ? "Unpin note" : "Pin note"}
+                >
+                  {pinning ? (
+                    <LoaderIcon className="size-4 animate-spin" />
+                  ) : note.pinned ? (
+                    <PinOffIcon className="size-4" />
+                  ) : (
+                    <PinIcon className="size-4" />
+                  )}
+                </button>
+              </div>
+              <div
+                className="tooltip tooltip-left"
+                data-tip="Open note details"
+              >
+                <Link to={`/note/${note._id}`} className="btn btn-ghost btn-sm">
+                  <PenSquareIcon className="size-4" />
+                </Link>
+              </div>
             </div>
           </header>
 

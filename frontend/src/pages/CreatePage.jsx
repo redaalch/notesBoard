@@ -9,6 +9,7 @@ const CreatePage = () => {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tags, setTags] = useState([]);
+  const [pinned, setPinned] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
@@ -27,6 +28,7 @@ const CreatePage = () => {
         title,
         content,
         tags,
+        pinned,
       });
 
       toast.success("Note created successfully!");
@@ -94,6 +96,23 @@ const CreatePage = () => {
                     </span>
                   </label>
                   <TagInput value={tags} onChange={setTags} />
+                </div>
+
+                <div className="form-control mb-6">
+                  <label className="label cursor-pointer justify-start gap-4">
+                    <span className="label-text font-semibold">
+                      Pin this note
+                    </span>
+                    <input
+                      type="checkbox"
+                      className="toggle toggle-primary"
+                      checked={pinned}
+                      onChange={(event) => setPinned(event.target.checked)}
+                    />
+                  </label>
+                  <span className="label-text-alt text-base-content/60">
+                    Pinned notes stay at the top of your dashboard.
+                  </span>
                 </div>
 
                 <div className="card-actions justify-end">

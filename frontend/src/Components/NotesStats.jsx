@@ -1,4 +1,10 @@
-import { BarChart3Icon, ClockIcon, FileTextIcon, TagIcon } from "lucide-react";
+import {
+  BarChart3Icon,
+  ClockIcon,
+  FileTextIcon,
+  PinIcon,
+  TagIcon,
+} from "lucide-react";
 import { countWords, formatRelativeTime } from "../lib/Utils.js";
 
 const average = (numbers) => {
@@ -38,6 +44,7 @@ function NotesStats({ notes, loading, tagStats }) {
   }
 
   const wordCounts = notes.map((note) => countWords(note.content));
+  const pinnedCount = notes.filter((note) => note.pinned).length;
   let uniqueTags = 0;
   let topTag;
   let topTagCount;
@@ -83,6 +90,19 @@ function NotesStats({ notes, loading, tagStats }) {
         <div className="stat-value text-primary">{notes.length}</div>
         <div className="stat-desc text-base-content/70">
           Last update {formatRelativeTime(latestUpdate)}
+        </div>
+      </div>
+
+      <div className="stat">
+        <div className="stat-figure text-warning">
+          <PinIcon className="size-7 sm:size-8" />
+        </div>
+        <div className="stat-title">Pinned notes</div>
+        <div className="stat-value text-warning">{pinnedCount}</div>
+        <div className="stat-desc text-base-content/70">
+          {pinnedCount
+            ? "Kept at the top for easy access"
+            : "Pin important notes to prioritize them"}
         </div>
       </div>
 
