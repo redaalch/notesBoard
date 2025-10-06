@@ -6,4 +6,9 @@ const BASE_URL =
     ? "http://localhost:5001/api"
     : "/api");
 
-export default axios.create({ baseURL: BASE_URL });
+const api = axios.create({
+  baseURL: BASE_URL,
+  withCredentials: true,
+});
+
+export default api;

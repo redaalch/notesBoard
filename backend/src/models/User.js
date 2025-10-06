@@ -1,0 +1,90 @@
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
+
+const REFRESH_TOKEN_LIMIT = 5;
+
+const userSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 120,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+      maxlength: 254,
+      validate: {
+        validator: (value) =>
+          /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(value).toLowerCase()),
+        message: "Email is invalid",
+      },
+    },
+    passwordHash: {
+      type: String,
+      required: true,
+      minlength: 60,
+    },
+    role: {
+      type: String,
+      enum: ["user", "admin"],
+      default: "user",
+    },
+    refreshTokens: {
+      type: [
+        new mongoose.Schema(
+          {
+            token: { type: String, required: true },
+            expiresAt: { type: Date, required: true },
+            createdAt: { type: Date, default: Date.now },
+            userAgent: { type: String },
+            ip: { type: String },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+      validate: {
+        validator(tokens) {
+          return Array.isArray(tokens) && tokens.length <= REFRESH_TOKEN_LIMIT;
+        },
+        message: "Too many active sessions",
+      },
+    },
+  },
+  { timestamps: true }
+);
+
+userSchema.methods.comparePassword = async function comparePassword(password) {
+  return bcrypt.compare(password, this.passwordHash);
+};
+
+userSchema.methods.setPassword = async function setPassword(password) {
+  const salt = await bcrypt.genSalt(12);
+  this.passwordHash = await bcrypt.hash(password, salt);
+};
+
+userSchema.methods.addRefreshToken = function addRefreshToken(entry) {
+  this.refreshTokens.push(entry);
+  if (this.refreshTokens.length > REFRESH_TOKEN_LIMIT) {
+    this.refreshTokens = this.refreshTokens.slice(-REFRESH_TOKEN_LIMIT);
+  }
+};
+
+userSchema.methods.removeRefreshToken = function removeRefreshToken(token) {
+  this.refreshTokens = this.refreshTokens.filter(
+    (entry) => entry.token !== token
+  );
+};
+
+userSchema.methods.clearRefreshTokens = function clearRefreshTokens() {
+  this.refreshTokens = [];
+};
+
+const User = mongoose.model("User", userSchema);
+
+export default User;
