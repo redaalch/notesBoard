@@ -110,6 +110,11 @@ const noteSchema = new mongoose.Schema(
         message: "Tags contain disallowed content.",
       },
     },
+    pinned: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   { timestamps: true }
 );
