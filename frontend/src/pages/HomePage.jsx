@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   FilterIcon,
   RefreshCwIcon,
@@ -7,6 +13,7 @@ import {
   TagIcon,
   XIcon,
 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import Navbar from "../Components/Navbar.jsx";
 import RateLimitedUI from "../Components/RateLimitedUI.jsx";
 import api from "../lib/axios.js";
@@ -16,6 +23,8 @@ import NotesNotFound from "../Components/NotesNotFound.jsx";
 import NoteSkeleton from "../Components/NoteSkeleton.jsx";
 import NotesStats from "../Components/NotesStats.jsx";
 import { countWords } from "../lib/Utils.js";
+
+const FILTER_STORAGE_KEY = "notesboard-filters-v1";
 
 const normalizeTag = (tag) =>
   String(tag).trim().toLowerCase().replace(/\s+/g, " ");
@@ -37,7 +46,117 @@ function HomePage() {
   const [minWords, setMinWords] = useState(0);
   const [sortOrder, setSortOrder] = useState("newest");
   const [selectedTags, setSelectedTags] = useState([]);
+  const [availableTags, setAvailableTags] = useState([]);
+  const [tagInsights, setTagInsights] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const filterPanelRef = useRef(null);
+  const hasInitializedFilters = useRef(false);
+
+  const loadTagStats = useCallback(async () => {
+    try {
+      const response = await api.get("/notes/tags/stats");
+      const tags = response.data?.tags ?? [];
+      setAvailableTags(
+        tags
+          .map((entry) => entry?._id)
+          .filter(Boolean)
+          .map((tag) => normalizeTag(tag))
+      );
+      setTagInsights({
+        tags,
+        uniqueTags: response.data?.uniqueTags ?? tags.length,
+        topTag: response.data?.topTag ?? null,
+      });
+    } catch (error) {
+      console.log("error fetching tag stats", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (hasInitializedFilters.current) return;
+    if (typeof window === "undefined") return;
+
+    const params = Object.fromEntries(searchParams.entries());
+    let storedFilters = {};
+    try {
+      const raw = localStorage.getItem(FILTER_STORAGE_KEY);
+      if (raw) {
+        storedFilters = JSON.parse(raw);
+      }
+    } catch (error) {
+      console.log("error reading stored filters", error);
+    }
+
+    const initialSearch = params.q ?? storedFilters.searchQuery ?? "";
+    setSearchQuery(initialSearch);
+
+    const initialMin = Number(params.minWords ?? storedFilters.minWords ?? 0);
+    setMinWords(Number.isFinite(initialMin) ? initialMin : 0);
+
+    const allowedTabs = new Set(["all", "recent", "long", "short"]);
+    const initialTab = params.tab ?? storedFilters.activeTab ?? "all";
+    setActiveTab(allowedTabs.has(initialTab) ? initialTab : "all");
+
+    const allowedSorts = new Set([
+      "newest",
+      "oldest",
+      "alphabetical",
+      "updated",
+    ]);
+    const initialSort = params.sort ?? storedFilters.sortOrder ?? "newest";
+    setSortOrder(allowedSorts.has(initialSort) ? initialSort : "newest");
+
+    const tagsSource = params.tags ?? storedFilters.selectedTags ?? [];
+    const tagList = Array.isArray(tagsSource)
+      ? tagsSource
+      : typeof tagsSource === "string"
+      ? tagsSource.split(",")
+      : [];
+
+    const normalizedTags = Array.from(
+      new Set(tagList.map((tag) => normalizeTag(tag)).filter(Boolean))
+    );
+    setSelectedTags(normalizedTags);
+
+    hasInitializedFilters.current = true;
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!hasInitializedFilters.current) return;
+    if (typeof window === "undefined") return;
+
+    const params = {};
+    const trimmedQuery = searchQuery.trim();
+    if (trimmedQuery) params.q = trimmedQuery;
+    if (Number(minWords) > 0) params.minWords = String(minWords);
+    if (activeTab !== "all") params.tab = activeTab;
+    if (sortOrder !== "newest") params.sort = sortOrder;
+    if (selectedTags.length) params.tags = selectedTags.join(",");
+
+    setSearchParams(params, { replace: true });
+
+    try {
+      localStorage.setItem(
+        FILTER_STORAGE_KEY,
+        JSON.stringify({
+          searchQuery,
+          minWords: Number(minWords) || 0,
+          activeTab,
+          sortOrder,
+          selectedTags,
+        })
+      );
+    } catch (error) {
+      console.log("error saving filters", error);
+    }
+  }, [
+    searchQuery,
+    minWords,
+    activeTab,
+    sortOrder,
+    selectedTags,
+    setSearchParams,
+  ]);
 
   useEffect(() => {
     const fetchNotes = async () => {
@@ -45,6 +164,7 @@ function HomePage() {
         const res = await api.get("/notes");
         setNotes(res.data);
         setIsRateLimited(false);
+        loadTagStats();
       } catch (error) {
         console.log("error fetching" + error);
         if (error.response?.status === 429) {
@@ -57,7 +177,7 @@ function HomePage() {
       }
     };
     fetchNotes();
-  }, []);
+  }, [loadTagStats]);
 
   const closeDrawer = () => setDrawerOpen(false);
   const openDrawer = () => setDrawerOpen(true);
@@ -150,7 +270,10 @@ function HomePage() {
   const showFilterEmptyState =
     !loading && !isRateLimited && notes.length > 0 && !filteredNotes.length;
 
-  const allTags = useMemo(() => {
+  const tagOptions = useMemo(() => {
+    if (availableTags.length) {
+      return Array.from(new Set(availableTags)).sort();
+    }
     const tagSet = new Set();
     notes.forEach((note) => {
       if (Array.isArray(note.tags)) {
@@ -158,7 +281,7 @@ function HomePage() {
       }
     });
     return Array.from(tagSet).sort();
-  }, [notes]);
+  }, [availableTags, notes]);
 
   const toggleTagSelection = (tag) => {
     const normalized = normalizeTag(tag);
@@ -242,7 +365,11 @@ function HomePage() {
 
         <main className="flex-1 w-full">
           <section className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8">
-            <NotesStats notes={notes} loading={loading} />
+            <NotesStats
+              notes={notes}
+              loading={loading}
+              tagStats={tagInsights}
+            />
 
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-wrap items-center gap-2" role="tablist">
@@ -341,6 +468,7 @@ function HomePage() {
                     setNotes={setNotes}
                     onTagClick={toggleTagSelection}
                     selectedTags={selectedTags}
+                    onNoteChange={loadTagStats}
                   />
                 ))}
               </div>
@@ -416,7 +544,7 @@ function HomePage() {
               max="400"
               step="20"
               value={minWords}
-              onChange={(event) => setMinWords(event.target.value)}
+              onChange={(event) => setMinWords(Number(event.target.value))}
             />
             <div className="flex w-full justify-between text-xs px-1">
               {[0, 100, 200, 300, 400].map((marker) => (
@@ -448,9 +576,9 @@ function HomePage() {
                 Select multiple
               </span>
             </span>
-            {allTags.length ? (
+            {tagOptions.length ? (
               <div className="space-y-2">
-                {allTags.map((tag) => (
+                {tagOptions.map((tag) => (
                   <label
                     key={tag}
                     className="label cursor-pointer justify-start gap-2 px-0"

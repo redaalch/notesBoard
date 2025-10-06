@@ -16,7 +16,13 @@ const prettifyTag = (tag) =>
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 
-function NoteCard({ note, setNotes, onTagClick, selectedTags = [] }) {
+function NoteCard({
+  note,
+  setNotes,
+  onTagClick,
+  selectedTags = [],
+  onNoteChange,
+}) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -38,6 +44,7 @@ function NoteCard({ note, setNotes, onTagClick, selectedTags = [] }) {
       setNotes((prev) => prev.filter((item) => item._id !== note._id));
       toast.success("Your note has been deleted successfully");
       setConfirmOpen(false);
+      onNoteChange?.();
     } catch (error) {
       console.log("Error in deleting the note ", error);
       toast.error("Failed to delete the note");

@@ -3,8 +3,11 @@ import React from "react";
 
 const MAX_TAGS = 8;
 
+const normalizeTag = (tag) =>
+  String(tag).trim().toLowerCase().replace(/\s+/g, " ");
+
 const prettifyTag = (tag) =>
-  tag
+  normalizeTag(tag)
     .split(" ")
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -14,16 +17,15 @@ function TagInput({ value = [], onChange, placeholder = "Add tag" }) {
   const [inputValue, setInputValue] = React.useState("");
 
   const normalizedValue = React.useMemo(
-    () => value.map((tag) => tag.trim().toLowerCase()),
+    () => value.map((tag) => normalizeTag(tag)),
     [value]
   );
 
   const handleAddTag = (rawTag) => {
-    const trimmed = rawTag.trim().toLowerCase();
+    const trimmed = normalizeTag(rawTag);
     if (!trimmed) return;
 
-    const cleaned = trimmed.replace(/\s+/g, " ");
-    if (normalizedValue.includes(cleaned)) {
+    if (normalizedValue.includes(trimmed)) {
       setInputValue("");
       return;
     }
@@ -32,12 +34,14 @@ function TagInput({ value = [], onChange, placeholder = "Add tag" }) {
       return;
     }
 
-    onChange?.([...normalizedValue, cleaned]);
+    onChange?.([...normalizedValue, trimmed]);
     setInputValue("");
   };
 
   const handleRemoveTag = (tagToRemove) => {
-    onChange?.(normalizedValue.filter((tag) => tag !== tagToRemove));
+    onChange?.(
+      normalizedValue.filter((tag) => tag !== normalizeTag(tagToRemove))
+    );
   };
 
   const handleKeyDown = (event) => {

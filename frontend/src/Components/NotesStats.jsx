@@ -6,7 +6,14 @@ const average = (numbers) => {
   return numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
 };
 
-function NotesStats({ notes, loading }) {
+const prettifyTag = (tag) =>
+  tag
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
+function NotesStats({ notes, loading, tagStats }) {
   if (loading) {
     return (
       <div className="stats stats-vertical sm:stats-horizontal shadow bg-base-100 w-full">
@@ -31,28 +38,34 @@ function NotesStats({ notes, loading }) {
   }
 
   const wordCounts = notes.map((note) => countWords(note.content));
-  const tagFrequency = new Map();
-  notes.forEach((note) => {
-    if (Array.isArray(note.tags)) {
-      note.tags.forEach((tag) => {
-        const normalized = tag.trim().toLowerCase().replace(/\s+/g, " ");
-        if (!normalized) return;
-        tagFrequency.set(normalized, (tagFrequency.get(normalized) ?? 0) + 1);
-      });
-    }
-  });
-  const sortedTags = Array.from(tagFrequency.entries()).sort(
-    (a, b) => b[1] - a[1]
-  );
-  const [topTag, topTagCount] = sortedTags[0] ?? [];
-  const uniqueTags = tagFrequency.size;
+  let uniqueTags = 0;
+  let topTag;
+  let topTagCount;
 
-  const prettifyTag = (tag) =>
-    tag
-      .split(" ")
-      .filter(Boolean)
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
+  if (tagStats?.tags?.length) {
+    uniqueTags = tagStats.uniqueTags ?? tagStats.tags.length;
+    topTag = tagStats.topTag?._id;
+    topTagCount = tagStats.topTag?.count;
+  } else {
+    const tagFrequency = new Map();
+    notes.forEach((note) => {
+      if (Array.isArray(note.tags)) {
+        note.tags.forEach((tag) => {
+          const normalized = tag.trim().toLowerCase().replace(/\s+/g, " ");
+          if (!normalized) return;
+          tagFrequency.set(normalized, (tagFrequency.get(normalized) ?? 0) + 1);
+        });
+      }
+    });
+    const sortedTags = Array.from(tagFrequency.entries()).sort(
+      (a, b) => b[1] - a[1]
+    );
+    const [fallbackTopTag, fallbackTopCount] = sortedTags[0] ?? [];
+    uniqueTags = tagFrequency.size;
+    topTag = fallbackTopTag;
+    topTagCount = fallbackTopCount;
+  }
+
   const avgWords = Math.round(average(wordCounts));
   const longest = wordCounts.length ? Math.max(...wordCounts) : 0;
   const latestUpdate = notes
