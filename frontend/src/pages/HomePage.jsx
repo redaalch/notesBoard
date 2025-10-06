@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import {
+  ChevronDownIcon,
   FilterIcon,
   RefreshCwIcon,
   SearchIcon,
@@ -48,6 +49,7 @@ function HomePage() {
   const [selectedTags, setSelectedTags] = useState([]);
   const [availableTags, setAvailableTags] = useState([]);
   const [tagInsights, setTagInsights] = useState(null);
+  const [openTips, setOpenTips] = useState([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const filterPanelRef = useRef(null);
   const hasInitializedFilters = useRef(false);
@@ -303,6 +305,14 @@ function HomePage() {
     setSortOrder("newest");
     setActiveTab("all");
     setSelectedTags([]);
+  };
+
+  const toggleTip = (title) => {
+    setOpenTips((prev) =>
+      prev.includes(title)
+        ? prev.filter((item) => item !== title)
+        : [...prev, title]
+    );
   };
 
   const filterTips = [
@@ -602,25 +612,46 @@ function HomePage() {
 
           <div className="divider" data-content="Helpful tips" />
           <div className="space-y-2">
-            {filterTips.map(({ title, description, icon, tone }) => {
+            {filterTips.map(({ title, description, icon, tone }, index) => {
               const IconComponent = icon;
+              const isOpen = openTips.includes(title);
+              const contentId = `filter-tip-${index}`;
 
               return (
                 <div
                   key={title}
-                  className="collapse collapse-arrow border border-base-300 bg-base-100/90 shadow-sm"
+                  className="rounded-xl border border-base-300 bg-base-100/90 shadow-sm"
                 >
-                  <input type="checkbox" className="peer" />
-                  <div className="collapse-title flex items-center gap-3 text-base font-semibold">
-                    <IconComponent
-                      className={`size-5 ${
-                        tipToneClasses[tone] ?? "text-primary"
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left text-base font-semibold"
+                    onClick={() => toggleTip(title)}
+                    aria-expanded={isOpen}
+                    aria-controls={contentId}
+                  >
+                    <span className="flex items-center gap-3">
+                      <IconComponent
+                        className={`size-5 ${
+                          tipToneClasses[tone] ?? "text-primary"
+                        }`}
+                      />
+                      <span>{title}</span>
+                    </span>
+                    <ChevronDownIcon
+                      className={`size-5 transition-transform duration-200 ${
+                        isOpen ? "rotate-180" : "rotate-0"
                       }`}
                     />
-                    <span>{title}</span>
-                  </div>
-                  <div className="collapse-content text-sm text-base-content/70">
-                    <p>{description}</p>
+                  </button>
+                  <div
+                    id={contentId}
+                    className={`px-4 pb-4 text-sm text-base-content/70 transition-[max-height,opacity] duration-300 ease-in-out ${
+                      isOpen ? "max-h-40 opacity-100" : "max-h-0 opacity-0"
+                    }`}
+                    aria-hidden={!isOpen}
+                    style={{ overflow: "hidden" }}
+                  >
+                    <p className="leading-relaxed">{description}</p>
                   </div>
                 </div>
               );

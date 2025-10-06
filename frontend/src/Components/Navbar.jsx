@@ -6,7 +6,8 @@ import {
   SunIcon,
 } from "lucide-react";
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import useAuth from "../hooks/useAuth.js";
 
 const LIGHT_THEME = "forest";
 const DARK_THEME = "dark";
@@ -30,6 +31,8 @@ const getPreferredTheme = () => {
 function Navbar({ onMobileFilterClick = () => {} }) {
   const [theme, setTheme] = React.useState(getPreferredTheme);
   const isDark = theme === DARK_THEME;
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   React.useEffect(() => {
     const root = document.documentElement;
@@ -58,6 +61,11 @@ function Navbar({ onMobileFilterClick = () => {} }) {
       return <MoonIcon className="size-5" />;
     }
     return <SunIcon className="size-5" />;
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login", { replace: true });
   };
 
   return (
@@ -126,6 +134,47 @@ function Navbar({ onMobileFilterClick = () => {} }) {
             >
               {renderThemeIcon()}
             </button>
+
+            {user ? (
+              <div className="dropdown dropdown-end">
+                <button
+                  type="button"
+                  tabIndex={0}
+                  className="btn btn-ghost"
+                  aria-label="User menu"
+                >
+                  <div className="avatar placeholder">
+                    <div className="bg-primary text-primary-content rounded-full w-9">
+                      <span>{user.name?.charAt(0)?.toUpperCase() ?? "U"}</span>
+                    </div>
+                  </div>
+                  <span className="hidden sm:inline text-sm font-medium">
+                    {user.name}
+                  </span>
+                </button>
+                <ul
+                  tabIndex={0}
+                  className="menu dropdown-content z-30 mt-3 w-52 rounded-box bg-base-200 p-2 shadow"
+                >
+                  <li className="menu-title">
+                    <span className="truncate">{user.email}</span>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="gap-2"
+                    >
+                      Sign out
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            ) : (
+              <Link to="/login" className="btn btn-outline">
+                Sign in
+              </Link>
+            )}
           </div>
         </div>
       </div>

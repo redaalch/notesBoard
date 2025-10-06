@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import mongoose from "mongoose";
 import Note from "../src/models/Note.js";
 
 describe("Note model validation", () => {
   const buildNote = (overrides = {}) =>
     new Note({
+      owner: new mongoose.Types.ObjectId(),
       title: "Valid title",
       content: "This is a perfectly fine note.",
       ...overrides,

@@ -1,12 +1,15 @@
 import mongoose from "mongoose";
 import Note from "../models/Note.js";
+import logger from "../utils/logger.js";
 
-export const getAllNotes = async (_req, res) => {
+export const getAllNotes = async (req, res) => {
   try {
-    const notes = await Note.find().sort({ createdAt: -1 });
+    const notes = await Note.find({ owner: req.user.id })
+      .sort({ createdAt: -1 })
+      .lean();
     return res.status(200).json(notes);
   } catch (error) {
-    console.error("Error in getAllNotes", error);
+    logger.error("Error in getAllNotes", { error: error?.message });
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -18,12 +21,12 @@ export const getNoteById = async (req, res) => {
       return res.status(400).json({ message: "Invalid note id" });
     }
 
-    const note = await Note.findById(id);
+    const note = await Note.findOne({ _id: id, owner: req.user.id });
     if (!note) return res.status(404).json({ message: "Note not found" });
 
     return res.status(200).json(note);
   } catch (error) {
-    console.error("Error in getNoteById", error);
+    logger.error("Error in getNoteById", { error: error?.message });
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -38,10 +41,15 @@ export const createNote = async (req, res) => {
     }
 
     // One-liner create:
-    const savedNote = await Note.create({ title, content, tags });
+    const savedNote = await Note.create({
+      owner: req.user.id,
+      title,
+      content,
+      tags,
+    });
     return res.status(201).json(savedNote);
   } catch (error) {
-    console.error("Error in createNote", error);
+    logger.error("Error in createNote", { error: error?.message });
     if (error instanceof mongoose.Error.ValidationError) {
       return res.status(400).json({ message: error.message });
     }
@@ -67,10 +75,14 @@ export const updateNote = async (req, res) => {
       return res.status(400).json({ message: "No update data provided" });
     }
 
-    const updatedNote = await Note.findByIdAndUpdate(id, updates, {
-      new: true,
-      runValidators: true,
-    });
+    const updatedNote = await Note.findOneAndUpdate(
+      { _id: id, owner: req.user.id },
+      updates,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
 
     if (!updatedNote) {
       return res.status(404).json({ message: "Note not found" });
@@ -78,7 +90,7 @@ export const updateNote = async (req, res) => {
 
     return res.status(200).json(updatedNote);
   } catch (error) {
-    console.error("Error in updateNote", error);
+    logger.error("Error in updateNote", { error: error?.message });
     if (error instanceof mongoose.Error.ValidationError) {
       return res.status(400).json({ message: error.message });
     }
@@ -93,7 +105,10 @@ export const deleteNote = async (req, res) => {
       return res.status(400).json({ message: "Invalid note id" });
     }
 
-    const deletedNote = await Note.findByIdAndDelete(id);
+    const deletedNote = await Note.findOneAndDelete({
+      _id: id,
+      owner: req.user.id,
+    });
     if (!deletedNote) {
       return res.status(404).json({ message: "Note not found" });
     }
@@ -101,16 +116,17 @@ export const deleteNote = async (req, res) => {
     // 204 No Content is common; 200 is fine too.
     return res.status(200).json({ message: "Deleted" });
   } catch (error) {
-    console.error("Error in deleteNote", error);
+    logger.error("Error in deleteNote", { error: error?.message });
     return res.status(500).json({ message: "Internal server error" });
   }
 };
 
-export const getTagStats = async (_req, res) => {
+export const getTagStats = async (req, res) => {
   try {
     const aggregation = await Note.aggregate([
       {
         $match: {
+          owner: new mongoose.Types.ObjectId(req.user.id),
           tags: { $exists: true, $ne: [] },
         },
       },
