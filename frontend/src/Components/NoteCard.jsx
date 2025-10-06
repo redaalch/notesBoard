@@ -6,7 +6,17 @@ import api from "../lib/axios.js";
 import toast from "react-hot-toast";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 
-function NoteCard({ note, setNotes }) {
+const normalizeTag = (tag) =>
+  String(tag).trim().toLowerCase().replace(/\s+/g, " ");
+
+const prettifyTag = (tag) =>
+  normalizeTag(tag)
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
+function NoteCard({ note, setNotes, onTagClick, selectedTags = [] }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -68,6 +78,32 @@ function NoteCard({ note, setNotes }) {
           <p className="text-base-content/70 line-clamp-3 leading-relaxed">
             {note.content}
           </p>
+
+          {Array.isArray(note.tags) && note.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {note.tags.map((tag) => {
+                const normalized = normalizeTag(tag);
+                const isActive = selectedTags.includes(normalized);
+
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    className={`badge badge-sm gap-1 transition ${
+                      isActive
+                        ? "badge-primary"
+                        : "badge-outline hover:bg-base-200"
+                    }`}
+                    onClick={() => onTagClick?.(normalized)}
+                    aria-pressed={isActive}
+                    aria-label={`Filter by tag ${prettifyTag(tag)}`}
+                  >
+                    {prettifyTag(tag)}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           <div className="collapse collapse-arrow bg-base-200/60">
             <input type="checkbox" />

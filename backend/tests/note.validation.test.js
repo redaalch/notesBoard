@@ -54,4 +54,25 @@ describe("Note model validation", () => {
       "Title contains disallowed content."
     );
   });
+
+  it("normalizes and de-duplicates tags", () => {
+    const note = buildNote({
+      tags: ["Work", "work", " Focus ", "Deep"],
+    });
+
+    expect(note.tags).toEqual(["work", "focus", "deep"]);
+    expect(note.validateSync()).toBeUndefined();
+  });
+
+  it("rejects tags with disallowed patterns", () => {
+    const note = buildNote({
+      tags: ["$where"],
+    });
+
+    const error = note.validateSync();
+
+    expect(error?.errors?.tags?.message).toBe(
+      "Tags contain disallowed content."
+    );
+  });
 });

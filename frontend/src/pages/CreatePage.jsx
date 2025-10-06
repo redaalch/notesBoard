@@ -3,10 +3,12 @@ import { useState } from "react";
 import toast from "react-hot-toast";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../lib/axios";
+import TagInput from "../Components/TagInput.jsx";
 
 const CreatePage = () => {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [tags, setTags] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
@@ -24,17 +26,20 @@ const CreatePage = () => {
       await api.post("/notes", {
         title,
         content,
+        tags,
       });
 
       toast.success("Note created successfully!");
       navigate("/");
     } catch (error) {
       console.log("Error creating note", error);
-      if (error.response.status === 429) {
+      if (error.response?.status === 429) {
         toast.error("Slow down! You're creating notes too fast", {
           duration: 4000,
           icon: "💀",
         });
+      } else if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
       } else {
         toast.error("Failed to create note");
       }
@@ -79,6 +84,16 @@ const CreatePage = () => {
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                   />
+                </div>
+
+                <div className="form-control mb-6">
+                  <label className="label">
+                    <span className="label-text">Tags</span>
+                    <span className="label-text-alt text-base-content/60">
+                      Press Enter to add up to 8 tags
+                    </span>
+                  </label>
+                  <TagInput value={tags} onChange={setTags} />
                 </div>
 
                 <div className="card-actions justify-end">

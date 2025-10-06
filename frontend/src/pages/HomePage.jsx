@@ -4,6 +4,7 @@ import {
   RefreshCwIcon,
   SearchIcon,
   SparklesIcon,
+  TagIcon,
   XIcon,
 } from "lucide-react";
 import Navbar from "../Components/Navbar.jsx";
@@ -16,6 +17,16 @@ import NoteSkeleton from "../Components/NoteSkeleton.jsx";
 import NotesStats from "../Components/NotesStats.jsx";
 import { countWords } from "../lib/Utils.js";
 
+const normalizeTag = (tag) =>
+  String(tag).trim().toLowerCase().replace(/\s+/g, " ");
+
+const formatTagLabel = (tag) =>
+  normalizeTag(tag)
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
 function HomePage() {
   const [isRateLimited, setIsRateLimited] = useState(false);
   const [notes, setNotes] = useState([]);
@@ -25,6 +36,7 @@ function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [minWords, setMinWords] = useState(0);
   const [sortOrder, setSortOrder] = useState("newest");
+  const [selectedTags, setSelectedTags] = useState([]);
   const filterPanelRef = useRef(null);
 
   useEffect(() => {
@@ -95,7 +107,15 @@ function HomePage() {
       (note) => countWords(note.content) >= Number(minWords)
     );
 
-    const sorted = [...byWords].sort((a, b) => {
+    const byTags = selectedTags.length
+      ? byWords.filter((note) => {
+          if (!Array.isArray(note.tags) || !note.tags.length) return false;
+          const normalized = note.tags.map((tag) => tag.toLowerCase());
+          return selectedTags.every((tag) => normalized.includes(tag));
+        })
+      : byWords;
+
+    const sorted = [...byTags].sort((a, b) => {
       if (sortOrder === "newest") {
         return new Date(b.createdAt) - new Date(a.createdAt);
       }
@@ -124,10 +144,43 @@ function HomePage() {
     recentNotes,
     longFormNotes,
     shortNotes,
+    selectedTags,
   ]);
 
   const showFilterEmptyState =
     !loading && !isRateLimited && notes.length > 0 && !filteredNotes.length;
+
+  const allTags = useMemo(() => {
+    const tagSet = new Set();
+    notes.forEach((note) => {
+      if (Array.isArray(note.tags)) {
+        note.tags.forEach((tag) => tagSet.add(normalizeTag(tag)));
+      }
+    });
+    return Array.from(tagSet).sort();
+  }, [notes]);
+
+  const toggleTagSelection = (tag) => {
+    const normalized = normalizeTag(tag);
+    setSelectedTags((prev) =>
+      prev.includes(normalized)
+        ? prev.filter((item) => item !== normalized)
+        : [...prev, normalized]
+    );
+  };
+
+  const removeSelectedTag = (tag) => {
+    const normalized = normalizeTag(tag);
+    setSelectedTags((prev) => prev.filter((item) => item !== normalized));
+  };
+
+  const resetFilters = () => {
+    setSearchQuery("");
+    setMinWords(0);
+    setSortOrder("newest");
+    setActiveTab("all");
+    setSelectedTags([]);
+  };
 
   const filterTips = [
     {
@@ -143,6 +196,13 @@ function HomePage() {
         "Tabs let you jump between recent captures, long reads, or quick thoughts without losing your place.",
       icon: SparklesIcon,
       tone: "secondary",
+    },
+    {
+      title: "Tag your topics",
+      description:
+        "Add tags like project names or priorities, then use the tag filters to surface notes instantly.",
+      icon: TagIcon,
+      tone: "primary",
     },
   ];
 
@@ -230,12 +290,7 @@ function HomePage() {
                   <button
                     type="button"
                     className="btn btn-outline join-item shrink-0 rounded-full sm:rounded-l-none"
-                    onClick={() => {
-                      setSearchQuery("");
-                      setMinWords(0);
-                      setSortOrder("newest");
-                      setActiveTab("all");
-                    }}
+                    onClick={resetFilters}
                   >
                     <RefreshCwIcon className="size-4" />
                     Reset
@@ -244,12 +299,49 @@ function HomePage() {
               </div>
             </div>
 
+            {selectedTags.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-base-300/60 bg-base-200/60 px-4 py-3">
+                <span className="text-sm font-medium text-base-content/70">
+                  Active tags:
+                </span>
+                {selectedTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="badge badge-primary badge-outline gap-1"
+                  >
+                    {formatTagLabel(tag)}
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-xs btn-circle"
+                      onClick={() => removeSelectedTag(tag)}
+                      aria-label={`Remove tag ${tag}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <button
+                  type="button"
+                  className="btn btn-xs btn-ghost"
+                  onClick={() => setSelectedTags([])}
+                >
+                  Clear tags
+                </button>
+              </div>
+            )}
+
             {loading && <NoteSkeleton />}
 
             {!loading && filteredNotes.length > 0 && (
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {filteredNotes.map((note) => (
-                  <NoteCard key={note._id} note={note} setNotes={setNotes} />
+                  <NoteCard
+                    key={note._id}
+                    note={note}
+                    setNotes={setNotes}
+                    onTagClick={toggleTagSelection}
+                    selectedTags={selectedTags}
+                  />
                 ))}
               </div>
             )}
@@ -348,6 +440,37 @@ function HomePage() {
               <option value="updated">Recently updated</option>
             </select>
           </label>
+
+          <div className="form-control w-full">
+            <span className="label">
+              <span className="label-text">Filter by tags</span>
+              <span className="label-text-alt text-base-content/60">
+                Select multiple
+              </span>
+            </span>
+            {allTags.length ? (
+              <div className="space-y-2">
+                {allTags.map((tag) => (
+                  <label
+                    key={tag}
+                    className="label cursor-pointer justify-start gap-2 px-0"
+                  >
+                    <input
+                      type="checkbox"
+                      className="checkbox checkbox-sm"
+                      checked={selectedTags.includes(tag)}
+                      onChange={() => toggleTagSelection(tag)}
+                    />
+                    <span className="label-text">{formatTagLabel(tag)}</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-lg bg-base-100 px-3 py-2 text-sm text-base-content/60">
+                Tags you add to notes will appear here for quick filtering.
+              </p>
+            )}
+          </div>
 
           <div className="divider" data-content="Helpful tips" />
           <div className="space-y-2">

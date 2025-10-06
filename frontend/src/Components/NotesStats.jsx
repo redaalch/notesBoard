@@ -1,4 +1,4 @@
-import { BarChart3Icon, ClockIcon, FileTextIcon } from "lucide-react";
+import { BarChart3Icon, ClockIcon, FileTextIcon, TagIcon } from "lucide-react";
 import { countWords, formatRelativeTime } from "../lib/Utils.js";
 
 const average = (numbers) => {
@@ -31,6 +31,28 @@ function NotesStats({ notes, loading }) {
   }
 
   const wordCounts = notes.map((note) => countWords(note.content));
+  const tagFrequency = new Map();
+  notes.forEach((note) => {
+    if (Array.isArray(note.tags)) {
+      note.tags.forEach((tag) => {
+        const normalized = tag.trim().toLowerCase().replace(/\s+/g, " ");
+        if (!normalized) return;
+        tagFrequency.set(normalized, (tagFrequency.get(normalized) ?? 0) + 1);
+      });
+    }
+  });
+  const sortedTags = Array.from(tagFrequency.entries()).sort(
+    (a, b) => b[1] - a[1]
+  );
+  const [topTag, topTagCount] = sortedTags[0] ?? [];
+  const uniqueTags = tagFrequency.size;
+
+  const prettifyTag = (tag) =>
+    tag
+      .split(" ")
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
   const avgWords = Math.round(average(wordCounts));
   const longest = wordCounts.length ? Math.max(...wordCounts) : 0;
   const latestUpdate = notes
@@ -79,6 +101,24 @@ function NotesStats({ notes, loading }) {
         </div>
         <div className="stat-desc text-base-content/70">
           Notes captured in the last 24 hours
+        </div>
+      </div>
+
+      <div className="stat">
+        <div className="stat-figure text-info">
+          <TagIcon className="size-7 sm:size-8" />
+        </div>
+        <div className="stat-title">Tag coverage</div>
+        <div className="stat-value text-info">
+          {uniqueTags}
+          <span className="ml-1 text-sm font-semibold">tags</span>
+        </div>
+        <div className="stat-desc text-base-content/70">
+          {topTag
+            ? `${prettifyTag(topTag)} appears in ${topTagCount} note${
+                topTagCount === 1 ? "" : "s"
+              }`
+            : "Add tags to unlock insights"}
         </div>
       </div>
     </div>

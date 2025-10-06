@@ -17,6 +17,7 @@ const SQL_INJECTION_PATTERNS = [
 const MONGO_OPERATOR_PATTERN =
   /\$(where|gt|gte|lt|lte|ne|eq|in|nin|regex|and|or|nor|exists|expr|jsonschema|function)/i;
 const DOLLAR_WITH_WORD_PATTERN = /\$(?=[a-z_])/i;
+const MAX_TAGS_PER_NOTE = 8;
 
 const isSafeText = (value) => {
   if (typeof value !== "string") return false;
@@ -49,6 +50,31 @@ const isSafeText = (value) => {
 const trimSetter = (value) =>
   typeof value === "string" ? value.trim() : value;
 
+const normalizeTagList = (value) => {
+  if (value === undefined || value === null) return [];
+
+  const rawValues = Array.isArray(value)
+    ? value
+    : String(value)
+        .split(",")
+        .map((item) => item.trim());
+
+  const cleaned = rawValues
+    .map((tag) => (typeof tag === "string" ? tag.trim().toLowerCase() : ""))
+    .filter(Boolean)
+    .map((tag) => tag.replace(/\s+/g, " "));
+
+  const unique = Array.from(new Set(cleaned));
+  return unique.slice(0, MAX_TAGS_PER_NOTE);
+};
+
+const validateTagList = (tags) => {
+  if (!Array.isArray(tags)) return false;
+  if (tags.length > MAX_TAGS_PER_NOTE) return false;
+
+  return tags.every((tag) => tag.length <= 32 && isSafeText(tag));
+};
+
 const noteSchema = new mongoose.Schema(
   {
     title: {
@@ -69,8 +95,19 @@ const noteSchema = new mongoose.Schema(
         message: "Content contains disallowed content.",
       },
     },
+    tags: {
+      type: [String],
+      default: [],
+      set: normalizeTagList,
+      validate: {
+        validator: validateTagList,
+        message: "Tags contain disallowed content.",
+      },
+    },
   },
   { timestamps: true }
 );
+
+noteSchema.index({ title: "text", content: "text" });
 const Note = mongoose.model("Note", noteSchema);
 export default Note;
