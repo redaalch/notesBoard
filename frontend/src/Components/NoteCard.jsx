@@ -8,20 +8,16 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { countWords, formatDate, formatRelativeTime } from "../lib/Utils.js";
+import {
+  countWords,
+  formatDate,
+  formatRelativeTime,
+  formatTagLabel,
+  normalizeTag,
+} from "../lib/Utils.js";
 import api from "../lib/axios.js";
 import toast from "react-hot-toast";
 import ConfirmDialog from "./ConfirmDialog.jsx";
-
-const normalizeTag = (tag) =>
-  String(tag).trim().toLowerCase().replace(/\s+/g, " ");
-
-const prettifyTag = (tag) =>
-  normalizeTag(tag)
-    .split(" ")
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
 
 function NoteCard({
   note,
@@ -188,9 +184,9 @@ function NoteCard({
                     }`}
                     onClick={() => onTagClick?.(normalized)}
                     aria-pressed={isActive}
-                    aria-label={`Filter by tag ${prettifyTag(tag)}`}
+                    aria-label={`Filter by tag ${formatTagLabel(tag)}`}
                   >
-                    {prettifyTag(tag)}
+                    {formatTagLabel(tag)}
                   </button>
                 );
               })}

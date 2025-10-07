@@ -24,19 +24,9 @@ import NoteCard from "../Components/NoteCard.jsx";
 import NotesNotFound from "../Components/NotesNotFound.jsx";
 import NoteSkeleton from "../Components/NoteSkeleton.jsx";
 import NotesStats from "../Components/NotesStats.jsx";
-import { countWords } from "../lib/Utils.js";
+import { countWords, formatTagLabel, normalizeTag } from "../lib/Utils.js";
 
 const FILTER_STORAGE_KEY = "notesboard-filters-v1";
-
-const normalizeTag = (tag) =>
-  String(tag).trim().toLowerCase().replace(/\s+/g, " ");
-
-const formatTagLabel = (tag) =>
-  normalizeTag(tag)
-    .split(" ")
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
 
 const sortLabelMap = {
   newest: "Newest first",

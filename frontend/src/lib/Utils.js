@@ -38,3 +38,15 @@ export function formatRelativeTime(value) {
 export function countWords(content = "") {
   return content.trim() ? content.trim().split(/\s+/).length : 0;
 }
+
+export function normalizeTag(tag = "") {
+  return String(tag).trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+export function formatTagLabel(tag = "") {
+  return normalizeTag(tag)
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
