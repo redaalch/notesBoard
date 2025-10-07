@@ -1,11 +1,11 @@
 import User from "../models/User.js";
 import { verifyAccessToken } from "../utils/tokenService.js";
 import logger from "../utils/logger.js";
+import { extractBearerToken } from "../utils/http.js";
 
 const auth = async (req, res, next) => {
   try {
-    const header = req.headers.authorization || "";
-    const token = header.startsWith("Bearer ") ? header.slice(7).trim() : null;
+    const token = extractBearerToken(req.headers.authorization);
 
     if (!token) {
       return res.status(401).json({ message: "Authorization required" });

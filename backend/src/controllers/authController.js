@@ -2,6 +2,7 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import User from "../models/User.js";
 import logger from "../utils/logger.js";
+import { normalizeEmail } from "../utils/validators.js";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -11,6 +12,16 @@ import { sendMail } from "../utils/mailer.js";
 
 const REFRESH_COOKIE = "nb_refresh_token";
 const isProduction = process.env.NODE_ENV === "production";
+
+const INTERNAL_SERVER_ERROR = { message: "Internal server error" };
+const EMAIL_REQUIRED = { message: "Email is required" };
+const EMAIL_AND_PASSWORD_REQUIRED = {
+  message: "Email and password required",
+};
+const INVALID_CREDENTIALS = { message: "Invalid credentials" };
+const INVALID_OR_EXPIRED_RESET_TOKEN = {
+  message: "Invalid or expired reset token",
+};
 
 const parseBoolean = (value) => {
   if (typeof value !== "string") return null;
@@ -124,12 +135,6 @@ const sanitizeUser = (user) => ({
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
 });
-
-const normalizeEmail = (value) => {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim().toLowerCase();
-  return trimmed ? trimmed : null;
-};
 
 const passwordOk = (password) => {
   if (typeof password !== "string") return false;
@@ -257,7 +262,7 @@ export const register = async (req, res) => {
     const normalizedEmail = normalizeEmail(email);
 
     if (!normalizedEmail) {
-      return res.status(400).json({ message: "Email is required" });
+      return res.status(400).json(EMAIL_REQUIRED);
     }
     if (!passwordOk(password)) {
       return res.status(400).json({
@@ -298,7 +303,7 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: error.message });
     }
 
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
   }
 };
 
@@ -309,7 +314,7 @@ export const requestPasswordReset = async (req, res) => {
     const normalizedEmail = normalizeEmail(email);
 
     if (!normalizedEmail) {
-      return res.status(400).json({ message: "Email is required" });
+      return res.status(400).json(EMAIL_REQUIRED);
     }
 
     const user = await User.findOne({ email: normalizedEmail });
@@ -350,7 +355,7 @@ export const requestPasswordReset = async (req, res) => {
       error: error?.message,
       stack: error?.stack,
     });
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
   }
 };
 
@@ -360,17 +365,17 @@ export const login = async (req, res) => {
     const normalizedEmail = normalizeEmail(email);
 
     if (!normalizedEmail || !password) {
-      return res.status(400).json({ message: "Email and password required" });
+      return res.status(400).json(EMAIL_AND_PASSWORD_REQUIRED);
     }
 
     const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      return res.status(401).json(INVALID_CREDENTIALS);
     }
 
     const valid = await user.comparePassword(password);
     if (!valid) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      return res.status(401).json(INVALID_CREDENTIALS);
     }
 
     const session = await issueSession(user, req, res, {
@@ -388,7 +393,7 @@ export const login = async (req, res) => {
       error: error?.message,
       stack: error?.stack,
     });
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
   }
 };
 
@@ -411,17 +416,13 @@ export const resetPassword = async (req, res) => {
     const user = await User.findOne({ "passwordReset.token": hashed });
 
     if (!user || !user.passwordReset?.expiresAt) {
-      return res
-        .status(400)
-        .json({ message: "Invalid or expired reset token" });
+      return res.status(400).json(INVALID_OR_EXPIRED_RESET_TOKEN);
     }
 
     if (user.passwordReset.expiresAt < new Date()) {
       user.clearPasswordResetToken();
       await user.save();
-      return res
-        .status(400)
-        .json({ message: "Invalid or expired reset token" });
+      return res.status(400).json(INVALID_OR_EXPIRED_RESET_TOKEN);
     }
 
     await user.setPassword(password);
@@ -435,7 +436,7 @@ export const resetPassword = async (req, res) => {
       error: error?.message,
       stack: error?.stack,
     });
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
   }
 };
 
@@ -443,7 +444,7 @@ export const refresh = async (req, res) => {
   try {
     const refreshToken = req.cookies?.[REFRESH_COOKIE];
     if (!refreshToken) {
-      return res.status(401).json({ message: "Missing refresh token" });
+      return res.status(204).send();
     }
 
     const hashed = hashToken(refreshToken);
@@ -483,7 +484,7 @@ export const refresh = async (req, res) => {
       error: error?.message,
       stack: error?.stack,
     });
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
   }
 };
 
@@ -505,7 +506,7 @@ export const logout = async (req, res) => {
       error: error?.message,
       stack: error?.stack,
     });
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
   }
 };
 
