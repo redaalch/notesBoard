@@ -29,28 +29,46 @@ const THEME_OPTIONS = [
     preview: ["bg-amber-400", "bg-amber-600", "bg-stone-700"],
   },
   {
-    name: "emerald",
-    label: "Emerald",
-    description: "Bright teal gradients with clarity",
-    preview: ["bg-emerald-300", "bg-teal-500", "bg-cyan-400"],
+    name: "retro",
+    label: "Retro",
+    description: "Vintage hues with playful saturation",
+    preview: ["bg-amber-400", "bg-teal-500", "bg-rose-400"],
   },
   {
-    name: "synthwave",
-    label: "Synthwave",
-    description: "Neon lights and retro vapor vibes",
-    preview: ["bg-fuchsia-500", "bg-purple-600", "bg-sky-500"],
+    name: "light",
+    label: "Daylight",
+    description: "Bright neutral workspace with clarity",
+    preview: ["bg-sky-200", "bg-amber-200", "bg-emerald-200"],
   },
   {
-    name: "pastel",
-    label: "Pastel",
-    description: "Soft candy hues for calm focus",
-    preview: ["bg-rose-300", "bg-sky-300", "bg-lime-300"],
+    name: "cupcake",
+    label: "Cupcake",
+    description: "Frosted pastels and soft contrasts",
+    preview: ["bg-pink-200", "bg-purple-300", "bg-emerald-200"],
   },
   {
-    name: "aurora",
-    label: "Aurora",
-    description: "Custom neon twilight palette",
-    preview: ["bg-violet-500", "bg-cyan-400", "bg-pink-400"],
+    name: "valentine",
+    label: "Valentine",
+    description: "Warm rose tones with romantic glow",
+    preview: ["bg-rose-400", "bg-pink-500", "bg-amber-300"],
+  },
+  {
+    name: "cyberpunk",
+    label: "Cyberpunk",
+    description: "Electric neons with futuristic contrast",
+    preview: ["bg-purple-600", "bg-fuchsia-500", "bg-sky-500"],
+  },
+  {
+    name: "luxury",
+    label: "Luxury",
+    description: "Opulent gold accents on deep charcoal",
+    preview: ["bg-stone-700", "bg-amber-400", "bg-amber-600"],
+  },
+  {
+    name: "business",
+    label: "Business",
+    description: "Polished neutrals with professional blues",
+    preview: ["bg-slate-200", "bg-slate-500", "bg-sky-500"],
   },
 ];
 
@@ -66,9 +84,17 @@ const setDocumentTheme = (themeName) => {
 
   const root = document.documentElement;
   root.setAttribute("data-theme", themeName);
+  root.dataset.theme = themeName;
 
   if (document.body) {
     document.body.setAttribute("data-theme", themeName);
+    document.body.dataset.theme = themeName;
+  }
+
+  const rootContainer = document.getElementById("root");
+  if (rootContainer) {
+    rootContainer.setAttribute("data-theme", themeName);
+    rootContainer.dataset.theme = themeName;
   }
 };
 
