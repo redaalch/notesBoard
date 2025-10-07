@@ -87,7 +87,19 @@ export const AuthProvider = ({ children }) => {
       (response) => response,
       async (error) => {
         const originalRequest = error.config;
-        if (error.response?.status === 401 && !originalRequest?._retry) {
+        const status = error.response?.status;
+        const requestUrl = originalRequest?.url ?? "";
+        const isAuthEndpoint =
+          typeof requestUrl === "string" &&
+          ([
+            "/auth/login",
+            "/auth/register",
+            "/auth/refresh",
+            "/auth/logout",
+          ].some((path) => requestUrl.startsWith(path)) ||
+            requestUrl.startsWith("/auth/password/"));
+
+        if (status === 401 && !isAuthEndpoint && !originalRequest?._retry) {
           try {
             const newToken = await handleRefresh();
             if (!newToken) {

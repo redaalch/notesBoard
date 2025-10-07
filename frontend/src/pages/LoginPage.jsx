@@ -8,6 +8,7 @@ const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -21,13 +22,16 @@ const LoginPage = () => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (loading) return;
+    setErrorMessage("");
     setLoading(true);
     try {
       await login({ email, password });
       const redirectTo = location.state?.from ?? "/";
       navigate(redirectTo, { replace: true });
-    } catch {
-      // error handled by auth hook toast
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ?? "Invalid email or password.";
+      setErrorMessage(message);
     } finally {
       setLoading(false);
     }
@@ -53,7 +57,10 @@ const LoginPage = () => {
                 <input
                   type="email"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={(event) => {
+                    setEmail(event.target.value);
+                    if (errorMessage) setErrorMessage("");
+                  }}
                   placeholder="you@example.com"
                   className="input input-bordered"
                   required
@@ -68,7 +75,10 @@ const LoginPage = () => {
                 <input
                   type="password"
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    if (errorMessage) setErrorMessage("");
+                  }}
                   placeholder="••••••••"
                   className="input input-bordered"
                   required
@@ -93,6 +103,11 @@ const LoginPage = () => {
                   </>
                 )}
               </button>
+              {errorMessage ? (
+                <div className="alert alert-error text-sm" role="alert">
+                  <span>{errorMessage}</span>
+                </div>
+              ) : null}
             </form>
 
             <p className="text-center text-sm text-base-content/70">
