@@ -1,10 +1,47 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="forest">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>frontend</title>
+    <script>
+      (() => {
+        const supportedThemes = [
+          "forest",
+          "dark",
+          "coffee",
+          "emerald",
+          "synthwave",
+          "pastel",
+          "aurora",
+        ];
+        const defaultTheme = supportedThemes[0] ?? "forest";
+        const ensureTheme = (themeName) => {
+          document.documentElement.setAttribute("data-theme", themeName);
+        };
+
+        try {
+          const stored = localStorage.getItem("theme");
+          const prefersDark =
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+          const darkFallback = supportedThemes.includes("dark")
+            ? "dark"
+            : defaultTheme;
+          const resolvedTheme = supportedThemes.includes(stored)
+            ? stored
+            : prefersDark
+            ? darkFallback
+            : defaultTheme;
+
+          ensureTheme(resolvedTheme);
+        } catch {
+          ensureTheme(defaultTheme);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
