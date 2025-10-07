@@ -5,19 +5,17 @@ import {
   PinIcon,
   TagIcon,
 } from "lucide-react";
-import { countWords, formatRelativeTime } from "../lib/Utils.js";
+import {
+  countWords,
+  formatRelativeTime,
+  formatTagLabel,
+  normalizeTag,
+} from "../lib/Utils.js";
 
 const average = (numbers) => {
   if (!numbers.length) return 0;
   return numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
 };
-
-const prettifyTag = (tag) =>
-  tag
-    .split(" ")
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
 
 function NotesStats({ notes, loading, tagStats }) {
   if (loading) {
@@ -58,7 +56,7 @@ function NotesStats({ notes, loading, tagStats }) {
     notes.forEach((note) => {
       if (Array.isArray(note.tags)) {
         note.tags.forEach((tag) => {
-          const normalized = tag.trim().toLowerCase().replace(/\s+/g, " ");
+          const normalized = normalizeTag(tag);
           if (!normalized) return;
           tagFrequency.set(normalized, (tagFrequency.get(normalized) ?? 0) + 1);
         });
@@ -148,7 +146,7 @@ function NotesStats({ notes, loading, tagStats }) {
         </div>
         <div className="stat-desc text-base-content/70">
           {topTag
-            ? `${prettifyTag(topTag)} appears in ${topTagCount} note${
+            ? `${formatTagLabel(topTag)} appears in ${topTagCount} note${
                 topTagCount === 1 ? "" : "s"
               }`
             : "Add tags to unlock insights"}

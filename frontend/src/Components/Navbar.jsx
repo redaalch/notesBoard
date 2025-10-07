@@ -3,6 +3,7 @@ import {
   MenuIcon,
   MoonIcon,
   PlusIcon,
+  SparklesIcon,
   SunIcon,
 } from "lucide-react";
 import React from "react";
@@ -68,26 +69,34 @@ function Navbar({ onMobileFilterClick = () => {} }) {
     navigate("/login", { replace: true });
   };
 
+  const themeToggleLabel = isDark
+    ? "Switch to light theme"
+    : "Switch to dark theme";
+
   return (
-    <header className="bg-base-300 border-b border-base-content/10">
-      <div className="mx-auto max-w-6xl p-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
+    <header className="sticky top-0 z-40 w-full bg-gradient-to-b from-base-300/80 via-base-300/40 to-base-100/0 backdrop-blur">
+      <div className="mx-auto w-full max-w-6xl px-4 py-3 lg:px-6">
+        <div className="flex items-center justify-between rounded-2xl border border-base-content/10 bg-base-200/60 px-4 py-3 shadow-lg shadow-primary/10 backdrop-blur-sm">
+          <div className="flex items-center gap-3">
             <div className="dropdown lg:hidden">
               <button
                 type="button"
                 tabIndex={0}
-                className="btn btn-ghost btn-square"
-                aria-label="Open menu"
+                className="btn btn-circle btn-ghost"
+                aria-label="Open quick menu"
               >
                 <MenuIcon className="size-5" />
               </button>
               <ul
                 tabIndex={0}
-                className="menu dropdown-content z-30 mt-3 w-48 rounded-box bg-base-200 p-2 shadow"
+                className="menu dropdown-content z-40 mt-3 w-56 rounded-2xl border border-base-content/10 bg-base-200/90 p-3 shadow-xl backdrop-blur"
               >
                 <li>
-                  <Link to="/create" className="gap-2">
+                  <Link
+                    to="/create"
+                    className="gap-2"
+                    aria-label="Create a new note"
+                  >
                     <PlusIcon className="size-4" />
                     <span>New note</span>
                   </Link>
@@ -97,21 +106,49 @@ function Navbar({ onMobileFilterClick = () => {} }) {
                     type="button"
                     onClick={handleThemeToggle}
                     className="gap-2"
+                    aria-label={themeToggleLabel}
                   >
                     {renderThemeIcon()}
                     <span>Toggle theme</span>
                   </button>
                 </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={onMobileFilterClick}
+                    className="gap-2"
+                    aria-label="Open filters"
+                  >
+                    <FilterIcon className="size-4" />
+                    <span>Open filters</span>
+                  </button>
+                </li>
               </ul>
             </div>
-            <h1 className="text-3xl font-bold text-primary font-mono tracking-tight">
-              NotesBoard
-            </h1>
+
+            <Link
+              to="/"
+              className="group flex items-center gap-3"
+              aria-label="Go to dashboard"
+            >
+              <span className="grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-primary via-secondary to-accent text-primary-content shadow-lg shadow-primary/30 transition-transform duration-200 group-hover:scale-105">
+                <SparklesIcon className="size-5" />
+              </span>
+              <span className="flex flex-col leading-tight">
+                <span className="text-xs uppercase tracking-[0.45em] text-base-content/60">
+                  Notes
+                </span>
+                <span className="text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
+                  Board
+                </span>
+              </span>
+            </Link>
           </div>
-          <div className="flex items-center gap-2 lg:gap-4">
+
+          <div className="flex items-center gap-2 lg:gap-3">
             <button
               type="button"
-              className="btn btn-outline btn-square lg:hidden"
+              className="btn btn-circle btn-outline lg:hidden"
               onClick={onMobileFilterClick}
               aria-label="Open filters"
             >
@@ -120,17 +157,17 @@ function Navbar({ onMobileFilterClick = () => {} }) {
 
             <Link
               to="/create"
-              className="btn btn-primary hidden lg:inline-flex"
+              className="btn hidden items-center gap-2 rounded-full bg-gradient-to-r from-primary via-secondary to-accent text-primary-content shadow-lg shadow-primary/30 transition hover:shadow-primary/50 lg:inline-flex"
             >
               <PlusIcon className="size-5" />
-              <span>New Note</span>
+              <span>Create note</span>
             </Link>
 
             <button
               type="button"
-              className="btn btn-ghost btn-square hidden lg:inline-flex"
+              className="btn btn-circle btn-ghost hidden lg:flex"
               onClick={handleThemeToggle}
-              aria-label="Toggle theme"
+              aria-label={themeToggleLabel}
             >
               {renderThemeIcon()}
             </button>
@@ -140,24 +177,27 @@ function Navbar({ onMobileFilterClick = () => {} }) {
                 <button
                   type="button"
                   tabIndex={0}
-                  className="btn btn-ghost"
+                  className="btn btn-ghost gap-3 rounded-full px-3"
                   aria-label="User menu"
                 >
                   <div className="avatar placeholder">
-                    <div className="bg-primary text-primary-content rounded-full w-9">
+                    <div className="w-10 rounded-full bg-gradient-to-r from-primary to-secondary text-primary-content">
                       <span>{user.name?.charAt(0)?.toUpperCase() ?? "U"}</span>
                     </div>
                   </div>
-                  <span className="hidden sm:inline text-sm font-medium">
-                    {user.name}
-                  </span>
+                  <div className="hidden text-left sm:block">
+                    <p className="text-sm font-semibold leading-none">
+                      {user.name}
+                    </p>
+                    <p className="text-xs text-base-content/60">{user.email}</p>
+                  </div>
                 </button>
                 <ul
                   tabIndex={0}
-                  className="menu dropdown-content z-30 mt-3 w-52 rounded-box bg-base-200 p-2 shadow"
+                  className="menu dropdown-content z-40 mt-3 w-60 rounded-2xl border border-base-content/10 bg-base-200/95 p-4 shadow-xl backdrop-blur"
                 >
-                  <li className="menu-title">
-                    <span className="truncate">{user.email}</span>
+                  <li className="mb-2 text-xs uppercase tracking-[0.3em] text-base-content/60">
+                    Account
                   </li>
                   <li>
                     <button
@@ -171,7 +211,10 @@ function Navbar({ onMobileFilterClick = () => {} }) {
                 </ul>
               </div>
             ) : (
-              <Link to="/login" className="btn btn-outline">
+              <Link
+                to="/login"
+                className="btn rounded-full border-primary/40 bg-base-100/80 backdrop-blur transition hover:border-primary hover:bg-base-100"
+              >
                 Sign in
               </Link>
             )}

@@ -1,17 +1,8 @@
 import { TagIcon, XIcon } from "lucide-react";
 import React from "react";
+import { formatTagLabel, normalizeTag } from "../lib/Utils.js";
 
 const MAX_TAGS = 8;
-
-const normalizeTag = (tag) =>
-  String(tag).trim().toLowerCase().replace(/\s+/g, " ");
-
-const prettifyTag = (tag) =>
-  normalizeTag(tag)
-    .split(" ")
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
 
 function TagInput({ value = [], onChange, placeholder = "Add tag" }) {
   const [inputValue, setInputValue] = React.useState("");
@@ -84,12 +75,12 @@ function TagInput({ value = [], onChange, placeholder = "Add tag" }) {
         <div className="flex flex-wrap gap-2">
           {normalizedValue.map((tag) => (
             <span key={tag} className="badge badge-outline gap-1">
-              {prettifyTag(tag)}
+              {formatTagLabel(tag)}
               <button
                 type="button"
                 onClick={() => handleRemoveTag(tag)}
                 className="btn btn-xs btn-ghost btn-circle"
-                aria-label={`Remove tag ${tag}`}
+                aria-label={`Remove tag ${formatTagLabel(tag)}`}
               >
                 <XIcon className="size-3" />
               </button>
