@@ -79,10 +79,19 @@ const DARK_THEME_FALLBACK = SUPPORTED_THEMES.has("dark")
   ? "dark"
   : DEFAULT_THEME;
 
+let themeTransitionTimeoutId;
+
 const setDocumentTheme = (themeName) => {
   if (typeof document === "undefined") return;
 
   const root = document.documentElement;
+  if (typeof window !== "undefined") {
+    root.classList.add("theme-changing");
+    window.clearTimeout(themeTransitionTimeoutId);
+    themeTransitionTimeoutId = window.setTimeout(() => {
+      root.classList.remove("theme-changing");
+    }, 120);
+  }
   root.setAttribute("data-theme", themeName);
   root.dataset.theme = themeName;
 
