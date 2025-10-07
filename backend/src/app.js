@@ -38,12 +38,7 @@ app.use(cookieParser());
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
-const hasUpstash =
-  !!process.env.UPSTASH_REDIS_REST_URL &&
-  !!process.env.UPSTASH_REDIS_REST_TOKEN;
-if (hasUpstash) {
-  app.use("/api", rateLimiter);
-}
+app.use("/api", rateLimiter);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/notes", notesRoutes);

@@ -1,6 +1,8 @@
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 
+import logger from "./logger.js";
+
 let cachedDevSecret;
 
 const getAccessSecret = () => {
@@ -15,7 +17,7 @@ const getAccessSecret = () => {
         .createHash("sha256")
         .update("notesboard-dev-secret")
         .digest("hex");
-      console.warn(
+      logger.warn(
         "JWT_ACCESS_SECRET not set. Using development fallback secret."
       );
     }

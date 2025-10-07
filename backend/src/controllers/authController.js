@@ -125,6 +125,12 @@ const sanitizeUser = (user) => ({
   updatedAt: user.updatedAt,
 });
 
+const normalizeEmail = (value) => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed ? trimmed : null;
+};
+
 const passwordOk = (password) => {
   if (typeof password !== "string") return false;
   if (password.length < 8) return false;
@@ -248,7 +254,9 @@ export const register = async (req, res) => {
     if (!name || typeof name !== "string" || !name.trim()) {
       return res.status(400).json({ message: "Name is required" });
     }
-    if (!email || typeof email !== "string") {
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!normalizedEmail) {
       return res.status(400).json({ message: "Email is required" });
     }
     if (!passwordOk(password)) {
@@ -258,14 +266,14 @@ export const register = async (req, res) => {
       });
     }
 
-    const existing = await User.findOne({ email: email.toLowerCase().trim() });
+    const existing = await User.findOne({ email: normalizedEmail });
     if (existing) {
       return res.status(409).json({ message: "Email already registered" });
     }
 
     const user = new User({
       name: name.trim(),
-      email: email.toLowerCase().trim(),
+      email: normalizedEmail,
       passwordHash: "temp",
     });
 
@@ -298,11 +306,12 @@ export const requestPasswordReset = async (req, res) => {
   try {
     const { email, redirectUrl } = req.body ?? {};
 
-    if (!email || typeof email !== "string") {
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!normalizedEmail) {
       return res.status(400).json({ message: "Email is required" });
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
     const user = await User.findOne({ email: normalizedEmail });
 
     if (!user) {
@@ -348,11 +357,13 @@ export const requestPasswordReset = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body ?? {};
-    if (!email || !password) {
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!normalizedEmail || !password) {
       return res.status(400).json({ message: "Email and password required" });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
