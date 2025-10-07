@@ -4,11 +4,11 @@ import logger from "./logger.js";
 let transporter;
 
 const buildTransporter = () => {
-  const mailerUrl = process.env.MAILER_TO_GO_URL;
+  const mailerUrl = process.env.MAILER_TO_GO_URL || process.env.MAILERTOGO_URL;
 
   if (!mailerUrl) {
     logger.warn(
-      "MAILER_TO_GO_URL is not configured. Email sending is disabled."
+      "MAILER_TO_GO_URL/MAILERTOGO_URL is not configured. Email sending is disabled."
     );
     return {
       sendMail: async (options) => {
