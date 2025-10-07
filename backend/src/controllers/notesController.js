@@ -1,6 +1,19 @@
 import mongoose from "mongoose";
 import Note from "../models/Note.js";
 import logger from "../utils/logger.js";
+import { isValidObjectId } from "../utils/validators.js";
+
+const INTERNAL_SERVER_ERROR = {
+  message: "Internal server error",
+};
+
+const INVALID_NOTE_ID = {
+  message: "Invalid note id",
+};
+
+const NOTE_NOT_FOUND = {
+  message: "Note not found",
+};
 
 export const getAllNotes = async (req, res) => {
   try {
@@ -10,24 +23,24 @@ export const getAllNotes = async (req, res) => {
     return res.status(200).json(notes);
   } catch (error) {
     logger.error("Error in getAllNotes", { error: error?.message });
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
   }
 };
 
 export const getNoteById = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "Invalid note id" });
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(INVALID_NOTE_ID);
     }
 
     const note = await Note.findOne({ _id: id, owner: req.user.id });
-    if (!note) return res.status(404).json({ message: "Note not found" });
+    if (!note) return res.status(404).json(NOTE_NOT_FOUND);
 
     return res.status(200).json(note);
   } catch (error) {
     logger.error("Error in getNoteById", { error: error?.message });
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
   }
 };
 
@@ -58,7 +71,7 @@ export const createNote = async (req, res) => {
     if (error instanceof mongoose.Error.ValidationError) {
       return res.status(400).json({ message: error.message });
     }
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
   }
 };
 
@@ -67,8 +80,8 @@ export const updateNote = async (req, res) => {
     const { id } = req.params;
     const { title, content, tags, pinned } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "Invalid note id" });
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(INVALID_NOTE_ID);
     }
 
     const updates = {};
@@ -93,7 +106,7 @@ export const updateNote = async (req, res) => {
     );
 
     if (!updatedNote) {
-      return res.status(404).json({ message: "Note not found" });
+      return res.status(404).json(NOTE_NOT_FOUND);
     }
 
     return res.status(200).json(updatedNote);
@@ -102,15 +115,15 @@ export const updateNote = async (req, res) => {
     if (error instanceof mongoose.Error.ValidationError) {
       return res.status(400).json({ message: error.message });
     }
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
   }
 };
 
 export const deleteNote = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "Invalid note id" });
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(INVALID_NOTE_ID);
     }
 
     const deletedNote = await Note.findOneAndDelete({
@@ -118,14 +131,14 @@ export const deleteNote = async (req, res) => {
       owner: req.user.id,
     });
     if (!deletedNote) {
-      return res.status(404).json({ message: "Note not found" });
+      return res.status(404).json(NOTE_NOT_FOUND);
     }
 
     // 204 No Content is common; 200 is fine too.
     return res.status(200).json({ message: "Deleted" });
   } catch (error) {
     logger.error("Error in deleteNote", { error: error?.message });
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
   }
 };
 
@@ -133,7 +146,7 @@ export const getTagStats = async (req, res) => {
   try {
     const ownerId = req.user?.id;
 
-    if (!ownerId || !mongoose.Types.ObjectId.isValid(ownerId)) {
+    if (!ownerId || !isValidObjectId(ownerId)) {
       return res.status(400).json({ message: "Invalid user id" });
     }
 
@@ -187,6 +200,6 @@ export const getTagStats = async (req, res) => {
     });
   } catch (error) {
     logger.error("Error in getTagStats", { error: error?.message });
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
   }
 };

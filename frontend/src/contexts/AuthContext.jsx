@@ -38,7 +38,16 @@ export const AuthProvider = ({ children }) => {
     if (!refreshPromiseRef.current) {
       refreshPromiseRef.current = (async () => {
         try {
-          const response = await api.post("/auth/refresh");
+          const response = await api.post("/auth/refresh", undefined, {
+            validateStatus: (status) =>
+              status === 200 || status === 204 || status === 401,
+          });
+
+          if (response.status !== 200) {
+            clearSession();
+            return null;
+          }
+
           const { accessToken: token, user: profile } = response.data ?? {};
 
           if (!token) {
@@ -71,16 +80,19 @@ export const AuthProvider = ({ children }) => {
 
     const boot = async () => {
       try {
-        await handleRefresh();
+        const token = await handleRefresh();
+        if (!token) {
+          clearSession();
+        }
       } catch {
-        // Ignore errors; user will be required to login
+        clearSession();
       } finally {
         setInitializing(false);
       }
     };
 
     boot();
-  }, [applyAccessToken, handleRefresh]);
+  }, [applyAccessToken, clearSession, handleRefresh]);
 
   useEffect(() => {
     const interceptorId = api.interceptors.response.use(
