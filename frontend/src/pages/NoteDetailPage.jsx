@@ -314,7 +314,7 @@ function NoteDetailPage() {
     try {
       await api.delete(`/notes/${id}`);
       toast.success("Note deleted");
-      navigate("/");
+      navigate("/app");
     } catch (error) {
       console.log("Error deleting the note:", error);
       toast.error("Failed to delete note");
@@ -362,7 +362,7 @@ function NoteDetailPage() {
               existed.
             </p>
             <div className="card-actions justify-center mt-4">
-              <Link to="/" className="btn btn-primary">
+              <Link to="/app" className="btn btn-primary">
                 Go back home
               </Link>
             </div>
@@ -379,7 +379,7 @@ function NoteDetailPage() {
           <div className="flex w-full flex-col gap-4 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-1 min-w-0 items-start gap-4">
               <Link
-                to="/"
+                to="/app"
                 className="btn btn-ghost btn-circle shadow-md hover:bg-primary/10"
                 aria-label="Back to notes"
               >
