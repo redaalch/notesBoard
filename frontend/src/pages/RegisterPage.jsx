@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import { LoaderIcon, UserPlusIcon } from "lucide-react";
 import useAuth from "../hooks/useAuth.js";
 
@@ -7,6 +8,7 @@ const RegisterPage = () => {
   const { register, user, initializing } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [confirmEmail, setConfirmEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -22,9 +24,23 @@ const RegisterPage = () => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (loading) return;
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedConfirmEmail = confirmEmail.trim().toLowerCase();
+    const trimmedName = name.trim();
+
+    if (!trimmedName || !normalizedEmail || !normalizedConfirmEmail) {
+      toast.error("All fields are required");
+      return;
+    }
+
+    if (normalizedEmail !== normalizedConfirmEmail) {
+      toast.error("Email addresses do not match");
+      return;
+    }
+
     setLoading(true);
     try {
-      await register({ name, email, password });
+      await register({ name: trimmedName, email: normalizedEmail, password });
       const redirectTo = location.state?.from ?? "/app";
       navigate(redirectTo, { replace: true });
     } catch {
@@ -71,6 +87,21 @@ const RegisterPage = () => {
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="you@example.com"
+                  className="input input-bordered"
+                  required
+                  autoComplete="email"
+                />
+              </label>
+
+              <label className="form-control">
+                <span className="label">
+                  <span className="label-text">Confirm email address</span>
+                </span>
+                <input
+                  type="email"
+                  value={confirmEmail}
+                  onChange={(event) => setConfirmEmail(event.target.value)}
+                  placeholder="Repeat your email"
                   className="input input-bordered"
                   required
                   autoComplete="email"
