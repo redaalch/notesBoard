@@ -733,6 +733,210 @@ export const logout = async (req, res) => {
   }
 };
 
+export const updateProfile = async (req, res) => {
+  try {
+    const user = req.userDocument;
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const { name, email, currentPassword, verificationRedirectUrl } =
+      req.body ?? {};
+
+    let hasUpdates = false;
+    let emailChanged = false;
+    let message = "Profile updated successfully.";
+
+    if (name !== undefined) {
+      if (typeof name !== "string" || !name.trim()) {
+        return res.status(400).json({ message: "Name is required" });
+      }
+      const trimmedName = name.trim();
+      if (trimmedName !== user.name) {
+        user.name = trimmedName;
+        hasUpdates = true;
+      }
+    }
+
+    let verificationToken;
+    let previousState;
+
+    if (email !== undefined) {
+      const normalizedEmail = normalizeEmail(email);
+      if (!normalizedEmail) {
+        return res.status(400).json(EMAIL_REQUIRED);
+      }
+
+      if (normalizedEmail !== user.email) {
+        if (!currentPassword || typeof currentPassword !== "string") {
+          return res.status(400).json({
+            message: "Current password is required to change email",
+          });
+        }
+
+        const passwordMatches = await user.comparePassword(currentPassword);
+        if (!passwordMatches) {
+          return res
+            .status(400)
+            .json({ message: "Current password is incorrect" });
+        }
+
+        const existing = await User.findOne({ email: normalizedEmail });
+        if (existing && existing.id !== user.id) {
+          return res.status(409).json({ message: "Email already registered" });
+        }
+
+        const verification = generateEmailVerificationToken();
+
+        previousState = {
+          email: user.email,
+          emailVerified: user.emailVerified,
+          emailVerifiedAt: user.emailVerifiedAt,
+          emailVerification: user.emailVerification
+            ? { ...user.emailVerification }
+            : undefined,
+          refreshTokens: [...user.refreshTokens],
+        };
+
+        user.email = normalizedEmail;
+        user.emailVerified = false;
+        user.emailVerifiedAt = undefined;
+        user.setEmailVerificationToken(
+          verification.hashed,
+          verification.expiresAt
+        );
+        user.clearRefreshTokens();
+
+        verificationToken = verification.token;
+        emailChanged = true;
+        hasUpdates = true;
+        message =
+          "Email updated. Check your inbox to confirm your new address.";
+      }
+    }
+
+    if (!hasUpdates) {
+      return res.status(200).json({
+        user: sanitizeUser(user),
+        message: "No changes detected.",
+      });
+    }
+
+    await user.save();
+
+    let session = null;
+
+    if (emailChanged) {
+      try {
+        await sendEmailVerification(
+          user,
+          req,
+          verificationToken,
+          verificationRedirectUrl
+        );
+      } catch (error) {
+        logger.error("Email change verification send failed", {
+          error: error?.message,
+          userId: user.id,
+        });
+
+        if (previousState) {
+          user.email = previousState.email;
+          user.emailVerified = previousState.emailVerified;
+          user.emailVerifiedAt = previousState.emailVerifiedAt;
+          user.emailVerification = previousState.emailVerification;
+          user.refreshTokens = previousState.refreshTokens;
+          await user.save();
+        }
+
+        return res.status(500).json({
+          message: "Failed to send verification email to the new address.",
+        });
+      }
+
+      session = await issueSession(user, req, res, {
+        userAgent: req.get("user-agent"),
+        ip: req.ip,
+      });
+    }
+
+    return res.status(200).json({
+      user: sanitizeUser(user),
+      message,
+      emailVerificationRequired: emailChanged,
+      ...(session
+        ? {
+            accessToken: session.accessToken,
+            expiresIn: session.expiresIn,
+          }
+        : {}),
+    });
+  } catch (error) {
+    logger.error("Update profile failed", {
+      error: error?.message,
+      stack: error?.stack,
+    });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
+  }
+};
+
+export const changePassword = async (req, res) => {
+  try {
+    const user = req.userDocument;
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const { currentPassword, newPassword } = req.body ?? {};
+
+    if (!currentPassword || typeof currentPassword !== "string") {
+      return res.status(400).json({
+        message: "Current password is required",
+      });
+    }
+
+    if (!newPassword || typeof newPassword !== "string") {
+      return res.status(400).json({
+        message: "A new password is required",
+      });
+    }
+
+    const matches = await user.comparePassword(currentPassword);
+    if (!matches) {
+      return res.status(400).json({ message: "Current password is incorrect" });
+    }
+
+    if (!passwordOk(newPassword)) {
+      return res.status(400).json({
+        message:
+          "Password must be at least 8 chars and include upper, lower, and number",
+      });
+    }
+
+    await user.setPassword(newPassword);
+    user.clearRefreshTokens();
+    await user.save();
+
+    const session = await issueSession(user, req, res, {
+      userAgent: req.get("user-agent"),
+      ip: req.ip,
+    });
+
+    return res.status(200).json({
+      message: "Password updated successfully",
+      user: sanitizeUser(user),
+      accessToken: session.accessToken,
+      expiresIn: session.expiresIn,
+    });
+  } catch (error) {
+    logger.error("Change password failed", {
+      error: error?.message,
+      stack: error?.stack,
+    });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
+  }
+};
+
 export const me = async (req, res) => {
   return res.status(200).json({ user: sanitizeUser(req.userDocument) });
 };

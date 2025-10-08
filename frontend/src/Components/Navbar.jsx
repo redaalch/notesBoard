@@ -436,6 +436,11 @@ function Navbar({ onMobileFilterClick = () => {} }) {
                     Account
                   </li>
                   <li>
+                    <Link to="/profile" className="gap-2">
+                      Profile settings
+                    </Link>
+                  </li>
+                  <li>
                     <button
                       type="button"
                       onClick={handleLogout}

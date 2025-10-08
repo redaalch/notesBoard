@@ -379,4 +379,88 @@ describe("Auth and notes integration", () => {
     expect(loginResponse.status).toBe(200);
     expect(loginResponse.body?.accessToken).toBeDefined();
   });
+
+  it("allows users to update their profile and re-verifies email when changed", async () => {
+    const { response: registerResponse, payload } = await registerUser({
+      email: "profile@example.com",
+      password: "ProfilePass1",
+    });
+    expect(registerResponse.status).toBe(202);
+    const verifyResponse = await verifyLatestEmail(payload.email);
+
+    const accessToken = verifyResponse.body.accessToken;
+    const clientId = verifyResponse.body.user.id;
+
+    sentEmails.length = 0;
+    sendMailMock.mockClear();
+
+    const profileResponse = await request(app)
+      .put("/api/auth/profile")
+      .set(authHeaders(accessToken, clientId))
+      .send({
+        name: "Ada Byron",
+        email: "ada.byron@example.com",
+        currentPassword: payload.password,
+        verificationRedirectUrl: "http://localhost:5173/verify-email",
+      });
+
+    expect(profileResponse.status).toBe(200);
+    expect(profileResponse.body?.user?.name).toBe("Ada Byron");
+    expect(profileResponse.body?.user?.email).toBe("ada.byron@example.com");
+    expect(profileResponse.body?.user?.emailVerified).toBe(false);
+    expect(profileResponse.body?.emailVerificationRequired).toBe(true);
+    expect(profileResponse.body?.accessToken).toBeDefined();
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
+
+    const cookies = profileResponse.get("set-cookie");
+    expect(cookies).toBeTruthy();
+
+    const updatedUser = await User.findOne({ email: "ada.byron@example.com" });
+    expect(updatedUser).toBeTruthy();
+    expect(updatedUser?.emailVerified).toBe(false);
+    expect(updatedUser?.emailVerification?.token).toBeDefined();
+
+    const newToken = profileResponse.body.accessToken;
+    const meResponse = await request(app)
+      .get("/api/auth/me")
+      .set(authHeaders(newToken, clientId));
+    expect(meResponse.status).toBe(200);
+    expect(meResponse.body?.user?.email).toBe("ada.byron@example.com");
+    expect(meResponse.body?.user?.name).toBe("Ada Byron");
+  });
+
+  it("updates the password when the current password is correct", async () => {
+    const { response: registerResponse, payload } = await registerUser({
+      email: "changepass@example.com",
+      password: "InitialPass1",
+    });
+    expect(registerResponse.status).toBe(202);
+    const verifyResponse = await verifyLatestEmail(payload.email);
+
+    const accessToken = verifyResponse.body.accessToken;
+    const clientId = verifyResponse.body.user.id;
+
+    const changeResponse = await request(app)
+      .post("/api/auth/password/change")
+      .set(authHeaders(accessToken, clientId))
+      .send({
+        currentPassword: payload.password,
+        newPassword: "UpdatedPass9",
+      });
+
+    expect(changeResponse.status).toBe(200);
+    expect(changeResponse.body?.message).toMatch(/password updated/i);
+    expect(changeResponse.body?.accessToken).toBeDefined();
+
+    const oldLogin = await request(app)
+      .post("/api/auth/login")
+      .send({ email: payload.email, password: payload.password });
+    expect(oldLogin.status).toBe(401);
+
+    const newLogin = await request(app)
+      .post("/api/auth/login")
+      .send({ email: payload.email, password: "UpdatedPass9" });
+    expect(newLogin.status).toBe(200);
+    expect(newLogin.body?.accessToken).toBeDefined();
+  });
 });

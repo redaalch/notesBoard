@@ -145,7 +145,7 @@ const LoginPage = () => {
                     </span>
                     <button
                       type="button"
-                      className="btn btn-outline btn-sm self-start"
+                      className="btn btn-sm self-start border-base-content/40 bg-base-100 text-base-content shadow-sm transition hover:border-base-content/70 hover:bg-base-100/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-base-content disabled:cursor-not-allowed disabled:opacity-70"
                       onClick={handleResendVerification}
                       disabled={resendLoading}
                     >

@@ -12,6 +12,7 @@ import LandingPage from "./pages/LandingPage.jsx";
 import PrivacyPage from "./pages/PrivacyPage.jsx";
 import TermsPage from "./pages/TermsPage.jsx";
 import VerifyEmailPage from "./pages/VerifyEmailPage.jsx";
+import ProfilePage from "./pages/ProfilePage.jsx";
 
 const App = () => {
   return (
@@ -47,6 +48,14 @@ const App = () => {
           element={
             <RequireAuth>
               <NoteDetailPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <RequireAuth>
+              <ProfilePage />
             </RequireAuth>
           }
         />
