@@ -73,21 +73,46 @@ describe("Auth and notes integration", () => {
       ...overrides,
     };
 
-    return request(app)
+    const response = await request(app)
       .post("/api/auth/register")
       .set("X-Test-Client-Id", payload.email)
       .send(payload);
+    return { payload, response };
+  };
+
+  const extractVerificationToken = () => {
+    expect(sentEmails.length).toBeGreaterThan(0);
+    const latestEmail = sentEmails[sentEmails.length - 1];
+    const linkMatch = latestEmail?.text?.match(/https?:\/\/[^\s]+/i);
+    expect(linkMatch?.[0]).toBeTruthy();
+    const url = new URL(linkMatch[0]);
+    const token = url.searchParams.get("token");
+    expect(token).toBeTruthy();
+    return token;
+  };
+
+  const verifyLatestEmail = async (email) => {
+    const token = extractVerificationToken();
+    const verificationResponse = await request(app)
+      .post("/api/auth/verify-email")
+      .set("X-Test-Client-Id", email)
+      .send({ token });
+    expect(verificationResponse.status).toBe(200);
+    return verificationResponse;
   };
 
   it("allows a user to register, authenticate, and manage notes", async () => {
-    const registerResponse = await registerUser();
-    expect(registerResponse.status).toBe(201);
-    expect(registerResponse.body?.accessToken).toBeDefined();
-    const cookies = registerResponse.get("set-cookie");
+    const { response: registerResponse, payload } = await registerUser();
+    expect(registerResponse.status).toBe(202);
+    expect(registerResponse.body?.accessToken).toBeUndefined();
+    expect(sentEmails).toHaveLength(1);
+
+    const verifyResponse = await verifyLatestEmail(payload.email);
+    const cookies = verifyResponse.get("set-cookie");
     expect(cookies).toBeTruthy();
 
-    const accessToken = registerResponse.body.accessToken;
-    const clientId = registerResponse.body.user.id;
+    const accessToken = verifyResponse.body.accessToken;
+    const clientId = verifyResponse.body.user.id;
 
     const createRes = await request(app)
       .post("/api/notes")
@@ -127,14 +152,46 @@ describe("Auth and notes integration", () => {
     expect(listAfterDelete.body).toHaveLength(0);
   });
 
-  it("prevents one user from accessing another user's notes", async () => {
-    const user1 = await registerUser({ email: "user1@example.com" });
-    const user2 = await registerUser({ email: "user2@example.com" });
+  it("requires users to verify their email before logging in", async () => {
+    const { response: registerResponse, payload } = await registerUser({
+      email: "pending@example.com",
+    });
+    expect(registerResponse.status).toBe(202);
 
-    const token1 = user1.body.accessToken;
-    const token2 = user2.body.accessToken;
-    const clientId1 = user1.body.user.id;
-    const clientId2 = user2.body.user.id;
+    const preVerifyLogin = await request(app)
+      .post("/api/auth/login")
+      .send({ email: payload.email, password: payload.password });
+
+    expect(preVerifyLogin.status).toBe(403);
+    expect(preVerifyLogin.body?.message).toMatch(/verify/i);
+
+    await verifyLatestEmail(payload.email);
+
+    const postVerifyLogin = await request(app)
+      .post("/api/auth/login")
+      .send({ email: payload.email, password: payload.password });
+
+    expect(postVerifyLogin.status).toBe(200);
+    expect(postVerifyLogin.body.accessToken).toBeDefined();
+  });
+
+  it("prevents one user from accessing another user's notes", async () => {
+    const { response: registerRes1, payload: payload1 } = await registerUser({
+      email: "user1@example.com",
+    });
+    expect(registerRes1.status).toBe(202);
+    const verifyRes1 = await verifyLatestEmail(payload1.email);
+
+    const { response: registerRes2, payload: payload2 } = await registerUser({
+      email: "user2@example.com",
+    });
+    expect(registerRes2.status).toBe(202);
+    const verifyRes2 = await verifyLatestEmail(payload2.email);
+
+    const token1 = verifyRes1.body.accessToken;
+    const token2 = verifyRes2.body.accessToken;
+    const clientId1 = verifyRes1.body.user.id;
+    const clientId2 = verifyRes2.body.user.id;
 
     const noteRes = await request(app)
       .post("/api/notes")
@@ -162,11 +219,14 @@ describe("Auth and notes integration", () => {
   });
 
   it("returns aggregated tag statistics for the authenticated user", async () => {
-    const registerResponse = await registerUser({ email: "stats@example.com" });
-    expect(registerResponse.status).toBe(201);
+    const { response: registerResponse, payload } = await registerUser({
+      email: "stats@example.com",
+    });
+    expect(registerResponse.status).toBe(202);
+    const verifyResponse = await verifyLatestEmail(payload.email);
 
-    const token = registerResponse.body.accessToken;
-    const clientId = registerResponse.body.user.id;
+    const token = verifyResponse.body.accessToken;
+    const clientId = verifyResponse.body.user.id;
 
     const createNote = (payload) =>
       request(app)
@@ -206,10 +266,13 @@ describe("Auth and notes integration", () => {
   });
 
   it("sends a password reset email when requested", async () => {
-    const registerResponse = await registerUser({
+    const { response: registerResponse, payload } = await registerUser({
       email: "reset@example.com",
     });
-    expect(registerResponse.status).toBe(201);
+    expect(registerResponse.status).toBe(202);
+    await verifyLatestEmail(payload.email);
+    sentEmails.length = 0;
+    sendMailMock.mockClear();
 
     const response = await request(app)
       .post("/api/auth/password/forgot")
@@ -239,11 +302,14 @@ describe("Auth and notes integration", () => {
   });
 
   it("allows resetting the password with a valid token", async () => {
-    const registerResponse = await registerUser({
+    const { response: registerResponse, payload } = await registerUser({
       email: "reset-flow@example.com",
       password: "OldPassword1",
     });
-    expect(registerResponse.status).toBe(201);
+    expect(registerResponse.status).toBe(202);
+    await verifyLatestEmail(payload.email);
+    sentEmails.length = 0;
+    sendMailMock.mockClear();
 
     const requestResponse = await request(app)
       .post("/api/auth/password/forgot")

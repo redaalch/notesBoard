@@ -150,35 +150,57 @@ export const AuthProvider = ({ children }) => {
         toast.success(`Welcome back, ${profile.name}`);
         return profile;
       } catch (error) {
+        const status = error.response?.status;
         const message =
           error.response?.data?.message ??
           "Failed to log in. Check credentials.";
-        toast.error(message);
+        if (status === 403) {
+          toast.error(message || "Please verify your email before signing in.");
+        } else {
+          toast.error(message);
+        }
         throw error;
       }
     },
     [applyAccessToken]
   );
 
-  const register = useCallback(
-    async ({ name, email, password }) => {
+  const register = useCallback(async ({ name, email, password }) => {
+    try {
+      const response = await api.post("/auth/register", {
+        name,
+        email,
+        password,
+      });
+      const message =
+        response.data?.message ??
+        "Please confirm your email address to finish signing up.";
+      toast.success(message);
+      return { message };
+    } catch (error) {
+      const message =
+        error.response?.data?.message ?? "Registration failed. Try again.";
+      toast.error(message);
+      throw error;
+    }
+  }, []);
+
+  const verifyEmail = useCallback(
+    async (token) => {
       try {
-        const response = await api.post("/auth/register", {
-          name,
-          email,
-          password,
-        });
-        const { accessToken: token, user: profile } = response.data ?? {};
-        if (!token || !profile) {
-          throw new Error("Malformed register response");
+        const response = await api.post("/auth/verify-email", { token });
+        const { accessToken: tokenValue, user: profile } = response.data ?? {};
+        if (!tokenValue || !profile) {
+          throw new Error("Malformed verify email response");
         }
-        applyAccessToken(token);
+        applyAccessToken(tokenValue);
         setUser(profile);
-        toast.success("Account created. You're all set!");
+        toast.success("Email confirmed! You're all set.");
         return profile;
       } catch (error) {
         const message =
-          error.response?.data?.message ?? "Registration failed. Try again.";
+          error.response?.data?.message ??
+          "Email verification failed. The link may have expired.";
         toast.error(message);
         throw error;
       }
@@ -203,10 +225,20 @@ export const AuthProvider = ({ children }) => {
       initializing,
       login,
       register,
+      verifyEmail,
       logout,
       refresh: handleRefresh,
     }),
-    [user, accessToken, initializing, login, register, logout, handleRefresh]
+    [
+      user,
+      accessToken,
+      initializing,
+      login,
+      register,
+      verifyEmail,
+      logout,
+      handleRefresh,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

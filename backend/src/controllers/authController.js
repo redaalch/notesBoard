@@ -22,6 +22,14 @@ const INVALID_CREDENTIALS = { message: "Invalid credentials" };
 const INVALID_OR_EXPIRED_RESET_TOKEN = {
   message: "Invalid or expired reset token",
 };
+const EMAIL_NOT_VERIFIED = {
+  message: "Please verify your email before signing in.",
+};
+const INVALID_OR_EXPIRED_VERIFICATION_TOKEN = {
+  message: "Invalid or expired verification token",
+};
+
+const DEFAULT_EMAIL_VERIFICATION_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
 
 const parseBoolean = (value) => {
   if (typeof value !== "string") return null;
@@ -132,6 +140,8 @@ const sanitizeUser = (user) => ({
   name: user.name,
   email: user.email,
   role: user.role,
+  emailVerified: Boolean(user.emailVerified),
+  emailVerifiedAt: user.emailVerifiedAt,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
 });
@@ -153,6 +163,21 @@ const getPasswordResetTtlMs = () => {
     return raw;
   }
   return DEFAULT_PASSWORD_RESET_TTL_MS;
+};
+
+const getEmailVerificationTtlMs = () => {
+  const raw = Number.parseInt(process.env.EMAIL_VERIFICATION_TTL_MS || "", 10);
+  if (Number.isFinite(raw) && raw > 0) {
+    return raw;
+  }
+  return DEFAULT_EMAIL_VERIFICATION_TTL_MS;
+};
+
+const generateEmailVerificationToken = () => {
+  const token = crypto.randomBytes(32).toString("hex");
+  const hashed = hashToken(token);
+  const expiresAt = new Date(Date.now() + getEmailVerificationTtlMs());
+  return { token, hashed, expiresAt };
 };
 
 const parseUrlCandidate = (value) => {
@@ -213,6 +238,58 @@ const buildPasswordResetLink = (req, token, redirectUrl) => {
   return fallback.toString();
 };
 
+const buildEmailVerificationLink = (req, token, redirectUrl) => {
+  const candidates = [
+    redirectUrl,
+    process.env.EMAIL_VERIFICATION_URL,
+    process.env.CLIENT_APP_URL,
+    process.env.FRONTEND_URL,
+    req?.get?.("origin"),
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (typeof candidate === "string" && candidate.includes("{token}")) {
+      return candidate.replace("{token}", encodeURIComponent(token));
+    }
+
+    const parsed = parseUrlCandidate(candidate);
+    if (parsed) {
+      if (!parsed.pathname || parsed.pathname === "/") {
+        parsed.pathname = "/verify-email";
+      }
+      parsed.searchParams.set("token", token);
+      return parsed.toString();
+    }
+  }
+
+  const protocol =
+    req?.protocol && ["http", "https"].includes(req.protocol)
+      ? req.protocol
+      : "https";
+  const host = req?.get?.("host") || "localhost";
+  const fallback = new URL("/verify-email", `${protocol}://${host}`);
+  fallback.searchParams.set("token", token);
+  return fallback.toString();
+};
+
+const sendEmailVerification = async (user, req, token, redirectUrl) => {
+  const verifyLink = buildEmailVerificationLink(req, token, redirectUrl);
+
+  await sendMail({
+    to: user.email,
+    subject: "Confirm your NotesBoard account",
+    text: `Hi ${
+      user.name || "there"
+    },\n\nThanks for signing up for NotesBoard! Please confirm your email address by visiting the link below:\n${verifyLink}\n\nIf you did not sign up, you can safely ignore this email.`,
+    html: `<!doctype html><html><body><p>Hi ${
+      user.name || "there"
+    },</p><p>Thanks for signing up for NotesBoard! Please confirm your email address by clicking the link below:</p><p><a href="${verifyLink}">Confirm your email</a></p><p>If you did not sign up, you can safely ignore this email.</p></body></html>`,
+  });
+
+  return verifyLink;
+};
+
 const PASSWORD_RESET_GENERIC_RESPONSE = {
   message:
     "If an account exists for that email, you'll receive a password reset email shortly.",
@@ -255,7 +332,7 @@ const clearSession = async (user, hashedToken, req, res) => {
 
 export const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body ?? {};
+    const { name, email, password, verificationRedirectUrl } = req.body ?? {};
     if (!name || typeof name !== "string" || !name.trim()) {
       return res.status(400).json({ message: "Name is required" });
     }
@@ -272,28 +349,71 @@ export const register = async (req, res) => {
     }
 
     const existing = await User.findOne({ email: normalizedEmail });
-    if (existing) {
+
+    if (existing && existing.emailVerified) {
       return res.status(409).json({ message: "Email already registered" });
     }
 
-    const user = new User({
-      name: name.trim(),
-      email: normalizedEmail,
-      passwordHash: "temp",
-    });
+    const verification = generateEmailVerificationToken();
 
-    await user.setPassword(password);
+    const candidateUser =
+      existing ??
+      new User({
+        name: name.trim(),
+        email: normalizedEmail,
+        passwordHash: "temp",
+        emailVerified: false,
+      });
 
-    const session = await issueSession(user, req, res, {
-      userAgent: req.get("user-agent"),
-      ip: req.ip,
-    });
+    candidateUser.name = name.trim();
+    candidateUser.email = normalizedEmail;
+    candidateUser.emailVerified = false;
+    candidateUser.emailVerifiedAt = undefined;
 
-    return res.status(201).json({
-      user: sanitizeUser(user),
-      accessToken: session.accessToken,
-      expiresIn: session.expiresIn,
-    });
+    await candidateUser.setPassword(password);
+    candidateUser.setEmailVerificationToken(
+      verification.hashed,
+      verification.expiresAt
+    );
+    candidateUser.clearRefreshTokens();
+
+    await candidateUser.save();
+
+    try {
+      await sendEmailVerification(
+        candidateUser,
+        req,
+        verification.token,
+        verificationRedirectUrl
+      );
+    } catch (error) {
+      logger.error("Verification email send failed", {
+        error: error?.message,
+        userId: candidateUser.id,
+      });
+
+      if (!existing) {
+        try {
+          await candidateUser.deleteOne();
+        } catch (cleanupError) {
+          logger.warn("Failed to delete user after email send failure", {
+            cleanupError: cleanupError?.message,
+            userId: candidateUser.id,
+          });
+        }
+      }
+
+      return res
+        .status(500)
+        .json({ message: "Failed to send verification email" });
+    }
+
+    const statusCode = existing ? 200 : 202;
+    const message = existing
+      ? "We refreshed your registration. Check your inbox to confirm your email."
+      : "Account created. Check your email to confirm your address.";
+
+    return res.status(statusCode).json({ message });
   } catch (error) {
     logger.error("Register failed", {
       error: error?.message,
@@ -378,6 +498,10 @@ export const login = async (req, res) => {
       return res.status(401).json(INVALID_CREDENTIALS);
     }
 
+    if (!user.emailVerified) {
+      return res.status(403).json(EMAIL_NOT_VERIFIED);
+    }
+
     const session = await issueSession(user, req, res, {
       userAgent: req.get("user-agent"),
       ip: req.ip,
@@ -390,6 +514,49 @@ export const login = async (req, res) => {
     });
   } catch (error) {
     logger.error("Login failed", {
+      error: error?.message,
+      stack: error?.stack,
+    });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
+  }
+};
+
+export const verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.body ?? {};
+
+    if (!token || typeof token !== "string" || token.length < 20) {
+      return res.status(400).json({ message: "A valid token is required" });
+    }
+
+    const hashed = hashToken(token);
+    const user = await User.findOne({ "emailVerification.token": hashed });
+
+    if (!user || !user.emailVerification?.expiresAt) {
+      return res.status(400).json(INVALID_OR_EXPIRED_VERIFICATION_TOKEN);
+    }
+
+    if (user.emailVerification.expiresAt < new Date()) {
+      user.clearEmailVerificationToken();
+      await user.save();
+      return res.status(400).json(INVALID_OR_EXPIRED_VERIFICATION_TOKEN);
+    }
+
+    user.markEmailVerified();
+    user.clearRefreshTokens();
+
+    const session = await issueSession(user, req, res, {
+      userAgent: req.get("user-agent"),
+      ip: req.ip,
+    });
+
+    return res.status(200).json({
+      user: sanitizeUser(user),
+      accessToken: session.accessToken,
+      expiresIn: session.expiresIn,
+    });
+  } catch (error) {
+    logger.error("Email verification failed", {
       error: error?.message,
       stack: error?.stack,
     });
