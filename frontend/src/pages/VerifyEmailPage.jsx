@@ -45,7 +45,7 @@ const VerifyEmailPage = () => {
 
     let cancelled = false;
 
-    const run = async () => {
+    const timeoutId = setTimeout(async () => {
       setStatus("verifying");
       try {
         await verifyEmail(token);
@@ -62,12 +62,11 @@ const VerifyEmailPage = () => {
         setErrorMessage(message);
         setStatus("error");
       }
-    };
-
-    run();
+    }, 0);
 
     return () => {
       cancelled = true;
+      clearTimeout(timeoutId);
     };
   }, [token, verifyEmail, navigate, nextPath]);
 
