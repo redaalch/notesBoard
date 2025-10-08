@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
+  AlertTriangleIcon,
   ChevronDownIcon,
   FilterIcon,
   PlusIcon,
@@ -31,40 +33,80 @@ const sortLabelMap = {
 
 function HomePage() {
   const [isRateLimited, setIsRateLimited] = useState(false);
-  const [notes, setNotes] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [minWords, setMinWords] = useState(0);
   const [sortOrder, setSortOrder] = useState("newest");
   const [selectedTags, setSelectedTags] = useState([]);
-  const [availableTags, setAvailableTags] = useState([]);
-  const [tagInsights, setTagInsights] = useState(null);
   const [openTips, setOpenTips] = useState([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const filterPanelRef = useRef(null);
   const hasInitializedFilters = useRef(false);
+  const notesQuery = useQuery({
+    queryKey: ["notes"],
+    queryFn: async () => {
+      const res = await api.get("/notes");
+      const payload = Array.isArray(res.data) ? res.data : [];
+      return payload;
+    },
+    retry: (failureCount, error) => {
+      if (error?.response?.status === 429) {
+        return false;
+      }
+      return failureCount < 1;
+    },
+    onSuccess: () => {
+      setIsRateLimited(false);
+    },
+    onError: (error) => {
+      console.error("Error fetching notes", error);
+      if (error?.response?.status === 429) {
+        setIsRateLimited(true);
+      } else {
+        toast.error("Failed to load Notes");
+      }
+    },
+  });
 
-  const loadTagStats = useCallback(async () => {
-    try {
+  const notes = useMemo(
+    () => (Array.isArray(notesQuery.data) ? notesQuery.data : []),
+    [notesQuery.data]
+  );
+  const loading = notesQuery.isLoading;
+
+  const tagStatsQuery = useQuery({
+    queryKey: ["tag-stats"],
+    queryFn: async () => {
       const response = await api.get("/notes/tags/stats");
       const tags = response.data?.tags ?? [];
-      setAvailableTags(
-        tags
-          .map((entry) => entry?._id)
-          .filter(Boolean)
-          .map((tag) => normalizeTag(tag))
-      );
-      setTagInsights({
+      return {
         tags,
         uniqueTags: response.data?.uniqueTags ?? tags.length,
         topTag: response.data?.topTag ?? null,
-      });
-    } catch (error) {
+      };
+    },
+    enabled: notes.length > 0 && !isRateLimited && !notesQuery.isError,
+    staleTime: 300_000,
+    retry: 1,
+    onError: (error) => {
       console.error("Error fetching tag stats", error);
+    },
+  });
+
+  const tagInsights = tagStatsQuery.data ?? null;
+  const availableTags = useMemo(() => {
+    if (tagInsights?.tags?.length) {
+      return Array.from(
+        new Set(
+          tagInsights.tags
+            .map((entry) => normalizeTag(entry?._id))
+            .filter(Boolean)
+        )
+      );
     }
-  }, []);
+    return [];
+  }, [tagInsights]);
 
   useEffect(() => {
     if (hasInitializedFilters.current) return;
@@ -152,26 +194,7 @@ function HomePage() {
     setSearchParams,
   ]);
 
-  useEffect(() => {
-    const fetchNotes = async () => {
-      try {
-        const res = await api.get("/notes");
-        setNotes(res.data);
-        setIsRateLimited(false);
-        loadTagStats();
-      } catch (error) {
-        console.error("Error fetching notes", error);
-        if (error.response?.status === 429) {
-          setIsRateLimited(true);
-        } else {
-          toast.error("Failed to load Notes");
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchNotes();
-  }, [loadTagStats]);
+  const isFetchingNotes = notesQuery.isFetching;
 
   const closeDrawer = () => setDrawerOpen(false);
   const openDrawer = () => setDrawerOpen(true);
@@ -314,7 +337,12 @@ function HomePage() {
   ]);
 
   const showFilterEmptyState =
-    !loading && !isRateLimited && notes.length > 0 && !filteredNotes.length;
+    !loading &&
+    !isFetchingNotes &&
+    !isRateLimited &&
+    !notesQuery.isError &&
+    notes.length > 0 &&
+    !filteredNotes.length;
 
   const tagOptions = useMemo(() => {
     if (availableTags.length) {
@@ -421,7 +449,7 @@ function HomePage() {
           <section className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8">
             <NotesStats
               notes={notes}
-              loading={loading}
+              loading={loading || isFetchingNotes}
               tagStats={tagInsights}
             />
 
@@ -610,16 +638,28 @@ function HomePage() {
 
             {loading && <NoteSkeleton />}
 
-            {!loading && filteredNotes.length > 0 && (
+            {notesQuery.isError && !isRateLimited && (
+              <div className="alert alert-error">
+                <AlertTriangleIcon className="size-5" />
+                <div>
+                  <h3 className="font-bold">
+                    We couldn&apos;t load your notes
+                  </h3>
+                  <p className="text-sm">
+                    Please refresh or try again in a moment.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {!loading && !isFetchingNotes && filteredNotes.length > 0 && (
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {filteredNotes.map((note) => (
                   <NoteCard
                     key={note._id}
                     note={note}
-                    setNotes={setNotes}
                     onTagClick={toggleTagSelection}
                     selectedTags={selectedTags}
-                    onNoteChange={loadTagStats}
                   />
                 ))}
               </div>
@@ -638,9 +678,11 @@ function HomePage() {
               </div>
             )}
 
-            {!loading && !isRateLimited && notes.length === 0 && (
-              <NotesNotFound />
-            )}
+            {!loading &&
+              !isFetchingNotes &&
+              !isRateLimited &&
+              !notesQuery.isError &&
+              notes.length === 0 && <NotesNotFound />}
           </section>
         </main>
 

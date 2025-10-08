@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   BookmarkIcon,
   BookmarkPlusIcon,
@@ -19,16 +20,24 @@ import api from "../lib/axios.js";
 import toast from "react-hot-toast";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 
-function NoteCard({
-  note,
-  setNotes,
-  onTagClick,
-  selectedTags = [],
-  onNoteChange,
-}) {
+function NoteCard({ note, onTagClick, selectedTags = [] }) {
+  const queryClient = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [pinning, setPinning] = useState(false);
+
+  const updateNotesCache = (updater) => {
+    queryClient.setQueryData(["notes"], (previous) => {
+      if (!Array.isArray(previous)) return previous;
+      return updater(previous);
+    });
+  };
+
+  const invalidateNotesQueries = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["notes"] }),
+      queryClient.invalidateQueries({ queryKey: ["tag-stats"] }),
+    ]);
 
   const openConfirm = (event) => {
     event.preventDefault();
@@ -45,10 +54,10 @@ function NoteCard({
     setDeleting(true);
     try {
       await api.delete(`/notes/${note._id}`);
-      setNotes((prev) => prev.filter((item) => item._id !== note._id));
+      updateNotesCache((prev) => prev.filter((item) => item._id !== note._id));
       toast.success("Your note has been deleted successfully");
       setConfirmOpen(false);
-      onNoteChange?.();
+      await invalidateNotesQueries();
     } catch (error) {
       console.error("Error deleting the note", error);
       toast.error("Failed to delete the note");
@@ -78,8 +87,7 @@ function NoteCard({
       const updatedTags = Array.isArray(responseData.tags)
         ? responseData.tags
         : note.tags ?? [];
-
-      setNotes((prev) =>
+      updateNotesCache((prev) =>
         prev.map((item) =>
           item._id === note._id
             ? {
@@ -95,7 +103,7 @@ function NoteCard({
       toast.success(
         updatedPinned ? "Note pinned to top" : "Note removed from pinned"
       );
-      onNoteChange?.();
+      await invalidateNotesQueries();
     } catch (error) {
       console.error("Error toggling pin state", error);
       const message =

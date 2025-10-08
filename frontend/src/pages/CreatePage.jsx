@@ -1,5 +1,6 @@
 import { ArrowLeftIcon } from "lucide-react";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../lib/axios";
@@ -13,6 +14,7 @@ const CreatePage = () => {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,6 +34,10 @@ const CreatePage = () => {
       });
 
       toast.success("Note created successfully!");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["notes"] }),
+        queryClient.invalidateQueries({ queryKey: ["tag-stats"] }),
+      ]);
       navigate("/app");
     } catch (error) {
       console.error("Error creating note", error);

@@ -127,11 +127,14 @@ const shouldUseSecureCookies = (req) => {
 
 const baseCookieOptions = (req) => {
   const secure = shouldUseSecureCookies(req);
+  const configuredDomain = process.env.COOKIE_DOMAIN?.trim();
   return {
     httpOnly: true,
     secure,
     sameSite: secure ? "strict" : "lax",
     path: "/",
+    priority: "high",
+    ...(configuredDomain ? { domain: configuredDomain } : {}),
   };
 };
 
