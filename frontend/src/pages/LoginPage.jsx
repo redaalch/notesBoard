@@ -14,7 +14,7 @@ const LoginPage = () => {
 
   useEffect(() => {
     if (!initializing && user) {
-      const redirectTo = location.state?.from ?? "/";
+      const redirectTo = location.state?.from ?? "/app";
       navigate(redirectTo, { replace: true });
     }
   }, [user, initializing, navigate, location.state]);
@@ -26,7 +26,7 @@ const LoginPage = () => {
     setLoading(true);
     try {
       await login({ email, password });
-      const redirectTo = location.state?.from ?? "/";
+      const redirectTo = location.state?.from ?? "/app";
       navigate(redirectTo, { replace: true });
     } catch (error) {
       const message =

@@ -282,7 +282,7 @@ function Navbar({ onMobileFilterClick = () => {} }) {
             </div>
 
             <Link
-              to="/"
+              to={user ? "/app" : "/"}
               className="group flex items-center gap-3"
               aria-label="Go to dashboard"
             >
