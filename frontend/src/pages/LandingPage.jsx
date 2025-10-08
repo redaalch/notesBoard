@@ -1,14 +1,15 @@
 import { Link } from "react-router-dom";
 import {
   ArrowRightIcon,
+  CheckCircle2Icon,
   ClockIcon,
   LayoutDashboardIcon,
   FeatherIcon,
-  PenSquareIcon,
+  LineChartIcon,
+  NotebookPenIcon,
   RocketIcon,
   ShieldCheckIcon,
   SparklesIcon,
-  UsersIcon,
   Wand2Icon,
 } from "lucide-react";
 import useAuth from "../hooks/useAuth.js";
@@ -16,23 +17,42 @@ import useAuth from "../hooks/useAuth.js";
 const HERO_BACKGROUND = "https://bg.ibelick.com/backgrounds/bg-44.svg";
 const SECTION_BACKGROUND = "https://bg.ibelick.com/backgrounds/bg-24.svg";
 
-const sellingPoints = [
+const metrics = [
+  { value: "45k+", label: "Notes captured every week" },
+  { value: "3m", label: "Avg. time to first note" },
+  { value: "99.9%", label: "Sync reliability" },
+  { value: "120+", label: "Teams collaborating" },
+];
+
+const featureHighlights = [
   {
-    title: "Save notes at the speed of thought",
+    title: "Focus-first editor",
     description:
-      "Capture ideas in a focused workspace with instant search, smart tags, and beautiful themes that match your mood.",
-    icon: PenSquareIcon,
+      "A fast, keyboard-friendly writing surface with Markdown shortcuts, slash commands, and distraction-free mode.",
+    bullets: [
+      "Live preview with inline formatting",
+      "Keyboard palette for quick actions",
+    ],
+    icon: NotebookPenIcon,
   },
   {
-    title: "Stay in sync across every device",
+    title: "Smarter organization",
     description:
-      "Your notes follow you everywhere. Pick up on desktop, continue on tablet, and review on mobile without missing a beat.",
-    icon: UsersIcon,
+      "Saved filters, tag analytics, and pinboards keep the right ideas at the top without manual sorting marathons.",
+    bullets: [
+      "Auto-tag suggestions from recent notes",
+      "Filter presets that remember your view",
+    ],
+    icon: LineChartIcon,
   },
   {
-    title: "Feel the calm of an organized brain",
+    title: "Peace-of-mind security",
     description:
-      "Keep projects, meeting notes, and personal thoughts structured with powerful filters, stats, and pinning tools.",
+      "Granular session controls, secure sharing links, and privacy-first defaults keep sensitive projects protected.",
+    bullets: [
+      "Session refresh on sensitive changes",
+      "Encryption in transit and at rest",
+    ],
     icon: ShieldCheckIcon,
   },
 ];
@@ -103,15 +123,6 @@ function LandingPage() {
             </a>
             <a href="#testimonials" className="hover:text-primary">
               Voices
-            </a>
-            <a
-              href="https://bg.ibelick.com/"
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-2 rounded-full border border-slate-200/70 px-4 py-2 text-xs uppercase tracking-[0.3em] text-slate-500 transition hover:border-primary/50 hover:text-primary"
-            >
-              Backgrounds by Ibelick
-              <ArrowRightIcon className="size-3" />
             </a>
           </nav>
 
@@ -200,6 +211,21 @@ function LandingPage() {
                   <span>10+ crafted themes included</span>
                 </div>
               </div>
+              <div className="mt-10 grid w-full gap-4 sm:grid-cols-2">
+                {metrics.map((metric) => (
+                  <div
+                    key={metric.label}
+                    className="rounded-2xl border border-slate-200/60 bg-white/90 px-5 py-4 text-left shadow-sm"
+                  >
+                    <p className="text-3xl font-semibold text-slate-900">
+                      {metric.value}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {metric.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
             <div className="flex-1">
               <div className="rounded-3xl border border-slate-200/70 bg-white/85 p-6 shadow-2xl shadow-primary/20 backdrop-blur">
@@ -229,7 +255,7 @@ function LandingPage() {
         </section>
 
         <section id="features" className="mx-auto w-full max-w-6xl px-4 py-20">
-          <div className="mx-auto max-w-3xl text-center space-y-4 text-slate-700">
+          <div className="mx-auto max-w-3xl space-y-4 text-center text-slate-700">
             <span className="badge badge-outline badge-lg">
               Built for clarity
             </span>
@@ -242,22 +268,32 @@ function LandingPage() {
             </p>
           </div>
           <div className="mt-12 grid gap-6 md:grid-cols-3">
-            {sellingPoints.map((point) => {
-              const IconComponent = point.icon;
+            {featureHighlights.map((feature) => {
+              const IconComponent = feature.icon;
               return (
                 <article
-                  key={point.title}
-                  className="card border border-slate-200/70 bg-white/85 shadow-lg shadow-primary/10 transition hover:-translate-y-1 hover:shadow-primary/30"
+                  key={feature.title}
+                  className="flex h-full flex-col gap-4 rounded-3xl border border-slate-200/70 bg-white/90 p-6 text-left shadow-lg shadow-primary/10 transition hover:-translate-y-1 hover:shadow-primary/30"
                 >
-                  <div className="card-body space-y-4">
-                    <span className="inline-flex size-12 items-center justify-center rounded-full bg-primary/15 text-primary">
-                      <IconComponent className="size-6" />
-                    </span>
-                    <h3 className="text-lg font-semibold">{point.title}</h3>
+                  <span className="inline-flex size-12 items-center justify-center rounded-full bg-primary/15 text-primary">
+                    <IconComponent className="size-6" />
+                  </span>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      {feature.title}
+                    </h3>
                     <p className="text-sm text-slate-600 leading-relaxed">
-                      {point.description}
+                      {feature.description}
                     </p>
                   </div>
+                  <ul className="space-y-2 text-sm text-slate-600">
+                    {feature.bullets.map((bullet) => (
+                      <li key={bullet} className="flex items-start gap-2">
+                        <CheckCircle2Icon className="mt-0.5 size-4 text-primary" />
+                        <span className="leading-relaxed">{bullet}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </article>
               );
             })}

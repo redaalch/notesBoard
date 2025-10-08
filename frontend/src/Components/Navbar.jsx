@@ -193,13 +193,13 @@ function Navbar({ onMobileFilterClick = () => {} }) {
   return (
     <header className="sticky top-0 z-40 w-full bg-gradient-to-b from-base-300/80 via-base-300/40 to-base-100/0 backdrop-blur">
       <div className="mx-auto w-full max-w-7xl px-4 py-3 lg:px-8">
-        <div className="flex items-center justify-between rounded-2xl border border-base-content/10 bg-base-200/60 px-4 py-3 shadow-lg shadow-primary/10 backdrop-blur-sm">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-base-content/10 bg-base-200/60 px-4 py-3 shadow-lg shadow-primary/10 backdrop-blur-sm md:flex-nowrap">
+          <div className="flex flex-shrink-0 items-center gap-2 sm:gap-3">
             <div className="dropdown lg:hidden">
               <button
                 type="button"
                 tabIndex={0}
-                className="btn btn-circle btn-ghost"
+                className="btn btn-circle btn-ghost btn-sm"
                 aria-label="Open quick menu"
               >
                 <MenuIcon className="size-5" />
@@ -298,10 +298,10 @@ function Navbar({ onMobileFilterClick = () => {} }) {
             </Link>
           </div>
 
-          <div className="flex items-center gap-2 lg:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               type="button"
-              className="btn btn-circle btn-outline lg:hidden"
+              className="btn btn-circle btn-outline btn-sm lg:hidden"
               onClick={onMobileFilterClick}
               aria-label="Open filters"
             >
@@ -413,7 +413,7 @@ function Navbar({ onMobileFilterClick = () => {} }) {
                 <button
                   type="button"
                   tabIndex={0}
-                  className="btn btn-ghost gap-3 rounded-full px-3"
+                  className="btn btn-ghost rounded-full px-2 sm:px-3 gap-0 sm:gap-3"
                   aria-label="User menu"
                 >
                   <div className="avatar placeholder">
