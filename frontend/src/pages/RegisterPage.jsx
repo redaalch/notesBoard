@@ -14,7 +14,7 @@ const RegisterPage = () => {
 
   useEffect(() => {
     if (!initializing && user) {
-      const redirectTo = location.state?.from ?? "/";
+      const redirectTo = location.state?.from ?? "/app";
       navigate(redirectTo, { replace: true });
     }
   }, [user, initializing, navigate, location.state]);
@@ -25,7 +25,7 @@ const RegisterPage = () => {
     setLoading(true);
     try {
       await register({ name, email, password });
-      const redirectTo = location.state?.from ?? "/";
+      const redirectTo = location.state?.from ?? "/app";
       navigate(redirectTo, { replace: true });
     } catch {
       // handled via toast
