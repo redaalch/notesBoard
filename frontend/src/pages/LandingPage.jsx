@@ -1,8 +1,8 @@
-import { useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   ArrowRightIcon,
   ClockIcon,
+  LayoutDashboardIcon,
   FeatherIcon,
   PenSquareIcon,
   RocketIcon,
@@ -75,13 +75,6 @@ const testimonials = [
 
 function LandingPage() {
   const { user, initializing } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!initializing && user) {
-      navigate("/app", { replace: true });
-    }
-  }, [user, initializing, navigate]);
 
   return (
     <div className="min-h-screen bg-base-200 text-base-content">
@@ -123,15 +116,28 @@ function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <Link to="/login" className="btn btn-ghost">
-              Sign in
-            </Link>
-            <Link
-              to="/register"
-              className="btn btn-primary hidden md:inline-flex"
-            >
-              Create free account
-            </Link>
+            {initializing ? null : user ? (
+              <Link
+                to="/app"
+                className="btn btn-primary gap-2"
+                aria-label="Go to dashboard"
+              >
+                <LayoutDashboardIcon className="size-4" />
+                Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link to="/login" className="btn btn-ghost">
+                  Sign in
+                </Link>
+                <Link
+                  to="/register"
+                  className="btn btn-primary hidden md:inline-flex"
+                >
+                  Create free account
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -161,16 +167,28 @@ function LandingPage() {
                 tools.
               </p>
               <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-start">
-                <Link to="/register" className="btn btn-primary btn-lg gap-2">
-                  Get started free
-                  <ArrowRightIcon className="size-4" />
-                </Link>
-                <Link
-                  to="/login"
-                  className="btn btn-ghost btn-lg border border-base-300/60"
-                >
-                  Explore my workspace
-                </Link>
+                {initializing ? null : user ? (
+                  <Link to="/app" className="btn btn-primary btn-lg gap-2">
+                    <LayoutDashboardIcon className="size-5" />
+                    Open dashboard
+                  </Link>
+                ) : (
+                  <>
+                    <Link
+                      to="/register"
+                      className="btn btn-primary btn-lg gap-2"
+                    >
+                      Get started free
+                      <ArrowRightIcon className="size-4" />
+                    </Link>
+                    <Link
+                      to="/login"
+                      className="btn btn-ghost btn-lg border border-base-300/60"
+                    >
+                      Explore my workspace
+                    </Link>
+                  </>
+                )}
               </div>
               <div className="flex flex-col gap-2 text-sm text-base-content/60 sm:flex-row sm:items-center">
                 <div className="flex items-center gap-2">
@@ -338,13 +356,25 @@ function LandingPage() {
                 favorites, and design your ideal theme.
               </p>
               <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <Link to="/register" className="btn btn-primary btn-lg gap-2">
-                  Start my workspace
-                  <ArrowRightIcon className="size-4" />
-                </Link>
-                <Link to="/login" className="btn btn-ghost btn-lg">
-                  I already have an account
-                </Link>
+                {initializing ? null : user ? (
+                  <Link to="/app" className="btn btn-primary btn-lg gap-2">
+                    <LayoutDashboardIcon className="size-5" />
+                    Back to dashboard
+                  </Link>
+                ) : (
+                  <>
+                    <Link
+                      to="/register"
+                      className="btn btn-primary btn-lg gap-2"
+                    >
+                      Start my workspace
+                      <ArrowRightIcon className="size-4" />
+                    </Link>
+                    <Link to="/login" className="btn btn-ghost btn-lg">
+                      I already have an account
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </div>
