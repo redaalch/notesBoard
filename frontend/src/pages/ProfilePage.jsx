@@ -181,7 +181,11 @@ function ProfilePage() {
   return (
     <div className="min-h-screen bg-base-200">
       <Navbar />
-      <main className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-10 lg:px-8">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-10 lg:px-8"
+      >
         <section className="rounded-3xl border border-base-content/10 bg-base-100/80 p-6 shadow-lg shadow-primary/10 backdrop-blur">
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
             <div>

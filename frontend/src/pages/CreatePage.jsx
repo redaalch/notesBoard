@@ -52,7 +52,11 @@ const CreatePage = () => {
 
   return (
     <div className="min-h-screen bg-base-200">
-      <div className="container mx-auto px-4 py-8">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="container mx-auto px-4 py-8"
+      >
         <div className="max-w-2xl mx-auto">
           <Link to={"/app"} className="btn btn-ghost mb-6">
             <ArrowLeftIcon className="size-5" />
@@ -148,7 +152,7 @@ const CreatePage = () => {
             </ul>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };
