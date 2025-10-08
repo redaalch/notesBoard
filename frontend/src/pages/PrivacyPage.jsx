@@ -1,6 +1,10 @@
 import { Link } from "react-router-dom";
+import useAuth from "../hooks/useAuth.js";
 
 function PrivacyPage() {
+  const { user } = useAuth();
+  const homePath = user ? "/app" : "/";
+
   return (
     <div className="min-h-screen bg-base-200 px-4 py-16">
       <div className="mx-auto w-full max-w-3xl space-y-6">
@@ -53,7 +57,7 @@ function PrivacyPage() {
             Contact support
           </a>{" "}
           or return to the{" "}
-          <Link className="link link-primary" to="/">
+          <Link className="link link-primary" to={homePath}>
             home page
           </Link>
           .
