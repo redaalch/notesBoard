@@ -1,9 +1,10 @@
 import {
-  ArrowRightIcon,
-  FilterIcon,
+  ArrowUpRightIcon,
   MenuIcon,
-  PlusIcon,
-  SparklesIcon,
+  PaletteIcon,
+  PlusCircleIcon,
+  SlidersHorizontalIcon,
+  Wand2Icon,
 } from "lucide-react";
 import {
   useCallback,
@@ -14,6 +15,7 @@ import {
 } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth.js";
+import Logo from "./Logo.jsx";
 
 const THEME_OPTIONS = [
   {
@@ -221,7 +223,7 @@ function Navbar({ onMobileFilterClick = () => {} }) {
                   aria-label="Create a new note"
                 >
                   <span className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-primary via-secondary to-accent text-primary-content">
-                    <PlusIcon className="size-4" />
+                    <PlusCircleIcon className="size-4" />
                   </span>
                   <div className="flex flex-1 flex-col text-left">
                     <span className="font-semibold text-base-content">
@@ -231,7 +233,7 @@ function Navbar({ onMobileFilterClick = () => {} }) {
                       Capture something fresh in seconds.
                     </span>
                   </div>
-                  <ArrowRightIcon className="size-4 text-primary transition group-hover:translate-x-0.5" />
+                  <ArrowUpRightIcon className="size-4 text-primary transition group-hover:translate-x-0.5" />
                 </Link>
 
                 <div className="space-y-2">
@@ -289,20 +291,10 @@ function Navbar({ onMobileFilterClick = () => {} }) {
 
             <Link
               to={user ? "/app" : "/"}
-              className="group flex items-center gap-3"
+              className="group"
               aria-label="Go to dashboard"
             >
-              <span className="grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-primary via-secondary to-accent text-primary-content shadow-lg shadow-primary/30 transition-transform duration-200 group-hover:scale-105">
-                <SparklesIcon className="size-5" />
-              </span>
-              <span className="flex flex-col leading-tight">
-                <span className="text-xs uppercase tracking-[0.45em] text-base-content/60">
-                  Notes
-                </span>
-                <span className="text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-                  Board
-                </span>
-              </span>
+              <Logo className="transition-transform duration-200 group-hover:scale-105" />
             </Link>
           </div>
 
@@ -313,14 +305,14 @@ function Navbar({ onMobileFilterClick = () => {} }) {
               onClick={onMobileFilterClick}
               aria-label="Open filters"
             >
-              <FilterIcon className="size-5" />
+              <SlidersHorizontalIcon className="size-5" />
             </button>
 
             <Link
               to="/create"
               className="btn hidden items-center gap-2 rounded-full bg-gradient-to-r from-primary via-secondary to-accent text-primary-content shadow-lg shadow-primary/30 transition hover:shadow-primary/50 lg:inline-flex"
             >
-              <PlusIcon className="size-5" />
+              <PlusCircleIcon className="size-5" />
               <span>Create note</span>
             </Link>
 
@@ -347,7 +339,7 @@ function Navbar({ onMobileFilterClick = () => {} }) {
                   <span className="text-sm font-semibold text-base-content">
                     {currentTheme?.label ?? "Theme"}
                   </span>
-                  <SparklesIcon className="size-4 text-primary" />
+                  <PaletteIcon className="size-4 text-primary" />
                 </span>
               </button>
               <div
@@ -407,7 +399,7 @@ function Navbar({ onMobileFilterClick = () => {} }) {
                   onClick={cycleTheme}
                   aria-label={cycleThemeLabel}
                 >
-                  <SparklesIcon className="size-4" />
+                  <Wand2Icon className="size-4" />
                   Surprise me
                   <span className="text-xs text-base-content/70">
                     ({nextTheme.label})

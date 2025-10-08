@@ -175,7 +175,7 @@ describe("Auth and notes integration", () => {
     expect(postVerifyLogin.body.accessToken).toBeDefined();
   });
 
-  it("resends verification email for legacy accounts without tokens", async () => {
+  it("resend verification email for legacy accounts without tokens", async () => {
     const user = new User({
       name: "Legacy User",
       email: "legacy@example.com",
