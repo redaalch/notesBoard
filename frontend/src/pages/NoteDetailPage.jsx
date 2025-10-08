@@ -468,7 +468,11 @@ function NoteDetailPage() {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-3xl space-y-8 px-4 py-10">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="mx-auto w-full max-w-3xl space-y-8 px-4 py-10"
+        >
           <section className="grid gap-6 sm:grid-cols-3">
             <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-base-100 via-base-200 to-primary/10 p-5 shadow-lg">
               <p className="text-xs font-bold uppercase text-primary tracking-wide mb-1">

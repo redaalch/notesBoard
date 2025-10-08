@@ -2,6 +2,67 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
+@layer base {
+  :root {
+    font-family: "Inter", "Segoe UI", system-ui, -apple-system,
+      BlinkMacSystemFont, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    line-height: 1.6;
+    font-size: 16px;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    min-height: 100vh;
+    background-color: hsl(var(--b2));
+    color: hsl(var(--bc));
+  }
+
+  ::selection {
+    background-color: hsl(var(--p) / 0.2);
+  }
+
+  :focus-visible {
+    outline: 3px solid hsl(var(--p));
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .skip-link {
+    position: fixed;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.75rem 1.5rem;
+    border-radius: 9999px;
+    background-color: hsl(var(--p));
+    color: hsl(var(--pc));
+    box-shadow: 0 10px 30px -12px hsl(var(--p) / 0.7);
+    z-index: 1000;
+    clip-path: inset(0 0 100% 0);
+    opacity: 0;
+    transition: opacity 120ms ease, clip-path 120ms ease;
+  }
+
+  .skip-link:focus,
+  .skip-link:focus-visible {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
 html.theme-changing,
 html.theme-changing body,
 html.theme-changing *,

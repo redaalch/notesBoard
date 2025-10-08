@@ -7,7 +7,11 @@ function TermsPage() {
 
   return (
     <div className="min-h-screen bg-base-200 px-4 py-16">
-      <div className="mx-auto w-full max-w-3xl space-y-6">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto w-full max-w-3xl space-y-6"
+      >
         <div className="space-y-2 text-center">
           <h1 className="text-3xl font-bold">Terms of Service</h1>
           <p className="text-base-content/70">
@@ -61,7 +65,7 @@ function TermsPage() {
           </Link>
           .
         </p>
-      </div>
+      </main>
     </div>
   );
 }

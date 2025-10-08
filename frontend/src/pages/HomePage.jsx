@@ -417,7 +417,7 @@ function HomePage() {
           <RateLimitedUI onDismiss={() => setIsRateLimited(false)} />
         )}
 
-        <main className="flex-1 w-full">
+        <main id="main-content" tabIndex={-1} className="flex-1 w-full">
           <section className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8">
             <NotesStats
               notes={notes}
