@@ -77,15 +77,15 @@ function LandingPage() {
   const { user, initializing } = useAuth();
 
   return (
-    <div className="min-h-screen bg-base-200 text-base-content">
-      <header className="sticky top-0 z-30 border-b border-base-300/60 bg-base-100/80 backdrop-blur supports-[backdrop-filter:blur(0px)]:bg-base-100/70">
+    <div className="min-h-screen bg-slate-100 text-slate-900">
+      <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/80 backdrop-blur supports-[backdrop-filter:blur(0px)]:bg-white/70">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4">
           <Link to="/" className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-primary via-secondary to-accent text-primary-content shadow-lg shadow-primary/30">
               <Wand2Icon className="size-5" />
             </span>
             <div className="flex flex-col leading-tight">
-              <span className="text-xs uppercase tracking-[0.45em] text-base-content/60">
+              <span className="text-xs uppercase tracking-[0.45em] text-slate-500">
                 Notes
               </span>
               <span className="text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
@@ -108,7 +108,7 @@ function LandingPage() {
               href="https://bg.ibelick.com/"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-2 rounded-full border border-base-300/60 px-4 py-2 text-xs uppercase tracking-[0.3em] text-base-content/60 transition hover:border-primary/50 hover:text-primary"
+              className="flex items-center gap-2 rounded-full border border-slate-200/70 px-4 py-2 text-xs uppercase tracking-[0.3em] text-slate-500 transition hover:border-primary/50 hover:text-primary"
             >
               Backgrounds by Ibelick
               <ArrowRightIcon className="size-3" />
@@ -151,7 +151,7 @@ function LandingPage() {
             backgroundPosition: "center",
           }}
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-base-100/90 via-base-100/40 to-base-100/90" />
+          <div className="absolute inset-0 bg-gradient-to-br from-white/90 via-white/45 to-white/90" />
           <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-24 lg:flex-row lg:items-center lg:gap-16">
             <div className="flex-1 space-y-6 text-center lg:text-left">
               <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-xs font-semibold text-primary">
@@ -161,7 +161,7 @@ function LandingPage() {
               <h1 className="text-4xl font-bold leading-tight sm:text-5xl">
                 Build a second brain that actually sparks ideas.
               </h1>
-              <p className="text-lg text-base-content/70 sm:text-xl">
+              <p className="text-lg text-slate-600 sm:text-xl">
                 NotesBoard blends intuitive note-taking, rich organization, and
                 a calm aesthetic so you can focus on thinking—not fighting your
                 tools.
@@ -183,14 +183,14 @@ function LandingPage() {
                     </Link>
                     <Link
                       to="/login"
-                      className="btn btn-ghost btn-lg border border-base-300/60"
+                      className="btn btn-ghost btn-lg border border-slate-200/70"
                     >
                       Explore my workspace
                     </Link>
                   </>
                 )}
               </div>
-              <div className="flex flex-col gap-2 text-sm text-base-content/60 sm:flex-row sm:items-center">
+              <div className="flex flex-col gap-2 text-sm text-slate-600 sm:flex-row sm:items-center">
                 <div className="flex items-center gap-2">
                   <ShieldCheckIcon className="size-4 text-success" />
                   <span>No credit card required</span>
@@ -202,12 +202,12 @@ function LandingPage() {
               </div>
             </div>
             <div className="flex-1">
-              <div className="rounded-3xl border border-base-300/60 bg-base-100/80 p-6 shadow-2xl shadow-primary/20 backdrop-blur">
+              <div className="rounded-3xl border border-slate-200/70 bg-white/85 p-6 shadow-2xl shadow-primary/20 backdrop-blur">
                 <div className="space-y-4">
-                  <h2 className="text-xl font-semibold text-base-content">
+                  <h2 className="text-xl font-semibold text-slate-900">
                     Why teams switch to NotesBoard
                   </h2>
-                  <div className="space-y-3 text-sm text-base-content/70">
+                  <div className="space-y-3 text-sm text-slate-600">
                     <p>
                       • Filter notes by recency, length, or tags in a single
                       click.
@@ -229,14 +229,14 @@ function LandingPage() {
         </section>
 
         <section id="features" className="mx-auto w-full max-w-6xl px-4 py-20">
-          <div className="mx-auto max-w-3xl text-center space-y-4">
+          <div className="mx-auto max-w-3xl text-center space-y-4 text-slate-700">
             <span className="badge badge-outline badge-lg">
               Built for clarity
             </span>
             <h2 className="text-3xl font-bold">
               Everything you need to stay in flow
             </h2>
-            <p className="text-base text-base-content/70">
+            <p className="text-base text-slate-600">
               NotesBoard combines power-user tooling with a welcoming interface
               so capturing and crafting ideas feels effortless.
             </p>
@@ -247,14 +247,14 @@ function LandingPage() {
               return (
                 <article
                   key={point.title}
-                  className="card border border-base-300/60 bg-base-100/80 shadow-lg shadow-primary/10 transition hover:-translate-y-1 hover:shadow-primary/30"
+                  className="card border border-slate-200/70 bg-white/85 shadow-lg shadow-primary/10 transition hover:-translate-y-1 hover:shadow-primary/30"
                 >
                   <div className="card-body space-y-4">
                     <span className="inline-flex size-12 items-center justify-center rounded-full bg-primary/15 text-primary">
                       <IconComponent className="size-6" />
                     </span>
                     <h3 className="text-lg font-semibold">{point.title}</h3>
-                    <p className="text-sm text-base-content/70 leading-relaxed">
+                    <p className="text-sm text-slate-600 leading-relaxed">
                       {point.description}
                     </p>
                   </div>
@@ -266,7 +266,7 @@ function LandingPage() {
 
         <section
           id="workflow"
-          className="relative overflow-hidden border-y border-base-300/60"
+          className="relative overflow-hidden border-y border-slate-200/70"
         >
           <div
             className="absolute inset-0"
@@ -276,14 +276,14 @@ function LandingPage() {
               backgroundPosition: "center",
             }}
           />
-          <div className="absolute inset-0 bg-base-100/85" />
+          <div className="absolute inset-0 bg-white/85" />
           <div className="relative mx-auto w-full max-w-6xl px-4 py-20">
-            <div className="mx-auto max-w-2xl text-center space-y-4">
+            <div className="mx-auto max-w-2xl text-center space-y-4 text-slate-700">
               <span className="badge badge-secondary badge-lg">Workflow</span>
               <h2 className="text-3xl font-bold">
                 Capture → Organize → Create
               </h2>
-              <p className="text-base text-base-content/70">
+              <p className="text-base text-slate-600">
                 A simple rhythm keeps your thoughts moving forward without
                 losing the spark along the way.
               </p>
@@ -294,7 +294,7 @@ function LandingPage() {
                 return (
                   <div
                     key={step.label}
-                    className="rounded-3xl border border-base-300/60 bg-base-100/90 p-6 shadow-lg"
+                    className="rounded-3xl border border-slate-200/70 bg-white/85 p-6 shadow-lg"
                   >
                     <div className="flex items-center gap-4">
                       <span className="grid size-12 place-items-center rounded-2xl bg-gradient-to-br from-primary via-secondary to-accent text-primary-content shadow">
@@ -302,7 +302,7 @@ function LandingPage() {
                       </span>
                       <h3 className="text-xl font-semibold">{step.label}</h3>
                     </div>
-                    <p className="mt-4 text-sm text-base-content/70 leading-relaxed">
+                    <p className="mt-4 text-sm text-slate-600 leading-relaxed">
                       {step.description}
                     </p>
                   </div>
@@ -316,7 +316,7 @@ function LandingPage() {
           id="testimonials"
           className="mx-auto w-full max-w-6xl px-4 py-20"
         >
-          <div className="mx-auto max-w-3xl text-center space-y-4">
+          <div className="mx-auto max-w-3xl text-center space-y-4 text-slate-700">
             <span className="badge badge-outline badge-lg">
               Loved by writers & teams
             </span>
@@ -328,14 +328,14 @@ function LandingPage() {
             {testimonials.map(({ quote, author, role }) => (
               <blockquote
                 key={author}
-                className="rounded-3xl border border-base-300/60 bg-base-100/80 p-6 text-left shadow-lg shadow-primary/10"
+                className="rounded-3xl border border-slate-200/70 bg-white/85 p-6 text-left shadow-lg shadow-primary/10"
               >
-                <p className="text-lg text-base-content/80 leading-relaxed">
+                <p className="text-lg text-slate-700 leading-relaxed">
                   {quote}
                 </p>
                 <footer className="mt-6 space-y-1">
                   <div className="text-sm font-semibold">{author}</div>
-                  <div className="text-xs uppercase tracking-[0.2em] text-base-content/60">
+                  <div className="text-xs uppercase tracking-[0.2em] text-slate-500">
                     {role}
                   </div>
                 </footer>
@@ -350,7 +350,7 @@ function LandingPage() {
               <h2 className="text-3xl font-bold">
                 Ready to write with more clarity?
               </h2>
-              <p className="text-base text-base-content/70">
+              <p className="text-base text-slate-600">
                 Create a free account, explore the workspace, and invite your
                 team when you’re ready. You’ll keep unlimited notes, pin your
                 favorites, and design your ideal theme.
@@ -381,9 +381,9 @@ function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-base-300/60 bg-base-100/80">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-8 text-sm text-base-content/60 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-2 text-base-content/70">
+      <footer className="border-t border-slate-200/70 bg-white/80">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-8 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-2 text-slate-700">
             <SparklesIcon className="size-4 text-primary" />
             Crafted for thinkers, writers, and product teams.
           </div>
