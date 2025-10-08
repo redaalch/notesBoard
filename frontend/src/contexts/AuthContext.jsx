@@ -179,6 +179,80 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  const updateProfile = useCallback(
+    async ({ name, email, currentPassword, verificationRedirectUrl }) => {
+      try {
+        const payload = {};
+        if (name !== undefined) payload.name = name;
+        if (email !== undefined) payload.email = email;
+        if (currentPassword !== undefined) {
+          payload.currentPassword = currentPassword;
+        }
+        if (verificationRedirectUrl !== undefined) {
+          payload.verificationRedirectUrl = verificationRedirectUrl;
+        }
+
+        const response = await api.put("/auth/profile", payload);
+        const {
+          user: profile,
+          accessToken: token,
+          message,
+        } = response.data ?? {};
+
+        if (token) {
+          applyAccessToken(token);
+        }
+
+        if (profile) {
+          setUser(profile);
+        }
+
+        toast.success(message ?? "Profile updated successfully");
+        return response.data ?? {};
+      } catch (error) {
+        const message =
+          error.response?.data?.message ?? "Failed to update your profile.";
+        toast.error(message);
+        throw error;
+      }
+    },
+    [applyAccessToken]
+  );
+
+  const changePassword = useCallback(
+    async ({ currentPassword, newPassword }) => {
+      try {
+        const response = await api.post("/auth/password/change", {
+          currentPassword,
+          newPassword,
+        });
+
+        const {
+          user: profile,
+          accessToken: token,
+          message,
+        } = response.data ?? {};
+
+        if (token) {
+          applyAccessToken(token);
+        }
+
+        if (profile) {
+          setUser(profile);
+        }
+
+        toast.success(message ?? "Password updated successfully");
+        return response.data ?? {};
+      } catch (error) {
+        const message =
+          error.response?.data?.message ?? "Failed to update password.";
+        toast.error(message);
+        throw error;
+      }
+    },
+    [applyAccessToken]
+  );
+
   const resendVerificationEmail = useCallback(
     async ({ email, verificationRedirectUrl }) => {
       try {
@@ -242,6 +316,8 @@ export const AuthProvider = ({ children }) => {
       initializing,
       login,
       register,
+      updateProfile,
+      changePassword,
       resendVerificationEmail,
       verifyEmail,
       logout,
@@ -253,6 +329,8 @@ export const AuthProvider = ({ children }) => {
       initializing,
       login,
       register,
+      updateProfile,
+      changePassword,
       resendVerificationEmail,
       verifyEmail,
       logout,
