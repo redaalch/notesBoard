@@ -41,8 +41,16 @@ const RegisterPage = () => {
     setLoading(true);
     try {
       await register({ name: trimmedName, email: normalizedEmail, password });
-      const redirectTo = location.state?.from ?? "/app";
-      navigate(redirectTo, { replace: true });
+      const nextPath =
+        typeof location.state?.from === "string" ? location.state.from : "/app";
+      const params = new URLSearchParams({ email: normalizedEmail });
+      if (nextPath) {
+        params.set("next", nextPath);
+      }
+      navigate(`/verify-email?${params.toString()}`, {
+        replace: true,
+        state: { email: normalizedEmail, next: nextPath },
+      });
     } catch {
       // handled via toast
     } finally {

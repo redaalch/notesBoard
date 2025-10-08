@@ -60,6 +60,18 @@ const userSchema = new mongoose.Schema(
       expiresAt: { type: Date },
       createdAt: { type: Date },
     },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerifiedAt: {
+      type: Date,
+    },
+    emailVerification: {
+      token: { type: String },
+      expiresAt: { type: Date },
+      createdAt: { type: Date },
+    },
   },
   { timestamps: true }
 );
@@ -106,6 +118,28 @@ userSchema.methods.clearPasswordResetToken =
     this.passwordReset = undefined;
     this.markModified("passwordReset");
   };
+
+userSchema.methods.setEmailVerificationToken =
+  function setEmailVerificationToken(token, expiresAt) {
+    this.emailVerification = {
+      token,
+      expiresAt,
+      createdAt: new Date(),
+    };
+    this.markModified("emailVerification");
+  };
+
+userSchema.methods.clearEmailVerificationToken =
+  function clearEmailVerificationToken() {
+    this.emailVerification = undefined;
+    this.markModified("emailVerification");
+  };
+
+userSchema.methods.markEmailVerified = function markEmailVerified() {
+  this.emailVerified = true;
+  this.emailVerifiedAt = new Date();
+  this.clearEmailVerificationToken();
+};
 
 const User = mongoose.model("User", userSchema);
 
