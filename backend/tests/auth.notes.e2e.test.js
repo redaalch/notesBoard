@@ -13,6 +13,9 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 
 import Note from "../src/models/Note.js";
 import User from "../src/models/User.js";
+import Board from "../src/models/Board.js";
+import Workspace from "../src/models/Workspace.js";
+import CollabDocument from "../src/models/CollabDocument.js";
 
 const sentEmails = [];
 const sendMailMock = vi.fn(async (options) => {
@@ -54,6 +57,9 @@ afterEach(async () => {
   sentEmails.length = 0;
   sendMailMock.mockClear();
   await Note.deleteMany({});
+  await Board.deleteMany({});
+  await Workspace.deleteMany({});
+  await CollabDocument.deleteMany({});
   await User.deleteMany({});
 });
 
@@ -462,5 +468,117 @@ describe("Auth and notes integration", () => {
       .send({ email: payload.email, password: "UpdatedPass9" });
     expect(newLogin.status).toBe(200);
     expect(newLogin.body?.accessToken).toBeDefined();
+  });
+
+  it("supports bulk note actions and board discovery", async () => {
+    const { response: registerResponse, payload } = await registerUser({
+      email: "bulk@example.com",
+    });
+    expect(registerResponse.status).toBe(202);
+    const verifyResponse = await verifyLatestEmail(payload.email);
+
+    const accessToken = verifyResponse.body.accessToken;
+    const clientId = verifyResponse.body.user.id;
+
+    const createNote = async (overrides = {}) => {
+      const response = await request(app)
+        .post("/api/notes")
+        .set(authHeaders(accessToken, clientId))
+        .send({
+          title: "Bulk note",
+          content: "Collaborative content",
+          tags: ["initial"],
+          ...overrides,
+        });
+      expect(response.status).toBe(201);
+      return response.body;
+    };
+
+    const noteA = await createNote({ title: "Alpha note" });
+    const noteB = await createNote({ title: "Beta note" });
+    const noteC = await createNote({ title: "Gamma note" });
+
+    const dbUser = await User.findById(clientId);
+    expect(dbUser?.defaultBoard).toBeDefined();
+    expect(dbUser?.defaultWorkspace).toBeDefined();
+
+    const extraBoard = await Board.create({
+      workspaceId: dbUser.defaultWorkspace,
+      name: "Research Deck",
+      slug: `research-${Date.now()}`,
+      createdBy: dbUser._id,
+    });
+
+    const boardsResponse = await request(app)
+      .get("/api/boards")
+      .set(authHeaders(accessToken, clientId));
+
+    expect(boardsResponse.status).toBe(200);
+    expect(Array.isArray(boardsResponse.body?.boards)).toBe(true);
+    expect(boardsResponse.body.boards.length).toBeGreaterThanOrEqual(2);
+    const boardIds = boardsResponse.body.boards.map((board) => board.id);
+    expect(boardIds).toContain(dbUser.defaultBoard.toString());
+    expect(boardIds).toContain(extraBoard._id.toString());
+
+    const bulkPinResponse = await request(app)
+      .post("/api/notes/bulk")
+      .set(authHeaders(accessToken, clientId))
+      .send({ action: "pin", noteIds: [noteA._id, noteB._id, noteC._id] });
+
+    expect(bulkPinResponse.status).toBe(200);
+    expect(bulkPinResponse.body.updated).toBe(3);
+
+    const listAfterPin = await request(app)
+      .get("/api/notes")
+      .set(authHeaders(accessToken, clientId));
+    expect(listAfterPin.body.every((note) => note.pinned)).toBe(true);
+
+    const bulkTagsResponse = await request(app)
+      .post("/api/notes/bulk")
+      .set(authHeaders(accessToken, clientId))
+      .send({
+        action: "addTags",
+        noteIds: [noteA._id, noteB._id, noteC._id],
+        tags: ["Focus", " Deep Work "],
+      });
+
+    expect(bulkTagsResponse.status).toBe(200);
+    expect(bulkTagsResponse.body.tags).toEqual(["focus", "deep work"]);
+
+    const bulkMoveResponse = await request(app)
+      .post("/api/notes/bulk")
+      .set(authHeaders(accessToken, clientId))
+      .send({
+        action: "move",
+        noteIds: [noteA._id, noteB._id, noteC._id],
+        boardId: extraBoard._id.toString(),
+      });
+
+    expect(bulkMoveResponse.status).toBe(200);
+    expect(bulkMoveResponse.body.boardId.toString()).toBe(
+      extraBoard._id.toString()
+    );
+
+    const listAfterMove = await request(app)
+      .get("/api/notes")
+      .query({ boardId: extraBoard._id.toString() })
+      .set(authHeaders(accessToken, clientId));
+    expect(listAfterMove.status).toBe(200);
+    expect(listAfterMove.body).toHaveLength(3);
+
+    const bulkDeleteResponse = await request(app)
+      .post("/api/notes/bulk")
+      .set(authHeaders(accessToken, clientId))
+      .send({ action: "delete", noteIds: [noteA._id, noteB._id] });
+
+    expect(bulkDeleteResponse.status).toBe(200);
+    expect(bulkDeleteResponse.body.deleted).toBe(2);
+
+    const finalList = await request(app)
+      .get("/api/notes")
+      .query({ boardId: extraBoard._id.toString() })
+      .set(authHeaders(accessToken, clientId));
+    expect(finalList.body).toHaveLength(1);
+    expect(finalList.body[0]._id).toBe(noteC._id);
   });
 });

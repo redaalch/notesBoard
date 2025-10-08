@@ -22,6 +22,9 @@ const auth = async (req, res, next) => {
       id: user.id,
       role: user.role,
       email: user.email,
+      name: user.name,
+      defaultWorkspace: user.defaultWorkspace?.toString?.() ?? null,
+      defaultBoard: user.defaultBoard?.toString?.() ?? null,
     };
     req.userDocument = user;
 

@@ -1,6 +1,8 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
 import User from "../models/User.js";
+import Workspace from "../models/Workspace.js";
+import Board from "../models/Board.js";
 import logger from "../utils/logger.js";
 import { normalizeEmail } from "../utils/validators.js";
 import {
@@ -9,6 +11,7 @@ import {
   hashToken,
 } from "../utils/tokenService.js";
 import { sendMail } from "../utils/mailer.js";
+import slugify from "../utils/slugify.js";
 
 const REFRESH_COOKIE = "nb_refresh_token";
 const isProduction = process.env.NODE_ENV === "production";
@@ -147,6 +150,8 @@ const sanitizeUser = (user) => ({
   emailVerifiedAt: user.emailVerifiedAt,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
+  defaultWorkspace: user.defaultWorkspace,
+  defaultBoard: user.defaultBoard,
 });
 
 const passwordOk = (password) => {
@@ -181,6 +186,68 @@ const generateEmailVerificationToken = () => {
   const hashed = hashToken(token);
   const expiresAt = new Date(Date.now() + getEmailVerificationTtlMs());
   return { token, hashed, expiresAt };
+};
+
+const randomSlugSuffix = () => Math.random().toString(36).slice(2, 8);
+
+const buildWorkspaceName = (name) => {
+  if (name && typeof name === "string") {
+    const first = name.split(" ")[0];
+    if (first) {
+      return `${first}'s workspace`;
+    }
+  }
+  return "Personal workspace";
+};
+
+const buildBoardName = () => "My Notes";
+
+const ensureUserWorkspace = async (user) => {
+  if (!user) return null;
+
+  if (user.defaultWorkspace && user.defaultBoard) {
+    return {
+      workspaceId: user.defaultWorkspace,
+      boardId: user.defaultBoard,
+      created: false,
+    };
+  }
+
+  const workspaceName = buildWorkspaceName(user.name);
+  const workspaceSlugBase = slugify(`${workspaceName}-${randomSlugSuffix()}`, {
+    maxLength: 96,
+  });
+
+  const workspace = await Workspace.create({
+    name: workspaceName,
+    slug: workspaceSlugBase || `workspace-${randomSlugSuffix()}`,
+    ownerId: user._id,
+    members: [],
+  });
+
+  const boardName = buildBoardName();
+  const boardSlug = slugify(`${boardName}-${randomSlugSuffix()}`, {
+    maxLength: 96,
+  });
+
+  const board = await Board.create({
+    workspaceId: workspace._id,
+    name: boardName,
+    slug: boardSlug || `board-${randomSlugSuffix()}`,
+    createdBy: user._id,
+  });
+
+  user.defaultWorkspace = workspace._id;
+  user.defaultBoard = board._id;
+  await user.save();
+
+  return {
+    workspaceId: workspace._id,
+    boardId: board._id,
+    created: true,
+    workspace,
+    board,
+  };
 };
 
 const parseUrlCandidate = (value) => {
@@ -302,6 +369,8 @@ const cookieOptions = (req, expiresAt) => ({
 });
 
 const issueSession = async (user, req, res, meta = {}) => {
+  const workspaceContext = await ensureUserWorkspace(user);
+
   const accessToken = generateAccessToken(user);
   const { token: refreshToken, hashed, expiresAt } = generateRefreshToken();
 
@@ -319,6 +388,9 @@ const issueSession = async (user, req, res, meta = {}) => {
     accessToken,
     expiresIn: process.env.JWT_ACCESS_TTL || "15m",
     refreshExpiresAt: expiresAt,
+    defaultWorkspaceId:
+      workspaceContext?.workspaceId ?? user.defaultWorkspace ?? null,
+    defaultBoardId: workspaceContext?.boardId ?? user.defaultBoard ?? null,
   };
 };
 
@@ -570,6 +642,8 @@ export const login = async (req, res) => {
       user: sanitizeUser(user),
       accessToken: session.accessToken,
       expiresIn: session.expiresIn,
+      defaultWorkspaceId: session.defaultWorkspaceId,
+      defaultBoardId: session.defaultBoardId,
     });
   } catch (error) {
     logger.error("Login failed", {
@@ -613,6 +687,8 @@ export const verifyEmail = async (req, res) => {
       user: sanitizeUser(user),
       accessToken: session.accessToken,
       expiresIn: session.expiresIn,
+      defaultWorkspaceId: session.defaultWorkspaceId,
+      defaultBoardId: session.defaultBoardId,
     });
   } catch (error) {
     logger.error("Email verification failed", {
@@ -704,6 +780,8 @@ export const refresh = async (req, res) => {
       user: sanitizeUser(user),
       accessToken: session.accessToken,
       expiresIn: session.expiresIn,
+      defaultWorkspaceId: session.defaultWorkspaceId,
+      defaultBoardId: session.defaultBoardId,
     });
   } catch (error) {
     logger.error("Refresh failed", {
@@ -871,6 +949,8 @@ export const updateProfile = async (req, res) => {
         ? {
             accessToken: session.accessToken,
             expiresIn: session.expiresIn,
+            defaultWorkspaceId: session.defaultWorkspaceId,
+            defaultBoardId: session.defaultBoardId,
           }
         : {}),
     });
@@ -930,6 +1010,8 @@ export const changePassword = async (req, res) => {
       user: sanitizeUser(user),
       accessToken: session.accessToken,
       expiresIn: session.expiresIn,
+      defaultWorkspaceId: session.defaultWorkspaceId,
+      defaultBoardId: session.defaultBoardId,
     });
   } catch (error) {
     logger.error("Change password failed", {

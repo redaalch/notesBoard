@@ -1,10 +1,13 @@
-import { ArrowLeftIcon } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeftIcon, SparklesIcon } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import api from "../lib/axios";
 import TagInput from "../Components/TagInput.jsx";
+import TemplateGalleryModal from "../Components/TemplateGalleryModal.jsx";
+import { useCommandPalette } from "../contexts/CommandPaletteContext.jsx";
+import { normalizeTag } from "../lib/Utils.js";
 
 const CreatePage = () => {
   const [title, setTitle] = useState("");
@@ -12,9 +15,54 @@ const CreatePage = () => {
   const [tags, setTags] = useState([]);
   const [pinned, setPinned] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [activeTemplate, setActiveTemplate] = useState(null);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
+  const { registerCommands } = useCommandPalette();
+
+  const applyTemplate = useCallback((template) => {
+    if (!template) return;
+
+    setTitle(template.title ?? "");
+    setContent(template.content ?? "");
+    setTags(
+      Array.isArray(template.tags)
+        ? template.tags.map((tag) => normalizeTag(tag)).filter(Boolean)
+        : []
+    );
+    setPinned(Boolean(template.pinned));
+    setActiveTemplate(template);
+    toast.success(`Loaded the ${template.name} template`);
+  }, []);
+
+  useEffect(() => {
+    const incomingTemplate = location.state?.template;
+    if (incomingTemplate) {
+      applyTemplate(incomingTemplate);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [applyTemplate, location.pathname, location.state, navigate]);
+
+  useEffect(() => {
+    const cleanup = registerCommands([
+      {
+        id: "create:open-templates",
+        label: "Browse note templates",
+        section: "Compose",
+        action: () => setTemplateModalOpen(true),
+      },
+    ]);
+    return cleanup;
+  }, [registerCommands]);
+
+  const handleTemplateSelect = (template) => {
+    if (!template) return;
+    setTemplateModalOpen(false);
+    applyTemplate(template);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -72,6 +120,23 @@ const CreatePage = () => {
           <div className="card bg-base-100">
             <div className="card-body">
               <h2 className="card-title text-2xl mb-4">Create New Note</h2>
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-base-300/60 bg-base-200/70 px-4 py-3">
+                <div className="flex items-center gap-2 text-sm text-base-content/70">
+                  <SparklesIcon className="size-4 text-primary" />
+                  <span>
+                    {activeTemplate
+                      ? `Template in use: ${activeTemplate.name}`
+                      : "Start from scratch or pick a template."}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => setTemplateModalOpen(true)}
+                >
+                  Browse templates
+                </button>
+              </div>
               <form onSubmit={handleSubmit}>
                 <div className="form-control mb-4">
                   <label className="label">
@@ -159,6 +224,11 @@ const CreatePage = () => {
           </div>
         </div>
       </main>
+      <TemplateGalleryModal
+        open={templateModalOpen}
+        onClose={() => setTemplateModalOpen(false)}
+        onSelect={handleTemplateSelect}
+      />
     </div>
   );
 };

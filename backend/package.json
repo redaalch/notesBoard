@@ -7,7 +7,8 @@
     "test": "vitest run",
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "bootstrap-owner": "node src/scripts/bootstrapOwner.js"
+    "bootstrap-owner": "node src/scripts/bootstrapOwner.js",
+    "collab": "node src/collab/server.js"
   },
   "keywords": [],
   "author": "",
@@ -22,10 +23,13 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^4.18.2",
+    "@hocuspocus/server": "^2.10.1",
+    "@hocuspocus/transformer": "^2.10.1",
     "helmet": "^7.2.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.14.3",
-    "nodemailer": "^6.9.15"
+    "nodemailer": "^6.9.15",
+    "yjs": "^13.6.14"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

@@ -20,11 +20,28 @@ import api from "../lib/axios.js";
 import toast from "react-hot-toast";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 
-function NoteCard({ note, onTagClick, selectedTags = [] }) {
+function NoteCard({
+  note,
+  onTagClick,
+  selectedTags = [],
+  selectionMode = false,
+  selected = false,
+  onSelectionChange,
+}) {
   const queryClient = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [pinning, setPinning] = useState(false);
+
+  const handleSelectionChange = (checked) => {
+    if (typeof onSelectionChange === "function") {
+      onSelectionChange(note._id, checked);
+    }
+  };
+
+  const toggleSelection = () => {
+    handleSelectionChange(!selected);
+  };
 
   const updateNotesCache = (updater) => {
     queryClient.setQueryData(["notes"], (previous) => {
@@ -120,55 +137,87 @@ function NoteCard({ note, onTagClick, selectedTags = [] }) {
 
   return (
     <>
-      <article className="card bg-base-100/90 backdrop-blur border border-base-200/70 shadow-md hover:shadow-xl hover:border-primary/30 transition-all duration-200">
+      <article
+        className={`card bg-base-100/90 backdrop-blur border border-base-200/70 shadow-md transition-all duration-200 ${
+          selected
+            ? "border-primary/60 ring-1 ring-primary/40"
+            : "hover:border-primary/30 hover:shadow-xl"
+        }`}
+        onClick={selectionMode ? toggleSelection : undefined}
+        role="group"
+        aria-pressed={selectionMode ? selected : undefined}
+      >
         <div className="card-body space-y-5">
           <header className="flex items-start justify-between gap-3">
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-lg md:text-xl font-semibold text-base-content">
-                  {note.title || "Untitled note"}
-                </h3>
-                {isRecentlyUpdated && (
-                  <span className="badge badge-success badge-sm">New</span>
-                )}
-                {note.pinned && (
-                  <span className="badge badge-warning badge-sm">Pinned</span>
-                )}
+            <div className="flex items-start gap-3">
+              {selectionMode && (
+                <div className="pt-1">
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-primary checkbox-sm"
+                    checked={selected}
+                    onChange={(event) => {
+                      event.stopPropagation();
+                      handleSelectionChange(event.target.checked);
+                    }}
+                    aria-label={selected ? "Deselect note" : "Select note"}
+                  />
+                </div>
+              )}
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-lg md:text-xl font-semibold text-base-content">
+                    {note.title || "Untitled note"}
+                  </h3>
+                  {isRecentlyUpdated && (
+                    <span className="badge badge-success badge-sm">New</span>
+                  )}
+                  {note.pinned && (
+                    <span className="badge badge-warning badge-sm">Pinned</span>
+                  )}
+                </div>
+                <p className="text-xs md:text-sm text-base-content/70 flex items-center gap-1">
+                  <CalendarClockIcon className="size-4" />
+                  Updated {formatRelativeTime(updatedAt)}
+                </p>
               </div>
-              <p className="text-xs md:text-sm text-base-content/70 flex items-center gap-1">
-                <CalendarClockIcon className="size-4" />
-                Updated {formatRelativeTime(updatedAt)}
-              </p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <div
-                className="tooltip tooltip-left"
-                data-tip={note.pinned ? "Unpin note" : "Pin note"}
-              >
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={handleTogglePin}
-                  disabled={pinning}
-                  aria-label={note.pinned ? "Unpin note" : "Pin note"}
-                >
-                  {pinning ? (
-                    <LoaderIcon className="size-4 animate-spin" />
-                  ) : note.pinned ? (
-                    <BookmarkIcon className="size-4" />
-                  ) : (
-                    <BookmarkPlusIcon className="size-4" />
-                  )}
-                </button>
-              </div>
-              <div
-                className="tooltip tooltip-left"
-                data-tip="Open note details"
-              >
-                <Link to={`/note/${note._id}`} className="btn btn-ghost btn-sm">
-                  <NotebookPenIcon className="size-4" />
-                </Link>
-              </div>
+              {!selectionMode && (
+                <>
+                  <div
+                    className="tooltip tooltip-left"
+                    data-tip={note.pinned ? "Unpin note" : "Pin note"}
+                  >
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={handleTogglePin}
+                      disabled={pinning}
+                      aria-label={note.pinned ? "Unpin note" : "Pin note"}
+                    >
+                      {pinning ? (
+                        <LoaderIcon className="size-4 animate-spin" />
+                      ) : note.pinned ? (
+                        <BookmarkIcon className="size-4" />
+                      ) : (
+                        <BookmarkPlusIcon className="size-4" />
+                      )}
+                    </button>
+                  </div>
+                  <div
+                    className="tooltip tooltip-left"
+                    data-tip="Open note details"
+                  >
+                    <Link
+                      to={`/note/${note._id}`}
+                      className="btn btn-ghost btn-sm"
+                    >
+                      <NotebookPenIcon className="size-4" />
+                    </Link>
+                  </div>
+                </>
+              )}
             </div>
           </header>
 
@@ -212,28 +261,30 @@ function NoteCard({ note, onTagClick, selectedTags = [] }) {
                 Last updated {formatDate(updatedAt)}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <div
-                className="tooltip tooltip-bottom"
-                data-tip="Open note details"
-              >
-                <Link
-                  to={`/note/${note._id}`}
-                  className="btn btn-primary btn-sm gap-2"
+            {!selectionMode && (
+              <div className="flex items-center gap-2">
+                <div
+                  className="tooltip tooltip-bottom"
+                  data-tip="Open note details"
                 >
-                  <EyeIcon className="size-4" />
-                  View note
-                </Link>
+                  <Link
+                    to={`/note/${note._id}`}
+                    className="btn btn-primary btn-sm gap-2"
+                  >
+                    <EyeIcon className="size-4" />
+                    View note
+                  </Link>
+                </div>
+                <div className="tooltip tooltip-bottom" data-tip="Delete note">
+                  <button
+                    className="btn btn-outline btn-error btn-sm"
+                    onClick={openConfirm}
+                  >
+                    <TrashIcon className="size-4" />
+                  </button>
+                </div>
               </div>
-              <div className="tooltip tooltip-bottom" data-tip="Delete note">
-                <button
-                  className="btn btn-outline btn-error btn-sm"
-                  onClick={openConfirm}
-                >
-                  <TrashIcon className="size-4" />
-                </button>
-              </div>
-            </div>
+            )}
           </footer>
         </div>
       </article>

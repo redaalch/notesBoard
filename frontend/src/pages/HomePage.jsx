@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangleIcon,
   ChevronDownIcon,
   FilterIcon,
+  ListChecksIcon,
   PlusIcon,
   RefreshCwIcon,
   SearchIcon,
@@ -11,7 +12,7 @@ import {
   TagIcon,
   XIcon,
 } from "lucide-react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../Components/Navbar.jsx";
 import RateLimitedUI from "../Components/RateLimitedUI.jsx";
 import api from "../lib/axios.js";
@@ -21,6 +22,11 @@ import NotesNotFound from "../Components/NotesNotFound.jsx";
 import NoteSkeleton from "../Components/NoteSkeleton.jsx";
 import NotesStats from "../Components/NotesStats.jsx";
 import { countWords, formatTagLabel, normalizeTag } from "../lib/Utils.js";
+import TemplateGalleryModal from "../Components/TemplateGalleryModal.jsx";
+import BulkActionsBar from "../Components/BulkActionsBar.jsx";
+import TagInput from "../Components/TagInput.jsx";
+import ConfirmDialog from "../Components/ConfirmDialog.jsx";
+import { useCommandPalette } from "../contexts/CommandPaletteContext.jsx";
 
 const FILTER_STORAGE_KEY = "notesboard-filters-v1";
 
@@ -29,6 +35,14 @@ const sortLabelMap = {
   oldest: "Oldest first",
   alphabetical: "A → Z",
   updated: "Recently updated",
+};
+
+const BULK_SUCCESS_MESSAGES = {
+  pin: "Pinned selected notes",
+  unpin: "Unpinned selected notes",
+  delete: "Deleted selected notes",
+  addTags: "Tags added to selected notes",
+  move: "Moved notes to the chosen board",
 };
 
 function HomePage() {
@@ -40,9 +54,22 @@ function HomePage() {
   const [sortOrder, setSortOrder] = useState("newest");
   const [selectedTags, setSelectedTags] = useState([]);
   const [openTips, setOpenTips] = useState([]);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedNoteIds, setSelectedNoteIds] = useState([]);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [tagModalOpen, setTagModalOpen] = useState(false);
+  const [moveModalOpen, setMoveModalOpen] = useState(false);
+  const [bulkTags, setBulkTags] = useState([]);
+  const [selectedBoardId, setSelectedBoardId] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const filterPanelRef = useRef(null);
   const hasInitializedFilters = useRef(false);
+  const searchInputRef = useRef(null);
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { registerCommands } = useCommandPalette();
   const notesQuery = useQuery({
     queryKey: ["notes"],
     queryFn: async () => {
@@ -107,6 +134,25 @@ function HomePage() {
     }
     return [];
   }, [tagInsights]);
+
+  const boardsQuery = useQuery({
+    queryKey: ["boards"],
+    queryFn: async () => {
+      const response = await api.get("/boards");
+      const payload = response.data ?? {};
+      return {
+        boards: Array.isArray(payload.boards) ? payload.boards : [],
+        defaultBoardId: payload.defaultBoardId ?? null,
+      };
+    },
+    staleTime: 300_000,
+    enabled: selectionMode || moveModalOpen || templateModalOpen,
+  });
+
+  const boardOptions = useMemo(() => {
+    return boardsQuery.data?.boards ?? [];
+  }, [boardsQuery.data]);
+  const defaultBoardId = boardsQuery.data?.defaultBoardId ?? null;
 
   useEffect(() => {
     if (hasInitializedFilters.current) return;
@@ -336,6 +382,20 @@ function HomePage() {
     selectedTags,
   ]);
 
+  const selectedNoteIdSet = useMemo(
+    () => new Set(selectedNoteIds),
+    [selectedNoteIds]
+  );
+
+  useEffect(() => {
+    if (!selectedNoteIds.length) return;
+    const noteIdSet = new Set(notes.map((note) => note._id));
+    setSelectedNoteIds((prev) => {
+      const filtered = prev.filter((id) => noteIdSet.has(id));
+      return filtered.length === prev.length ? prev : filtered;
+    });
+  }, [notes, selectedNoteIds.length]);
+
   const showFilterEmptyState =
     !loading &&
     !isFetchingNotes &&
@@ -387,6 +447,115 @@ function HomePage() {
     );
   };
 
+  const invalidateNotesCaches = useCallback(
+    () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["notes"] }),
+        queryClient.invalidateQueries({ queryKey: ["tag-stats"] }),
+      ]),
+    [queryClient]
+  );
+
+  const selectionCount = selectedNoteIds.length;
+
+  const handleNoteSelectionChange = useCallback((noteId, checked) => {
+    setSelectedNoteIds((prev) => {
+      const exists = prev.includes(noteId);
+      if (checked && !exists) {
+        return [...prev, noteId];
+      }
+      if (!checked && exists) {
+        return prev.filter((id) => id !== noteId);
+      }
+      return prev;
+    });
+  }, []);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedNoteIds([]);
+    setSelectionMode(false);
+  }, []);
+
+  const performBulkAction = useCallback(
+    async (action, extraPayload = {}) => {
+      if (!selectionCount) {
+        toast.error("Select at least one note first");
+        return;
+      }
+
+      setBulkActionLoading(true);
+      try {
+        await api.post("/notes/bulk", {
+          action,
+          noteIds: selectedNoteIds,
+          ...extraPayload,
+        });
+
+        const message = BULK_SUCCESS_MESSAGES[action] ?? "Notes updated";
+        toast.success(message);
+
+        setSelectedNoteIds([]);
+        setSelectionMode(false);
+        await invalidateNotesCaches();
+      } catch (error) {
+        console.error("Bulk action failed", error);
+        const message =
+          error.response?.data?.message ?? "Failed to update selected notes";
+        toast.error(message);
+      } finally {
+        setBulkActionLoading(false);
+      }
+    },
+    [invalidateNotesCaches, selectedNoteIds, selectionCount]
+  );
+
+  const handleBulkPin = () => performBulkAction("pin");
+  const handleBulkUnpin = () => performBulkAction("unpin");
+  const handleBulkAddTags = () => setTagModalOpen(true);
+  const handleBulkMove = () => setMoveModalOpen(true);
+  const handleBulkDelete = () => setDeleteDialogOpen(true);
+
+  const submitBulkTags = async () => {
+    const normalized = bulkTags.map((tag) => normalizeTag(tag)).filter(Boolean);
+    if (!normalized.length) {
+      toast.error("Add at least one tag to continue");
+      return;
+    }
+
+    setTagModalOpen(false);
+    setBulkTags([]);
+    await performBulkAction("addTags", { tags: normalized });
+  };
+
+  const submitBulkMove = async () => {
+    if (!selectedBoardId) {
+      toast.error("Choose a board to move notes into");
+      return;
+    }
+
+    setMoveModalOpen(false);
+    await performBulkAction("move", { boardId: selectedBoardId });
+  };
+
+  const confirmBulkDelete = async () => {
+    setDeleteDialogOpen(false);
+    await performBulkAction("delete");
+  };
+
+  const cancelBulkDelete = () => setDeleteDialogOpen(false);
+
+  const toggleSelectionMode = () => {
+    setSelectionMode((prev) => !prev);
+  };
+
+  const openTemplateGallery = () => setTemplateModalOpen(true);
+
+  const handleTemplateSelect = (template) => {
+    if (!template) return;
+    setTemplateModalOpen(false);
+    navigate("/create", { state: { template } });
+  };
+
   const filterTips = [
     {
       title: "Use search shortcuts",
@@ -429,6 +598,62 @@ function HomePage() {
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [drawerOpen]);
 
+  useEffect(() => {
+    if (!selectionMode) {
+      setSelectedNoteIds([]);
+    }
+  }, [selectionMode]);
+
+  useEffect(() => {
+    if (!moveModalOpen || !boardOptions.length) return;
+    setSelectedBoardId((previous) => {
+      if (previous && boardOptions.some((board) => board.id === previous)) {
+        return previous;
+      }
+      if (
+        defaultBoardId &&
+        boardOptions.some((board) => board.id === defaultBoardId)
+      ) {
+        return defaultBoardId;
+      }
+      return boardOptions[0]?.id ?? "";
+    });
+  }, [moveModalOpen, boardOptions, defaultBoardId]);
+
+  useEffect(() => {
+    const cleanup = registerCommands([
+      {
+        id: "home:toggle-selection",
+        label: selectionMode
+          ? "Exit multi-select mode"
+          : "Enter multi-select mode",
+        section: "Notes",
+        keywords: ["bulk", "multi-select", "select"],
+        action: () => setSelectionMode((prev) => !prev),
+      },
+      {
+        id: "home:focus-search",
+        label: "Focus notes search",
+        section: "Notes",
+        shortcut: "/",
+        action: () => searchInputRef.current?.focus(),
+      },
+      {
+        id: "home:open-templates",
+        label: "Browse note templates",
+        section: "Notes",
+        action: () => setTemplateModalOpen(true),
+      },
+      {
+        id: "home:toggle-filters",
+        label: drawerOpen ? "Close filters drawer" : "Open filters drawer",
+        section: "Notes",
+        action: () => setDrawerOpen((prev) => !prev),
+      },
+    ]);
+    return cleanup;
+  }, [drawerOpen, registerCommands, selectionMode]);
+
   return (
     <div className="drawer">
       <input
@@ -454,6 +679,34 @@ function HomePage() {
             />
 
             <div className="sticky top-4 z-10 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-base-300/60 bg-base-200/70 px-4 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm gap-2"
+                    onClick={openTemplateGallery}
+                  >
+                    <SparklesIcon className="size-4" />
+                    New note from...
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm gap-2 ${
+                      selectionMode ? "btn-primary" : "btn-outline"
+                    }`}
+                    onClick={toggleSelectionMode}
+                  >
+                    <ListChecksIcon className="size-4" />
+                    {selectionMode ? "Exit multi-select" : "Multi-select"}
+                  </button>
+                </div>
+                <div className="text-xs text-base-content/60">
+                  {selectionMode
+                    ? "Tap notes to select them for bulk actions."
+                    : "Filter, search, or group your notes quickly."}
+                </div>
+              </div>
+
               <div className="rounded-2xl border border-base-300/60 bg-base-100/80 p-4 shadow-sm backdrop-blur supports-[backdrop-filter:blur(0px)]:bg-base-100/70">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div
@@ -496,6 +749,7 @@ function HomePage() {
                         <input
                           type="search"
                           value={searchQuery}
+                          ref={searchInputRef}
                           onChange={(event) =>
                             setSearchQuery(event.target.value)
                           }
@@ -599,6 +853,19 @@ function HomePage() {
                 </div>
               </div>
 
+              {selectionMode && selectionCount > 0 && (
+                <BulkActionsBar
+                  selectedCount={selectionCount}
+                  onClearSelection={handleClearSelection}
+                  onPinSelected={handleBulkPin}
+                  onUnpinSelected={handleBulkUnpin}
+                  onAddTags={handleBulkAddTags}
+                  onMove={handleBulkMove}
+                  onDelete={handleBulkDelete}
+                  busy={bulkActionLoading}
+                />
+              )}
+
               {filtersApplied && (
                 <div className="flex flex-wrap items-center gap-2 rounded-xl border border-base-300/60 bg-base-200/70 px-4 py-3">
                   {activeFilterChips.map(({ key, label, onClear }) => (
@@ -654,14 +921,22 @@ function HomePage() {
 
             {!loading && !isFetchingNotes && filteredNotes.length > 0 && (
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {filteredNotes.map((note) => (
-                  <NoteCard
-                    key={note._id}
-                    note={note}
-                    onTagClick={toggleTagSelection}
-                    selectedTags={selectedTags}
-                  />
-                ))}
+                {filteredNotes.map((note) => {
+                  const isSelected = selectedNoteIdSet.has(note._id);
+                  return (
+                    <NoteCard
+                      key={note._id}
+                      note={note}
+                      onTagClick={
+                        selectionMode ? undefined : toggleTagSelection
+                      }
+                      selectedTags={selectedTags}
+                      selectionMode={selectionMode}
+                      selected={isSelected}
+                      onSelectionChange={handleNoteSelectionChange}
+                    />
+                  );
+                })}
               </div>
             )}
 
@@ -860,6 +1135,135 @@ function HomePage() {
           </button>
         </div>
       </div>
+
+      <TemplateGalleryModal
+        open={templateModalOpen}
+        onClose={() => setTemplateModalOpen(false)}
+        onSelect={handleTemplateSelect}
+      />
+
+      {tagModalOpen && (
+        <div
+          className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40 px-4 py-10"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setTagModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl border border-base-content/10 bg-base-100 p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold">
+              Add tags to selected notes
+            </h3>
+            <p className="mt-1 text-sm text-base-content/60">
+              Tags are lowercased automatically. You can add up to eight tags
+              per note.
+            </p>
+            <div className="mt-4">
+              <TagInput value={bulkTags} onChange={setBulkTags} />
+            </div>
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setTagModalOpen(false)}
+                disabled={bulkActionLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={submitBulkTags}
+                disabled={bulkActionLoading}
+              >
+                Apply tags
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {moveModalOpen && (
+        <div
+          className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40 px-4 py-10"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setMoveModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl border border-base-content/10 bg-base-100 p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold">
+              Move notes to another board
+            </h3>
+            <p className="mt-1 text-sm text-base-content/60">
+              Choose where the selected notes should live. Pinned status and
+              tags stay intact.
+            </p>
+            <div className="mt-4 space-y-2">
+              {boardsQuery.isLoading ? (
+                <p className="text-sm text-base-content/60">
+                  Loading boards...
+                </p>
+              ) : boardOptions.length ? (
+                <select
+                  className="select select-bordered w-full"
+                  value={selectedBoardId}
+                  onChange={(event) => setSelectedBoardId(event.target.value)}
+                >
+                  {boardOptions.map((board) => (
+                    <option key={board.id} value={board.id}>
+                      {board.workspaceName
+                        ? `${board.workspaceName} · ${board.name}`
+                        : board.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="rounded-lg bg-base-200/70 px-4 py-3 text-sm text-base-content/60">
+                  No boards available yet. Create another board to move notes
+                  into.
+                </p>
+              )}
+            </div>
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setMoveModalOpen(false)}
+                disabled={bulkActionLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={submitBulkMove}
+                disabled={
+                  bulkActionLoading || !boardOptions.length || !selectedBoardId
+                }
+              >
+                Move notes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="Delete selected notes?"
+        description="This permanently removes the selected notes and their collaborative history."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        tone="error"
+        confirmLoading={bulkActionLoading}
+        onCancel={cancelBulkDelete}
+        onConfirm={confirmBulkDelete}
+      />
     </div>
   );
 }
