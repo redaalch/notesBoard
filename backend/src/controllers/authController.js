@@ -286,8 +286,6 @@ const sendEmailVerification = async (user, req, token, redirectUrl) => {
       user.name || "there"
     },</p><p>Thanks for signing up for NotesBoard! Please confirm your email address by clicking the link below:</p><p><a href="${verifyLink}">Confirm your email</a></p><p>If you did not sign up, you can safely ignore this email.</p></body></html>`,
   });
-
-  return verifyLink;
 };
 
 const PASSWORD_RESET_GENERIC_RESPONSE = {
@@ -423,6 +421,64 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: error.message });
     }
 
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
+  }
+};
+
+export const resendEmailVerification = async (req, res) => {
+  try {
+    const { email, verificationRedirectUrl } = req.body ?? {};
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!normalizedEmail) {
+      return res.status(400).json(EMAIL_REQUIRED);
+    }
+
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      return res.status(200).json({
+        message:
+          "If an account exists for that email, we'll send a verification link.",
+      });
+    }
+
+    if (user.emailVerified) {
+      return res.status(200).json({
+        message: "This email is already verified. You can sign in.",
+      });
+    }
+
+    const verification = generateEmailVerificationToken();
+    user.setEmailVerificationToken(verification.hashed, verification.expiresAt);
+    user.clearRefreshTokens();
+    await user.save();
+
+    try {
+      await sendEmailVerification(
+        user,
+        req,
+        verification.token,
+        verificationRedirectUrl
+      );
+    } catch (error) {
+      logger.error("Verification email resend failed", {
+        error: error?.message,
+        userId: user.id,
+      });
+      return res.status(500).json({
+        message: "Failed to send verification email. Please try again later.",
+      });
+    }
+
+    return res.status(200).json({
+      message: "Verification email sent. Check your inbox to confirm.",
+    });
+  } catch (error) {
+    logger.error("Resend email verification failed", {
+      error: error?.message,
+      stack: error?.stack,
+    });
     return res.status(500).json(INTERNAL_SERVER_ERROR);
   }
 };

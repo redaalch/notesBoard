@@ -1,6 +1,6 @@
+import "./config/env.js";
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -9,8 +9,6 @@ import notesRoutes from "./routes/notesRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import rateLimiter from "./middleware/rateLimiter.js";
 import logger from "./utils/logger.js";
-
-dotenv.config();
 
 const app = express();
 

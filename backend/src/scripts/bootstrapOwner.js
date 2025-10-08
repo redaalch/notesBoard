@@ -1,12 +1,10 @@
 #!/usr/bin/env node
-import dotenv from "dotenv";
 import mongoose from "mongoose";
 
 import { connectDb } from "../config/db.js";
 import Note from "../models/Note.js";
 import User from "../models/User.js";
-
-dotenv.config();
+import "../config/env.js";
 
 const REQUIRED_ENVS = [
   "MONGO_URI",

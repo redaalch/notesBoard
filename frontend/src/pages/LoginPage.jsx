@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LogInIcon, LoaderIcon } from "lucide-react";
+import { LogInIcon, LoaderIcon, MailCheckIcon } from "lucide-react";
 import useAuth from "../hooks/useAuth.js";
 
 const LoginPage = () => {
-  const { login, user, initializing } = useAuth();
+  const { login, user, initializing, resendVerificationEmail } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [pendingVerificationEmail, setPendingVerificationEmail] =
+    useState(null);
+  const [resendLoading, setResendLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -23,6 +26,7 @@ const LoginPage = () => {
     event.preventDefault();
     if (loading) return;
     setErrorMessage("");
+    setPendingVerificationEmail(null);
     setLoading(true);
     try {
       await login({ email, password });
@@ -32,8 +36,24 @@ const LoginPage = () => {
       const message =
         error?.response?.data?.message ?? "Invalid email or password.";
       setErrorMessage(message);
+      if (error?.response?.status === 403) {
+        setPendingVerificationEmail(email.trim());
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!pendingVerificationEmail || resendLoading) {
+      return;
+    }
+
+    setResendLoading(true);
+    try {
+      await resendVerificationEmail({ email: pendingVerificationEmail });
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -60,6 +80,9 @@ const LoginPage = () => {
                   onChange={(event) => {
                     setEmail(event.target.value);
                     if (errorMessage) setErrorMessage("");
+                    if (pendingVerificationEmail) {
+                      setPendingVerificationEmail(null);
+                    }
                   }}
                   placeholder="you@example.com"
                   className="input input-bordered"
@@ -106,6 +129,39 @@ const LoginPage = () => {
               {errorMessage ? (
                 <div className="alert alert-error text-sm" role="alert">
                   <span>{errorMessage}</span>
+                </div>
+              ) : null}
+
+              {pendingVerificationEmail ? (
+                <div className="alert alert-warning text-sm" role="alert">
+                  <div className="flex flex-col gap-2">
+                    <span>
+                      It looks like your email still needs confirmation. We'll
+                      resend the verification link to{" "}
+                      <span className="font-semibold">
+                        {pendingVerificationEmail}
+                      </span>
+                      .
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm self-start"
+                      onClick={handleResendVerification}
+                      disabled={resendLoading}
+                    >
+                      {resendLoading ? (
+                        <>
+                          <LoaderIcon className="size-4 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <MailCheckIcon className="size-4" />
+                          Resend verification email
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               ) : null}
             </form>

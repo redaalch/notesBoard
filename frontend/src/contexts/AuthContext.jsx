@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import api from "../lib/axios.js";
 
@@ -185,6 +179,29 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  const resendVerificationEmail = useCallback(
+    async ({ email, verificationRedirectUrl }) => {
+      try {
+        const response = await api.post("/auth/verify-email/resend", {
+          email,
+          verificationRedirectUrl,
+        });
+        const message =
+          response.data?.message ??
+          "If your account exists and isn't verified, we've sent a confirmation email.";
+        toast.success(message);
+        return { message };
+      } catch (error) {
+        const message =
+          error.response?.data?.message ??
+          "Couldn't resend the verification email. Try again later.";
+        toast.error(message);
+        throw error;
+      }
+    },
+    []
+  );
+
   const verifyEmail = useCallback(
     async (token) => {
       try {
@@ -225,6 +242,7 @@ export const AuthProvider = ({ children }) => {
       initializing,
       login,
       register,
+      resendVerificationEmail,
       verifyEmail,
       logout,
       refresh: handleRefresh,
@@ -235,6 +253,7 @@ export const AuthProvider = ({ children }) => {
       initializing,
       login,
       register,
+      resendVerificationEmail,
       verifyEmail,
       logout,
       handleRefresh,

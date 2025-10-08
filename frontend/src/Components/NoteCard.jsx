@@ -50,7 +50,7 @@ function NoteCard({
       setConfirmOpen(false);
       onNoteChange?.();
     } catch (error) {
-      console.log("Error in deleting the note ", error);
+      console.error("Error deleting the note", error);
       toast.error("Failed to delete the note");
     } finally {
       setDeleting(false);
@@ -97,7 +97,7 @@ function NoteCard({
       );
       onNoteChange?.();
     } catch (error) {
-      console.log("Error toggling pin state", error);
+      console.error("Error toggling pin state", error);
       const message =
         error.response?.data?.message ?? "Failed to update pin status";
       toast.error(message);
