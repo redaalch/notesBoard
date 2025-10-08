@@ -2,6 +2,7 @@ import "./config/env.js";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -11,6 +12,9 @@ import rateLimiter from "./middleware/rateLimiter.js";
 import logger from "./utils/logger.js";
 
 const app = express();
+const isProduction = process.env.NODE_ENV === "production";
+
+app.set("trust proxy", 1);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,6 +22,36 @@ const ROOT = path.join(__dirname, "../../");
 const dist = path.join(ROOT, "frontend", "dist");
 
 const allowedOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
+
+const cspDirectives = {
+  defaultSrc: ["'self'"],
+  scriptSrc: ["'self'", "'unsafe-inline'"],
+  styleSrc: ["'self'", "'unsafe-inline'"],
+  imgSrc: ["'self'", "data:", "blob:", "https://bg.ibelick.com"],
+  connectSrc: ["'self'"],
+  fontSrc: ["'self'", "https://fonts.gstatic.com"],
+  baseUri: ["'self'"],
+  formAction: ["'self'"],
+  frameAncestors: ["'self'"],
+  workerSrc: ["'self'"],
+  objectSrc: ["'none'"],
+  upgradeInsecureRequests: [],
+};
+
+app.use(
+  helmet({
+    contentSecurityPolicy: isProduction
+      ? {
+          directives: cspDirectives,
+        }
+      : false,
+    crossOriginEmbedderPolicy: false,
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+    hsts: isProduction
+      ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+      : false,
+  })
+);
 app.use(
   cors({
     origin: (origin, cb) => {
