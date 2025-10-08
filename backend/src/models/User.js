@@ -72,6 +72,14 @@ const userSchema = new mongoose.Schema(
       expiresAt: { type: Date },
       createdAt: { type: Date },
     },
+    defaultWorkspace: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Workspace",
+    },
+    defaultBoard: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Board",
+    },
   },
   { timestamps: true }
 );

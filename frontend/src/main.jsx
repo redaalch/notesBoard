@@ -6,6 +6,7 @@ import App from "./App.jsx";
 import { BrowserRouter } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./contexts/AuthContext.jsx";
+import { CommandPaletteProvider } from "./contexts/CommandPaletteContext.jsx";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,7 +30,9 @@ createRoot(document.getElementById("root")).render(
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <App />
+          <CommandPaletteProvider>
+            <App />
+          </CommandPaletteProvider>
           <Toaster />
         </AuthProvider>
       </QueryClientProvider>

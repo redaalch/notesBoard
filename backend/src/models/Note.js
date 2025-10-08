@@ -83,6 +83,18 @@ const noteSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    workspaceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Workspace",
+      index: true,
+      default: null,
+    },
+    boardId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Board",
+      index: true,
+      default: null,
+    },
     title: {
       type: String,
       required: true,
@@ -115,6 +127,20 @@ const noteSchema = new mongoose.Schema(
       default: false,
       index: true,
     },
+    docName: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
+    richContent: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    contentText: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );
@@ -123,5 +149,17 @@ noteSchema.index({ title: "text", content: "text" });
 noteSchema.index({ owner: 1, pinned: -1, updatedAt: -1 });
 noteSchema.index({ owner: 1, createdAt: -1 });
 noteSchema.index({ owner: 1, tags: 1 });
+
+noteSchema.pre("save", function ensureDocName(next) {
+  if (!this.docName && this._id) {
+    this.docName = `note:${this._id.toString()}`;
+  }
+
+  if (typeof this.content === "string") {
+    this.contentText = this.content;
+  }
+
+  next();
+});
 const Note = mongoose.model("Note", noteSchema);
 export default Note;

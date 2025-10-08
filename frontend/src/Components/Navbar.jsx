@@ -4,6 +4,7 @@ import {
   PaletteIcon,
   PlusCircleIcon,
   SlidersHorizontalIcon,
+  CommandIcon,
   Wand2Icon,
 } from "lucide-react";
 import {
@@ -16,6 +17,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth.js";
 import Logo from "./Logo.jsx";
+import { useCommandPalette } from "../contexts/CommandPaletteContext.jsx";
 
 const THEME_OPTIONS = [
   {
@@ -163,6 +165,7 @@ function Navbar({ onMobileFilterClick = () => {} }) {
   }, [applyTheme, nextTheme]);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { openPalette } = useCommandPalette();
 
   useIsomorphicLayoutEffect(() => {
     setDocumentTheme(theme);
@@ -306,6 +309,15 @@ function Navbar({ onMobileFilterClick = () => {} }) {
               aria-label="Open filters"
             >
               <SlidersHorizontalIcon className="size-5" />
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-circle btn-ghost btn-sm"
+              onClick={openPalette}
+              aria-label="Open command palette"
+            >
+              <CommandIcon className="size-5" />
             </button>
 
             <Link
