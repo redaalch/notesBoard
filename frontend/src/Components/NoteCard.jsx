@@ -1,15 +1,15 @@
 import { useState } from "react";
 import {
+  BookmarkIcon,
+  BookmarkPlusIcon,
   CalendarClockIcon,
+  EyeIcon,
   LoaderIcon,
-  PenSquareIcon,
-  PinIcon,
-  PinOffIcon,
-  Trash2Icon,
+  NotebookPenIcon,
+  TrashIcon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
-  countWords,
   formatDate,
   formatRelativeTime,
   formatTagLabel,
@@ -108,30 +108,31 @@ function NoteCard({
 
   const createdAt = new Date(note.createdAt);
   const updatedAt = note.updatedAt ? new Date(note.updatedAt) : createdAt;
-  const wordCount = countWords(note.content);
   const isRecentlyUpdated = Date.now() - updatedAt.getTime() < 172_800_000; // 48h
 
   return (
     <>
-      <article className="card bg-base-100 hover:shadow-xl transition-all duration-200 border border-base-200">
-        <div className="card-body space-y-4">
-          <header className="flex items-start justify-between gap-2">
-            <div>
-              <h3 className="card-title text-base-content flex items-center gap-2">
-                {note.title}
+      <article className="card bg-base-100/90 backdrop-blur border border-base-200/70 shadow-md hover:shadow-xl hover:border-primary/30 transition-all duration-200">
+        <div className="card-body space-y-5">
+          <header className="flex items-start justify-between gap-3">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-lg md:text-xl font-semibold text-base-content">
+                  {note.title || "Untitled note"}
+                </h3>
                 {isRecentlyUpdated && (
                   <span className="badge badge-success badge-sm">New</span>
                 )}
                 {note.pinned && (
                   <span className="badge badge-warning badge-sm">Pinned</span>
                 )}
-              </h3>
-              <p className="text-sm text-base-content/60 flex items-center gap-1">
+              </div>
+              <p className="text-xs md:text-sm text-base-content/70 flex items-center gap-1">
                 <CalendarClockIcon className="size-4" />
                 Updated {formatRelativeTime(updatedAt)}
               </p>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 shrink-0">
               <div
                 className="tooltip tooltip-left"
                 data-tip={note.pinned ? "Unpin note" : "Pin note"}
@@ -146,9 +147,9 @@ function NoteCard({
                   {pinning ? (
                     <LoaderIcon className="size-4 animate-spin" />
                   ) : note.pinned ? (
-                    <PinOffIcon className="size-4" />
+                    <BookmarkIcon className="size-4" />
                   ) : (
-                    <PinIcon className="size-4" />
+                    <BookmarkPlusIcon className="size-4" />
                   )}
                 </button>
               </div>
@@ -157,15 +158,18 @@ function NoteCard({
                 data-tip="Open note details"
               >
                 <Link to={`/note/${note._id}`} className="btn btn-ghost btn-sm">
-                  <PenSquareIcon className="size-4" />
+                  <NotebookPenIcon className="size-4" />
                 </Link>
               </div>
             </div>
           </header>
 
-          <p className="text-base-content/70 line-clamp-3 leading-relaxed">
-            {note.content}
-          </p>
+          <div className="rounded-lg bg-base-200/40 p-4 border border-base-200/60">
+            <p className="text-sm md:text-base leading-relaxed text-base-content/80 whitespace-pre-line line-clamp-6">
+              {note.content?.trim() ||
+                "No content yet. Tap to open and start writing."}
+            </p>
+          </div>
 
           {Array.isArray(note.tags) && note.tags.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -193,37 +197,13 @@ function NoteCard({
             </div>
           )}
 
-          <div className="collapse collapse-arrow bg-base-200/60">
-            <input type="checkbox" />
-            <div className="collapse-title text-sm font-medium">
-              Quick note insights
+          <footer className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="text-xs text-base-content/60 space-y-1">
+              <p>Created {formatRelativeTime(createdAt)}</p>
+              <p className="hidden sm:block">
+                Last updated {formatDate(updatedAt)}
+              </p>
             </div>
-            <div className="collapse-content text-sm text-base-content/70">
-              <dl className="space-y-2">
-                <div className="flex justify-between">
-                  <dt className="font-semibold">Created</dt>
-                  <dd>{formatDate(createdAt)}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="font-semibold">Last updated</dt>
-                  <dd>{formatDate(updatedAt)}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="font-semibold">Word count</dt>
-                  <dd>
-                    <span className="badge badge-outline badge-sm">
-                      {wordCount} words
-                    </span>
-                  </dd>
-                </div>
-              </dl>
-            </div>
-          </div>
-
-          <footer className="card-actions justify-between items-center">
-            <span className="text-xs text-base-content/60">
-              Created {formatRelativeTime(createdAt)}
-            </span>
             <div className="flex items-center gap-2">
               <div
                 className="tooltip tooltip-bottom"
@@ -231,8 +211,9 @@ function NoteCard({
               >
                 <Link
                   to={`/note/${note._id}`}
-                  className="btn btn-primary btn-sm"
+                  className="btn btn-primary btn-sm gap-2"
                 >
+                  <EyeIcon className="size-4" />
                   View note
                 </Link>
               </div>
@@ -241,7 +222,7 @@ function NoteCard({
                   className="btn btn-outline btn-error btn-sm"
                   onClick={openConfirm}
                 >
-                  <Trash2Icon className="size-4" />
+                  <TrashIcon className="size-4" />
                 </button>
               </div>
             </div>
