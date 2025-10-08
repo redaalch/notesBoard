@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDownIcon,
   FilterIcon,
@@ -68,7 +62,7 @@ function HomePage() {
         topTag: response.data?.topTag ?? null,
       });
     } catch (error) {
-      console.log("error fetching tag stats", error);
+      console.error("Error fetching tag stats", error);
     }
   }, []);
 
@@ -84,7 +78,7 @@ function HomePage() {
         storedFilters = JSON.parse(raw);
       }
     } catch (error) {
-      console.log("error reading stored filters", error);
+      console.warn("Unable to read stored filters", error);
     }
 
     const initialSearch = params.q ?? storedFilters.searchQuery ?? "";
@@ -147,7 +141,7 @@ function HomePage() {
         })
       );
     } catch (error) {
-      console.log("error saving filters", error);
+      console.warn("Unable to persist filters", error);
     }
   }, [
     searchQuery,
@@ -166,7 +160,7 @@ function HomePage() {
         setIsRateLimited(false);
         loadTagStats();
       } catch (error) {
-        console.log("error fetching" + error);
+        console.error("Error fetching notes", error);
         if (error.response?.status === 429) {
           setIsRateLimited(true);
         } else {

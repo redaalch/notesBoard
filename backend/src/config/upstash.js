@@ -1,11 +1,10 @@
+import "./env.js";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import dotenv from "dotenv";
 
 import logger from "../utils/logger.js";
 
 // create a rateLimiter that allows configurable throughput (tests default to 5/min)
-dotenv.config();
 
 const TEST_REQUEST_LIMIT = 5;
 const DEFAULT_REQUEST_LIMIT = 100;

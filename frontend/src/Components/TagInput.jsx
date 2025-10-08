@@ -1,13 +1,13 @@
+import { useMemo, useState } from "react";
 import { TagIcon, XIcon } from "lucide-react";
-import React from "react";
 import { formatTagLabel, normalizeTag } from "../lib/Utils.js";
 
 const MAX_TAGS = 8;
 
 function TagInput({ value = [], onChange, placeholder = "Add tag" }) {
-  const [inputValue, setInputValue] = React.useState("");
+  const [inputValue, setInputValue] = useState("");
 
-  const normalizedValue = React.useMemo(
+  const normalizedValue = useMemo(
     () => value.map((tag) => normalizeTag(tag)),
     [value]
   );

@@ -53,7 +53,7 @@ function NoteDetailPage() {
         });
         setLastSavedAt(new Date(normalized.updatedAt ?? normalized.createdAt));
       } catch (error) {
-        console.log("Error in fetching Note", error);
+        console.error("Error fetching note", error);
 
         toast.error("Failed to fetch the Note");
       } finally {
@@ -228,7 +228,7 @@ function NoteDetailPage() {
 
       toast.success("Note updated successfully");
     } catch (error) {
-      console.log("Error saving the note", error);
+      console.error("Error saving the note", error);
       const message = error.response?.data?.message ?? "Failed to update note";
       toast.error(message);
     } finally {
@@ -292,7 +292,7 @@ function NoteDetailPage() {
         resolvedPinned ? "Note pinned to top" : "Note removed from pinned"
       );
     } catch (error) {
-      console.log("Error toggling pinned state", error);
+      console.error("Error toggling pinned state", error);
       const message =
         error.response?.data?.message ?? "Failed to update pin status";
       toast.error(message);
@@ -316,7 +316,7 @@ function NoteDetailPage() {
       toast.success("Note deleted");
       navigate("/app");
     } catch (error) {
-      console.log("Error deleting the note:", error);
+      console.error("Error deleting the note", error);
       toast.error("Failed to delete note");
     } finally {
       setDeleting(false);

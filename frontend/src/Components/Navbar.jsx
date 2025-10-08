@@ -5,7 +5,13 @@ import {
   PlusIcon,
   SparklesIcon,
 } from "lucide-react";
-import React from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Link, useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth.js";
 
@@ -108,7 +114,7 @@ const setDocumentTheme = (themeName) => {
 };
 
 const useIsomorphicLayoutEffect =
-  typeof window !== "undefined" ? React.useLayoutEffect : React.useEffect;
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 const getPreferredTheme = () => {
   if (typeof window === "undefined") return DEFAULT_THEME;
@@ -130,27 +136,27 @@ const getPreferredTheme = () => {
 };
 
 function Navbar({ onMobileFilterClick = () => {} }) {
-  const [theme, setTheme] = React.useState(getPreferredTheme);
-  const currentTheme = React.useMemo(
+  const [theme, setTheme] = useState(getPreferredTheme);
+  const currentTheme = useMemo(
     () =>
       THEME_MAP.get(theme) ?? THEME_MAP.get(DEFAULT_THEME) ?? THEME_OPTIONS[0],
     [theme]
   );
-  const currentThemeIndex = React.useMemo(() => {
+  const currentThemeIndex = useMemo(() => {
     const index = THEME_OPTIONS.findIndex((option) => option.name === theme);
     return index === -1 ? 0 : index;
   }, [theme]);
-  const nextTheme = React.useMemo(
+  const nextTheme = useMemo(
     () => THEME_OPTIONS[(currentThemeIndex + 1) % THEME_OPTIONS.length],
     [currentThemeIndex]
   );
   const cycleThemeLabel = `Switch to ${nextTheme.label} theme`;
-  const applyTheme = React.useCallback((themeName) => {
+  const applyTheme = useCallback((themeName) => {
     if (!SUPPORTED_THEMES.has(themeName)) return;
     setDocumentTheme(themeName);
     setTheme(themeName);
   }, []);
-  const cycleTheme = React.useCallback(() => {
+  const cycleTheme = useCallback(() => {
     applyTheme(nextTheme.name);
   }, [applyTheme, nextTheme]);
   const { user, logout } = useAuth();
@@ -165,7 +171,7 @@ function Navbar({ onMobileFilterClick = () => {} }) {
     }
   }, [theme]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return undefined;
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");

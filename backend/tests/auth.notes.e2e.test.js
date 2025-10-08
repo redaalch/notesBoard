@@ -175,6 +175,38 @@ describe("Auth and notes integration", () => {
     expect(postVerifyLogin.body.accessToken).toBeDefined();
   });
 
+  it("resends verification email for legacy accounts without tokens", async () => {
+    const user = new User({
+      name: "Legacy User",
+      email: "legacy@example.com",
+      emailVerified: false,
+    });
+
+    await user.setPassword("LegacyPass1");
+    user.emailVerification = undefined;
+    await user.save();
+
+    sentEmails.length = 0;
+    sendMailMock.mockClear();
+
+    const response = await request(app)
+      .post("/api/auth/verify-email/resend")
+      .set("X-Test-Client-Id", "legacy@example.com")
+      .send({ email: "legacy@example.com" });
+
+    expect(response.status).toBe(200);
+    expect(response.body?.message).toMatch(/verification email/i);
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
+
+    const updatedUser = await User.findOne({ email: "legacy@example.com" });
+    expect(updatedUser?.emailVerification?.token).toBeDefined();
+    expect(updatedUser?.emailVerification?.expiresAt).toBeInstanceOf(Date);
+
+    const token = extractVerificationToken();
+    expect(typeof token).toBe("string");
+    expect(token.length).toBeGreaterThan(10);
+  });
+
   it("prevents one user from accessing another user's notes", async () => {
     const { response: registerRes1, payload: payload1 } = await registerUser({
       email: "user1@example.com",
