@@ -53,7 +53,6 @@ function HomePage() {
   const [minWords, setMinWords] = useState(0);
   const [sortOrder, setSortOrder] = useState("newest");
   const [selectedTags, setSelectedTags] = useState([]);
-  const [openTips, setOpenTips] = useState([]);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedNoteIds, setSelectedNoteIds] = useState([]);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
@@ -439,14 +438,6 @@ function HomePage() {
     setSelectedTags([]);
   };
 
-  const toggleTip = (title) => {
-    setOpenTips((prev) =>
-      prev.includes(title)
-        ? prev.filter((item) => item !== title)
-        : [...prev, title]
-    );
-  };
-
   const invalidateNotesCaches = useCallback(
     () =>
       Promise.all([
@@ -710,7 +701,7 @@ function HomePage() {
               <div className="rounded-2xl border border-base-300/60 bg-base-100/80 p-4 shadow-sm backdrop-blur supports-[backdrop-filter:blur(0px)]:bg-base-100/70">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div
-                    className="flex flex-wrap items-center gap-2"
+                    className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-2"
                     role="tablist"
                   >
                     {tabConfig.map((tab) => (
@@ -718,14 +709,16 @@ function HomePage() {
                         key={tab.id}
                         type="button"
                         role="tab"
-                        className={`tab tab-lifted ${
-                          activeTab === tab.id ? "tab-active" : ""
+                        className={`btn btn-sm h-auto min-h-[2.5rem] flex-1 sm:flex-initial ${
+                          activeTab === tab.id 
+                            ? "btn-primary" 
+                            : "btn-outline"
                         }`}
                         onClick={() => setActiveTab(tab.id)}
                       >
-                        <span className="flex items-center gap-2">
-                          {tab.label}
-                          <span className="badge badge-sm badge-outline">
+                        <span className="flex items-center justify-center gap-2">
+                          <span className="whitespace-nowrap">{tab.label}</span>
+                          <span className="badge badge-sm flex-shrink-0">
                             {tab.badge}
                           </span>
                         </span>
@@ -972,7 +965,7 @@ function HomePage() {
         )}
       </div>
 
-      <div className="drawer-side z-30">
+      <div className="drawer-side z-50">
         <label
           htmlFor="notes-filters"
           className="drawer-overlay"
@@ -980,16 +973,16 @@ function HomePage() {
         />
         <div
           ref={filterPanelRef}
-          className="menu h-full w-80 max-w-full gap-6 overflow-y-auto bg-base-200 p-6"
+          className="menu h-full w-80 gap-6 overflow-y-auto bg-base-200 p-6"
         >
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <SparklesIcon className="size-5 text-primary" />
-              <h2 className="text-lg font-semibold">Filter details</h2>
+          <div className="flex items-center justify-between gap-2 flex-nowrap">
+            <div className="flex items-center gap-2 min-w-0 flex-shrink">
+              <SparklesIcon className="size-5 text-primary flex-shrink-0" />
+              <h2 className="text-lg font-semibold truncate">Filters</h2>
             </div>
             <button
               type="button"
-              className="btn btn-ghost btn-sm"
+              className="btn btn-ghost btn-sm btn-circle flex-shrink-0"
               onClick={closeDrawer}
               data-drawer-toggle="filters"
               aria-label="Close filters"
@@ -1080,23 +1073,15 @@ function HomePage() {
 
           <div className="divider" data-content="Helpful tips" />
           <div className="space-y-2">
-            {filterTips.map(({ title, description, icon, tone }, index) => {
+            {filterTips.map(({ title, description, icon, tone }) => {
               const IconComponent = icon;
-              const isOpen = openTips.includes(title);
-              const contentId = `filter-tip-${index}`;
 
               return (
-                <div
+                <details
                   key={title}
-                  className="rounded-xl border border-base-300 bg-base-100/90 shadow-sm"
+                  className="rounded-xl border border-base-300 bg-base-100/90 shadow-sm group"
                 >
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left text-base font-semibold"
-                    onClick={() => toggleTip(title)}
-                    aria-expanded={isOpen}
-                    aria-controls={contentId}
-                  >
+                  <summary className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 text-left text-base font-semibold list-none">
                     <span className="flex items-center gap-3">
                       <IconComponent
                         className={`size-5 ${
@@ -1106,22 +1091,13 @@ function HomePage() {
                       <span>{title}</span>
                     </span>
                     <ChevronDownIcon
-                      className={`size-5 transition-transform duration-200 ${
-                        isOpen ? "rotate-180" : "rotate-0"
-                      }`}
+                      className="size-5 transition-transform duration-200 group-open:rotate-180"
                     />
-                  </button>
-                  <div
-                    id={contentId}
-                    className={`px-4 pb-4 text-sm text-base-content/70 transition-[max-height,opacity] duration-300 ease-in-out ${
-                      isOpen ? "max-h-40 opacity-100" : "max-h-0 opacity-0"
-                    }`}
-                    aria-hidden={!isOpen}
-                    style={{ overflow: "hidden" }}
-                  >
+                  </summary>
+                  <div className="px-4 pb-4 text-sm text-base-content/70">
                     <p className="leading-relaxed">{description}</p>
                   </div>
-                </div>
+                </details>
               );
             })}
           </div>

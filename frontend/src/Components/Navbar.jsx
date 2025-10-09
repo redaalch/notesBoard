@@ -198,16 +198,14 @@ function Navbar({ onMobileFilterClick = () => {} }) {
       <div className="mx-auto w-full max-w-7xl px-4 py-3 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 rounded-2xl border border-base-content/10 bg-base-200/60 px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 shadow-lg shadow-primary/10 backdrop-blur-sm md:flex-nowrap">
           <div className="flex flex-shrink-0 items-center gap-1.5 sm:gap-2 md:gap-3">
-            <div className="dropdown lg:hidden">
-              <label
-                tabIndex={0}
-                className="btn btn-circle btn-ghost btn-sm"
+            <details className="dropdown lg:hidden">
+              <summary
+                className="btn btn-circle btn-ghost btn-sm list-none"
                 aria-label="Open quick menu"
               >
                 <MenuIcon className="size-5" />
-              </label>
+              </summary>
               <div
-                tabIndex={0}
                 className="dropdown-content z-40 mt-3 w-72 space-y-3 rounded-3xl border border-base-content/10 bg-gradient-to-br from-base-200/95 via-base-200/80 to-base-100/90 p-4 shadow-2xl shadow-primary/20 backdrop-blur"
               >
                 <div className="rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/20 via-secondary/10 to-accent/10 p-4">
@@ -238,15 +236,14 @@ function Navbar({ onMobileFilterClick = () => {} }) {
                   <ArrowUpRightIcon className="size-4 text-primary transition group-hover:translate-x-0.5" />
                 </Link>
 
-                <label
-                  tabIndex={0}
+                <button
+                  type="button"
                   onClick={(event) => {
                     onMobileFilterClick();
-                    // Close the dropdown by removing focus
-                    const dropdown = event.currentTarget.closest(".dropdown");
-                    if (dropdown) {
-                      const details = dropdown.querySelector('[tabindex="0"]');
-                      details?.blur();
+                    // Close the dropdown by closing the details element
+                    const details = event.currentTarget.closest("details");
+                    if (details) {
+                      details.removeAttribute("open");
                     }
                   }}
                   className="group flex items-center gap-3 rounded-2xl border border-secondary/30 bg-base-100/80 p-3 shadow-lg shadow-secondary/20 transition hover:-translate-y-0.5 hover:border-secondary hover:shadow-secondary/40 cursor-pointer"
@@ -263,7 +260,7 @@ function Navbar({ onMobileFilterClick = () => {} }) {
                       Organize and find notes quickly.
                     </span>
                   </div>
-                </label>
+                </button>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -316,7 +313,7 @@ function Navbar({ onMobileFilterClick = () => {} }) {
                   </div>
                 </div>
               </div>
-            </div>
+            </details>
 
             <Link
               to={user ? "/app" : "/"}
