@@ -1,5 +1,7 @@
 import "../config/env.js";
 import { Server } from "@hocuspocus/server";
+import cors from "cors";
+import express from "express";
 import { encodeStateAsUpdate } from "yjs";
 
 import { connectDb } from "../config/db.js";
@@ -88,7 +90,29 @@ const coerceState = (state, document, logContext) => {
   return null;
 };
 
+const allowOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
+if (process.env.FRONTEND_ORIGIN) {
+  allowOrigins.push(process.env.FRONTEND_ORIGIN);
+}
+
+const app = express();
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      return callback(null, allowOrigins.includes(origin));
+    },
+    methods: ["GET"],
+  })
+);
+
+app.get("/health", (_req, res) => {
+  res.json({ ok: true });
+});
+
 const server = Server.configure({
+  address: "0.0.0.0",
   name: "notesboard-collab",
   maxDocumentSize: 5 * 1024 * 1024,
   async onAuthenticate(data) {
@@ -247,8 +271,12 @@ const PORT = Number.parseInt(process.env.COLLAB_SERVER_PORT ?? "6001", 10);
 const start = async () => {
   try {
     await connectDb();
-    server.listen(PORT);
-    logger.info("Collaborative server running", { port: PORT });
+    const httpServer = app.listen(PORT, "0.0.0.0", () => {
+      logger.info("Collaborative HTTP server running", { port: PORT });
+    });
+
+    await server.listen({ server: httpServer });
+    logger.info("Collaborative WebSocket server running", { port: PORT });
   } catch (error) {
     logger.error("Collaborative server failed to start", {
       message: error?.message,
