@@ -8,6 +8,22 @@ import useAuth from "./useAuth.js";
 const DEFAULT_COLLAB_URL =
   import.meta.env.VITE_COLLAB_SERVER_URL ?? "ws://localhost:6001";
 
+const decodeJWT = (token) => {
+  try {
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
+        .join("")
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+};
+
 export const buildInitialNode = (note) => {
   if (!note) {
     return null;
@@ -56,10 +72,11 @@ const hashColor = (value) => {
 };
 
 export const useCollaborativeNote = (noteId, note) => {
-  const { accessToken, user } = useAuth();
+  const { accessToken, user, refresh } = useAuth();
   const providerRef = useRef(null);
   const docRef = useRef(null);
   const awarenessRef = useRef(null);
+  const refreshTimerRef = useRef(null);
   const [status, setStatus] = useState("connecting");
   const [participants, setParticipants] = useState([]);
   const [typingUsers, setTypingUsers] = useState([]);
@@ -69,6 +86,57 @@ export const useCollaborativeNote = (noteId, note) => {
     const source = user?.id ?? "anonymous";
     return hashColor(source);
   }, [user?.id]);
+
+  // Auto-refresh token before expiration
+  useEffect(() => {
+    if (!accessToken || !refresh) {
+      return undefined;
+    }
+
+    const payload = decodeJWT(accessToken);
+    if (!payload?.exp) {
+      return undefined;
+    }
+
+    const expiresAt = payload.exp * 1000; // Convert to milliseconds
+    const now = Date.now();
+    const timeUntilExpiry = expiresAt - now;
+
+    // Refresh 2 minutes before expiration, or immediately if already expired
+    const refreshIn = Math.max(0, timeUntilExpiry - 2 * 60 * 1000);
+
+    if (import.meta.env.DEV) {
+      console.debug("[useCollaborativeNote] Token refresh scheduled", {
+        expiresIn: Math.round(timeUntilExpiry / 1000 / 60),
+        refreshIn: Math.round(refreshIn / 1000 / 60),
+      });
+    }
+
+    refreshTimerRef.current = setTimeout(async () => {
+      try {
+        const newToken = await refresh();
+        if (newToken && providerRef.current) {
+          // Update provider with new token
+          providerRef.current.configuration.token = newToken;
+          if (import.meta.env.DEV) {
+            console.debug(
+              "[useCollaborativeNote] Token refreshed successfully"
+            );
+          }
+        }
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.error("[useCollaborativeNote] Token refresh failed:", error);
+        }
+      }
+    }, refreshIn);
+
+    return () => {
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+      }
+    };
+  }, [accessToken, refresh]);
 
   useEffect(() => {
     if (!noteId || !user || !accessToken) {
@@ -83,6 +151,23 @@ export const useCollaborativeNote = (noteId, note) => {
       document: yDoc,
       token: accessToken,
       awareness,
+      onAuthenticationFailed: ({ reason }) => {
+        if (import.meta.env.DEV) {
+          console.warn(
+            "[HocuspocusProvider] Auth failed - token may be expired:",
+            reason
+          );
+        }
+      },
+      onClose: ({ event }) => {
+        // Only log unexpected closures in dev mode
+        if (import.meta.env.DEV && event.code !== 1000 && event.code !== 1001) {
+          console.warn("[HocuspocusProvider] Connection closed:", {
+            code: event.code,
+            reason: event.reason,
+          });
+        }
+      },
     });
 
     providerRef.current = provider;

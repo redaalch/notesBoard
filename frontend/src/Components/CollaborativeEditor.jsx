@@ -49,15 +49,10 @@ const ToolbarButton = ({ onClick, active, disabled, icon, label }) => {
 const EditorToolbar = ({ editor }) => {
   if (!editor) return null;
 
-  const handleButtonClick = (label, callback) => (e) => {
+  const handleButtonClick = (callback) => (e) => {
     e.preventDefault();
     e.stopPropagation();
-    const result = callback();
-    if (import.meta.env.DEV) {
-      console.debug(`[CollaborativeEditor] toolbar command`, label, {
-        executed: result,
-      });
-    }
+    callback();
   };
 
   return (
@@ -65,7 +60,7 @@ const EditorToolbar = ({ editor }) => {
       <ToolbarButton
         icon={BoldIcon}
         label="Bold (Ctrl+B)"
-        onClick={handleButtonClick("toggleBold", () =>
+        onClick={handleButtonClick(() =>
           editor.chain().focus().toggleBold().run()
         )}
         active={editor.isActive("bold")}
@@ -74,7 +69,7 @@ const EditorToolbar = ({ editor }) => {
       <ToolbarButton
         icon={ItalicIcon}
         label="Italic (Ctrl+I)"
-        onClick={handleButtonClick("toggleItalic", () =>
+        onClick={handleButtonClick(() =>
           editor.chain().focus().toggleItalic().run()
         )}
         active={editor.isActive("italic")}
@@ -83,7 +78,7 @@ const EditorToolbar = ({ editor }) => {
       <ToolbarButton
         icon={StrikethroughIcon}
         label="Strikethrough (Ctrl+Shift+X)"
-        onClick={handleButtonClick("toggleStrike", () =>
+        onClick={handleButtonClick(() =>
           editor.chain().focus().toggleStrike().run()
         )}
         active={editor.isActive("strike")}
@@ -93,7 +88,7 @@ const EditorToolbar = ({ editor }) => {
       <ToolbarButton
         icon={ListIcon}
         label="Bullet list"
-        onClick={handleButtonClick("toggleBulletList", () =>
+        onClick={handleButtonClick(() =>
           editor.chain().focus().toggleBulletList().run()
         )}
         active={editor.isActive("bulletList")}
@@ -102,7 +97,7 @@ const EditorToolbar = ({ editor }) => {
       <ToolbarButton
         icon={ListOrderedIcon}
         label="Ordered list"
-        onClick={handleButtonClick("toggleOrderedList", () =>
+        onClick={handleButtonClick(() =>
           editor.chain().focus().toggleOrderedList().run()
         )}
         active={editor.isActive("orderedList")}
@@ -111,7 +106,7 @@ const EditorToolbar = ({ editor }) => {
       <ToolbarButton
         icon={QuoteIcon}
         label="Blockquote"
-        onClick={handleButtonClick("toggleBlockquote", () =>
+        onClick={handleButtonClick(() =>
           editor.chain().focus().toggleBlockquote().run()
         )}
         active={editor.isActive("blockquote")}
@@ -120,7 +115,7 @@ const EditorToolbar = ({ editor }) => {
       <ToolbarButton
         icon={CodeIcon}
         label="Code block"
-        onClick={handleButtonClick("toggleCodeBlock", () =>
+        onClick={handleButtonClick(() =>
           editor.chain().focus().toggleCodeBlock().run()
         )}
         active={editor.isActive("codeBlock")}
@@ -159,12 +154,13 @@ const CollaborativeEditor = ({
             OrderedList,
             ListItem,
             Blockquote,
+            CodeBlockLowlight.configure({ lowlight }),
             StarterKit.configure({
               document: false,
               paragraph: false,
               text: false,
               history: false,
-              codeBlock: false, // Disable default codeBlock to use CodeBlockLowlight
+              codeBlock: false,
               bulletList: false,
               orderedList: false,
               listItem: false,
@@ -175,7 +171,6 @@ const CollaborativeEditor = ({
             Placeholder.configure({
               placeholder: placeholder + " (Type '/' for commands)",
             }),
-            CodeBlockLowlight.configure({ lowlight }),
             SlashCommands,
             Collaboration.configure({ document: doc }),
             CollaborationCursor.configure({
@@ -190,7 +185,7 @@ const CollaborativeEditor = ({
           editorProps: {
             attributes: {
               class:
-                "prose prose-sm sm:prose-base max-w-none h-full min-h-[24rem] rounded-2xl border border-base-300/60 bg-base-100/90 px-4 py-5 focus:outline-none focus:ring-2 focus:ring-primary/20",
+                "prose prose-sm sm:prose-base prose-ul:list-disc prose-ol:list-decimal prose-li:ml-4 max-w-none h-full min-h-[24rem] rounded-2xl border border-base-300/60 bg-base-100/90 px-4 py-5 focus:outline-none focus:ring-2 focus:ring-primary/20",
             },
             handleKeyDown: () => {
               if (onTypingRef.current && !readOnly) {
