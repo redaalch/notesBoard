@@ -33,21 +33,31 @@ export const buildInitialNode = (note) => {
   }
 
   const text = typeof note.content === "string" ? note.content : "";
+
+  // Split text by line breaks and create separate paragraphs
+  if (text) {
+    const lines = text.split(/\r?\n/);
+    const paragraphs = lines.map((line) => ({
+      type: "paragraph",
+      content: line.trim()
+        ? [
+            {
+              type: "text",
+              text: line,
+            },
+          ]
+        : [],
+    }));
+
+    return {
+      type: "doc",
+      content: paragraphs.length > 0 ? paragraphs : [{ type: "paragraph" }],
+    };
+  }
+
   return {
     type: "doc",
-    content: [
-      {
-        type: "paragraph",
-        content: text
-          ? [
-              {
-                type: "text",
-                text,
-              },
-            ]
-          : [],
-      },
-    ],
+    content: [{ type: "paragraph" }],
   };
 };
 

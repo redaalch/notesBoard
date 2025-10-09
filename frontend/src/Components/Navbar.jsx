@@ -196,17 +196,16 @@ function Navbar({ onMobileFilterClick = () => {} }) {
   return (
     <header className="sticky top-0 z-40 w-full bg-gradient-to-b from-base-300/80 via-base-300/40 to-base-100/0 backdrop-blur">
       <div className="mx-auto w-full max-w-7xl px-4 py-3 lg:px-8">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-base-content/10 bg-base-200/60 px-4 py-3 shadow-lg shadow-primary/10 backdrop-blur-sm md:flex-nowrap">
-          <div className="flex flex-shrink-0 items-center gap-2 sm:gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 rounded-2xl border border-base-content/10 bg-base-200/60 px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 shadow-lg shadow-primary/10 backdrop-blur-sm md:flex-nowrap">
+          <div className="flex flex-shrink-0 items-center gap-1.5 sm:gap-2 md:gap-3">
             <div className="dropdown lg:hidden">
-              <button
-                type="button"
+              <label
                 tabIndex={0}
                 className="btn btn-circle btn-ghost btn-sm"
                 aria-label="Open quick menu"
               >
                 <MenuIcon className="size-5" />
-              </button>
+              </label>
               <div
                 tabIndex={0}
                 className="dropdown-content z-40 mt-3 w-72 space-y-3 rounded-3xl border border-base-content/10 bg-gradient-to-br from-base-200/95 via-base-200/80 to-base-100/90 p-4 shadow-2xl shadow-primary/20 backdrop-blur"
@@ -238,6 +237,33 @@ function Navbar({ onMobileFilterClick = () => {} }) {
                   </div>
                   <ArrowUpRightIcon className="size-4 text-primary transition group-hover:translate-x-0.5" />
                 </Link>
+
+                <label
+                  tabIndex={0}
+                  onClick={(event) => {
+                    onMobileFilterClick();
+                    // Close the dropdown by removing focus
+                    const dropdown = event.currentTarget.closest(".dropdown");
+                    if (dropdown) {
+                      const details = dropdown.querySelector('[tabindex="0"]');
+                      details?.blur();
+                    }
+                  }}
+                  className="group flex items-center gap-3 rounded-2xl border border-secondary/30 bg-base-100/80 p-3 shadow-lg shadow-secondary/20 transition hover:-translate-y-0.5 hover:border-secondary hover:shadow-secondary/40 cursor-pointer"
+                  aria-label="Open filters and sorting"
+                >
+                  <span className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-secondary via-accent to-primary text-secondary-content">
+                    <SlidersHorizontalIcon className="size-4" />
+                  </span>
+                  <div className="flex flex-1 flex-col text-left">
+                    <span className="font-semibold text-base-content">
+                      Filters & Sort
+                    </span>
+                    <span className="text-xs text-base-content/60">
+                      Organize and find notes quickly.
+                    </span>
+                  </div>
+                </label>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -301,23 +327,14 @@ function Navbar({ onMobileFilterClick = () => {} }) {
             </Link>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              type="button"
-              className="btn btn-circle btn-outline btn-sm lg:hidden"
-              onClick={onMobileFilterClick}
-              aria-label="Open filters"
-            >
-              <SlidersHorizontalIcon className="size-5" />
-            </button>
-
+          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
             <button
               type="button"
               className="btn btn-circle btn-ghost btn-sm"
               onClick={openPalette}
               aria-label="Open command palette"
             >
-              <CommandIcon className="size-5" />
+              <CommandIcon className="size-4 sm:size-5" />
             </button>
 
             <Link
@@ -425,15 +442,17 @@ function Navbar({ onMobileFilterClick = () => {} }) {
                 <button
                   type="button"
                   tabIndex={0}
-                  className="btn btn-ghost rounded-full px-2 sm:px-3 gap-0 sm:gap-3"
+                  className="btn btn-ghost rounded-full px-1 sm:px-2 md:px-3 gap-0 md:gap-3"
                   aria-label="User menu"
                 >
                   <div className="avatar placeholder">
-                    <div className="w-10 rounded-full bg-gradient-to-r from-primary to-secondary text-primary-content">
-                      <span>{user.name?.charAt(0)?.toUpperCase() ?? "U"}</span>
+                    <div className="w-8 sm:w-9 md:w-10 rounded-full bg-gradient-to-r from-primary to-secondary text-primary-content">
+                      <span className="text-sm sm:text-base">
+                        {user.name?.charAt(0)?.toUpperCase() ?? "U"}
+                      </span>
                     </div>
                   </div>
-                  <div className="hidden text-left sm:block">
+                  <div className="hidden text-left md:block">
                     <p className="text-sm font-semibold leading-none">
                       {user.name}
                     </p>
@@ -466,7 +485,7 @@ function Navbar({ onMobileFilterClick = () => {} }) {
             ) : (
               <Link
                 to="/login"
-                className="btn rounded-full border-primary/40 bg-base-100/80 backdrop-blur transition hover:border-primary hover:bg-base-100"
+                className="btn btn-sm sm:btn-md rounded-full border-primary/40 bg-base-100/80 backdrop-blur transition hover:border-primary hover:bg-base-100"
               >
                 Sign in
               </Link>

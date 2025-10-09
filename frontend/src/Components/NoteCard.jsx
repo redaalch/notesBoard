@@ -138,7 +138,7 @@ function NoteCard({
   return (
     <>
       <article
-        className={`card bg-base-100/90 backdrop-blur border border-base-200/70 shadow-md transition-all duration-200 ${
+        className={`card bg-base-100/90 backdrop-blur border border-base-200/70 shadow-md transition-all duration-200 h-full ${
           selected
             ? "border-primary/60 ring-1 ring-primary/40"
             : "hover:border-primary/30 hover:shadow-xl"
@@ -147,7 +147,7 @@ function NoteCard({
         role="group"
         aria-pressed={selectionMode ? selected : undefined}
       >
-        <div className="card-body space-y-5">
+        <div className="card-body space-y-5 flex flex-col h-full">
           <header className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
               {selectionMode && (
@@ -221,40 +221,42 @@ function NoteCard({
             </div>
           </header>
 
-          <div className="rounded-lg bg-base-200/40 p-4 border border-base-200/60">
+          <div className="rounded-lg bg-base-200/40 p-4 border border-base-200/60 flex-grow">
             <p className="text-sm md:text-base leading-relaxed text-base-content/80 whitespace-pre-line line-clamp-6">
               {note.content?.trim() ||
                 "No content yet. Tap to open and start writing."}
             </p>
           </div>
 
-          {Array.isArray(note.tags) && note.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {note.tags.map((tag) => {
-                const normalized = normalizeTag(tag);
-                const isActive = selectedTags.includes(normalized);
+          <div className="min-h-[2rem]">
+            {Array.isArray(note.tags) && note.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {note.tags.map((tag) => {
+                  const normalized = normalizeTag(tag);
+                  const isActive = selectedTags.includes(normalized);
 
-                return (
-                  <button
-                    key={tag}
-                    type="button"
-                    className={`badge badge-sm gap-1 transition ${
-                      isActive
-                        ? "badge-primary"
-                        : "badge-outline hover:bg-base-200"
-                    }`}
-                    onClick={() => onTagClick?.(normalized)}
-                    aria-pressed={isActive}
-                    aria-label={`Filter by tag ${formatTagLabel(tag)}`}
-                  >
-                    {formatTagLabel(tag)}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      className={`badge badge-sm gap-1 transition ${
+                        isActive
+                          ? "badge-primary"
+                          : "badge-outline hover:bg-base-200"
+                      }`}
+                      onClick={() => onTagClick?.(normalized)}
+                      aria-pressed={isActive}
+                      aria-label={`Filter by tag ${formatTagLabel(tag)}`}
+                    >
+                      {formatTagLabel(tag)}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
-          <footer className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <footer className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mt-auto">
             <div className="text-xs text-base-content/60 space-y-1">
               <p>Created {formatRelativeTime(createdAt)}</p>
               <p className="hidden sm:block">
@@ -262,23 +264,24 @@ function NoteCard({
               </p>
             </div>
             {!selectionMode && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <div
                   className="tooltip tooltip-bottom"
                   data-tip="Open note details"
                 >
                   <Link
                     to={`/note/${note._id}`}
-                    className="btn btn-primary btn-sm gap-2"
+                    className="btn btn-primary btn-sm gap-2 whitespace-nowrap"
                   >
-                    <EyeIcon className="size-4" />
-                    View note
+                    <EyeIcon className="size-4 flex-shrink-0" />
+                    <span>View note</span>
                   </Link>
                 </div>
                 <div className="tooltip tooltip-bottom" data-tip="Delete note">
                   <button
-                    className="btn btn-outline btn-error btn-sm"
+                    className="btn btn-outline btn-error btn-sm flex-shrink-0"
                     onClick={openConfirm}
+                    aria-label="Delete note"
                   >
                     <TrashIcon className="size-4" />
                   </button>
