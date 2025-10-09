@@ -116,8 +116,8 @@ function NoteCollaboratorsCard({ noteId, canManage }) {
   return (
     <div className="card border border-base-300/60 bg-base-100/90 shadow-lg rounded-2xl">
       <div className="card-body space-y-5">
-        <div className="flex items-center justify-between gap-2">
-          <div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
             <h3 className="text-base font-bold text-secondary">
               Note collaborators
             </h3>
@@ -126,7 +126,7 @@ function NoteCollaboratorsCard({ noteId, canManage }) {
               workspace
             </p>
           </div>
-          <span className="badge badge-outline text-xs px-3 py-1">
+          <span className="badge badge-outline text-xs px-3 py-1 self-start sm:self-auto">
             {collaborators.length} member{collaborators.length === 1 ? "" : "s"}
           </span>
         </div>
@@ -148,9 +148,9 @@ function NoteCollaboratorsCard({ noteId, canManage }) {
               {collaborators.map((collaborator) => (
                 <li
                   key={collaborator.id}
-                  className="flex items-center justify-between gap-3 px-4 py-3"
+                  className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div>
+                  <div className="space-y-1 text-sm w-full sm:flex-1">
                     <p className="text-sm font-semibold text-base-content">
                       {collaborator.name ?? collaborator.email ?? "Unknown"}
                     </p>
@@ -165,7 +165,7 @@ function NoteCollaboratorsCard({ noteId, canManage }) {
                       </p>
                     ) : null}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between gap-3 sm:justify-end sm:gap-2 w-full sm:w-auto">
                     {collaborator.role === "editor" ? (
                       <span className="badge badge-sm badge-primary gap-1">
                         <ShieldCheckIcon className="size-3" />

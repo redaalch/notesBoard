@@ -552,10 +552,10 @@ function NoteDetailPage() {
                   </span>
                 </span>
               </div>
-              <div className="grid grid-cols-4 lg:flex lg:flex-wrap items-center gap-1.5 sm:gap-2 w-full lg:w-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:flex lg:flex-wrap items-center gap-2 sm:gap-2 w-full lg:w-auto">
                 <button
                   type="button"
-                  className={`btn btn-outline btn-xs sm:btn-sm lg:btn-md gap-1 sm:gap-2 ${
+                  className={`btn btn-outline btn-xs sm:btn-sm lg:btn-md h-12 sm:h-auto w-full lg:w-auto gap-1 sm:gap-2 ${
                     pinned ? "border-warning text-warning" : ""
                   }`}
                   onClick={handleTogglePinned}
@@ -575,7 +575,7 @@ function NoteDetailPage() {
                 </button>
                 <button
                   type="button"
-                  className="btn btn-outline btn-xs sm:btn-sm lg:btn-md gap-1 sm:gap-2"
+                  className="btn btn-outline btn-xs sm:btn-sm lg:btn-md h-12 sm:h-auto w-full lg:w-auto gap-1 sm:gap-2"
                   onClick={handleRevert}
                   disabled={disableRevert}
                   title="Revert changes"
@@ -585,7 +585,7 @@ function NoteDetailPage() {
                 </button>
                 <button
                   type="button"
-                  className="btn btn-outline btn-error btn-xs sm:btn-sm lg:btn-md gap-1 sm:gap-2"
+                  className="btn btn-outline btn-error btn-xs sm:btn-sm lg:btn-md h-12 sm:h-auto w-full lg:w-auto gap-1 sm:gap-2"
                   onClick={openConfirm}
                   title="Delete note"
                 >
@@ -594,7 +594,7 @@ function NoteDetailPage() {
                 </button>
                 <button
                   type="button"
-                  className="btn btn-primary btn-xs sm:btn-sm lg:btn-md font-semibold gap-1 sm:gap-2 shadow-lg"
+                  className="btn btn-primary btn-xs sm:btn-sm lg:btn-md h-12 sm:h-auto w-full lg:w-auto font-semibold gap-1 sm:gap-2 shadow-lg"
                   onClick={handleSave}
                   disabled={disableSave}
                   title="Save changes"
