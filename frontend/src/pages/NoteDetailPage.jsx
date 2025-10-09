@@ -1,87 +1,336 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import {
   ArrowLeftIcon,
   CheckIcon,
   ClockIcon,
+  HistoryIcon,
   LoaderIcon,
   PinIcon,
   PinOffIcon,
   RefreshCwIcon,
   SaveIcon,
   Trash2Icon,
+  UsersIcon,
 } from "lucide-react";
+import * as Y from "yjs";
+import { TiptapTransformer } from "@hocuspocus/transformer";
+
 import api from "../lib/axios";
 import ConfirmDialog from "../Components/ConfirmDialog.jsx";
 import TagInput from "../Components/TagInput.jsx";
+import CollaborativeEditor from "../Components/CollaborativeEditor.jsx";
+import PresenceAvatars from "../Components/PresenceAvatars.jsx";
+import TypingIndicator from "../Components/TypingIndicator.jsx";
 import { countWords, formatDate, formatRelativeTime } from "../lib/Utils.js";
+import useCollaborativeNote, {
+  buildInitialNode,
+} from "../hooks/useCollaborativeNote.js";
+import useAuth from "../hooks/useAuth.js";
+
+const HISTORY_REFRESH_MS = 15_000;
+const MAX_HISTORY_RESULTS = 100;
+const TAG_LIMIT = 8;
+
+const computeStats = (text) => ({
+  wordCount: countWords(text ?? ""),
+  characterCount: text?.length ?? 0,
+});
+
+const mapCollabStatus = (status, participantCount) => {
+  switch (status) {
+    case "connected":
+      return {
+        className: "badge-success",
+        label: participantCount
+          ? `${participantCount} live${participantCount > 1 ? "s" : ""}`
+          : "Live",
+        Icon: CheckIcon,
+      };
+    case "connecting":
+      return {
+        className: "badge-warning",
+        label: "Connecting…",
+        Icon: LoaderIcon,
+      };
+    case "disconnected":
+    default:
+      return {
+        className: "badge-outline",
+        label: "Offline",
+        Icon: RefreshCwIcon,
+      };
+  }
+};
 
 function NoteDetailPage() {
-  const [note, setNote] = useState(null);
-  const [originalNote, setOriginalNote] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  const [title, setTitle] = useState("");
+  const [tags, setTags] = useState([]);
+  const [pinned, setPinned] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pinning, setPinning] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [pinning, setPinning] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState(null);
+  const [contentStats, setContentStats] = useState({
+    wordCount: 0,
+    characterCount: 0,
+  });
+  const [showHistory, setShowHistory] = useState(false);
 
-  const navigate = useNavigate();
-  const { id } = useParams();
+  const editorRef = useRef(null);
+  const originalSnapshotRef = useRef(null);
+  const skipInitialUpdateRef = useRef(true);
 
-  const tagsEqual = (first = [], second = []) => {
-    if (first.length !== second.length) return false;
-    return first.every((tag, index) => tag === second[index]);
-  };
+  const noteQuery = useQuery({
+    queryKey: ["note", id],
+    queryFn: async () => {
+      const response = await api.get(`/notes/${id}`);
+      return {
+        ...response.data,
+        tags: Array.isArray(response.data.tags) ? response.data.tags : [],
+        pinned: Boolean(response.data.pinned),
+      };
+    },
+    enabled: Boolean(id),
+    retry: 1,
+  });
+
+  const note = noteQuery.data ?? null;
+
+  const {
+    provider,
+    doc,
+    status: collabStatus,
+    participants,
+    typingUsers,
+    color,
+    signalTyping,
+  } = useCollaborativeNote(id, note);
+
+  const historyQuery = useQuery({
+    queryKey: ["note-history", id],
+    queryFn: async () => {
+      const response = await api.get(`/notes/${id}/history`, {
+        params: { limit: MAX_HISTORY_RESULTS },
+      });
+      return response.data?.history ?? [];
+    },
+    enabled: Boolean(id),
+    refetchInterval: HISTORY_REFRESH_MS,
+  });
+
+  const history = historyQuery.data ?? [];
 
   useEffect(() => {
-    const fetchNote = async () => {
-      try {
-        const res = await api.get(`/notes/${id}`);
-        const normalized = {
-          ...res.data,
-          tags: Array.isArray(res.data.tags) ? res.data.tags : [],
-          pinned: Boolean(res.data.pinned),
-        };
-        setNote(normalized);
-        setOriginalNote({
-          ...normalized,
-          tags: [...normalized.tags],
-          pinned: Boolean(normalized.pinned),
-        });
-        setLastSavedAt(new Date(normalized.updatedAt ?? normalized.createdAt));
-      } catch (error) {
-        console.error("Error fetching note", error);
+    if (!note) return;
+    setTitle(note.title ?? "");
+    setTags(Array.isArray(note.tags) ? [...note.tags] : []);
+    setPinned(Boolean(note.pinned));
+    const savedAt = note.updatedAt ?? note.createdAt;
+    if (savedAt) {
+      setLastSavedAt(new Date(savedAt));
+    }
+    originalSnapshotRef.current = note;
+    skipInitialUpdateRef.current = true;
+    setHasChanges(false);
+    setContentStats(computeStats(note.content ?? ""));
+  }, [note]);
 
-        toast.error("Failed to fetch the Note");
-      } finally {
-        setLoading(false);
+  useEffect(() => {
+    if (!doc) return undefined;
+
+    const handleUpdate = () => {
+      if (skipInitialUpdateRef.current) {
+        skipInitialUpdateRef.current = false;
+        return;
       }
+      setHasChanges(true);
+      const text = editorRef.current?.getText({ blockSeparator: "\n" }) ?? "";
+      setContentStats(computeStats(text));
     };
-    fetchNote();
-  }, [id]);
 
-  useEffect(() => {
-    if (!note || !originalNote) {
-      setHasChanges(false);
+    doc.on("update", handleUpdate);
+    return () => {
+      doc.off("update", handleUpdate);
+    };
+  }, [doc]);
+
+  const handleEditorReady = useCallback((editor) => {
+    editorRef.current = editor;
+    const text = editor.getText({ blockSeparator: "\n" }) ?? "";
+    setContentStats(computeStats(text));
+
+    editor.on("update", () => {
+      const value = editor.getText({ blockSeparator: "\n" }) ?? "";
+      setContentStats(computeStats(value));
+    });
+  }, []);
+
+  const handleTitleChange = useCallback((event) => {
+    setTitle(event.target.value);
+    setHasChanges(true);
+  }, []);
+
+  const handleTagsChange = useCallback((nextTags) => {
+    setTags(Array.isArray(nextTags) ? nextTags.slice(0, TAG_LIMIT) : []);
+    setHasChanges(true);
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    if (!id) return;
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      toast.error("Add a title before saving");
       return;
     }
 
-    const noteTags = Array.isArray(note.tags) ? note.tags : [];
-    const originalTags = Array.isArray(originalNote.tags)
-      ? originalNote.tags
-      : [];
+    const snapshot = originalSnapshotRef.current;
+    const richContent = doc
+      ? TiptapTransformer.fromYdoc(doc, "default")
+      : snapshot?.richContent ?? buildInitialNode(snapshot ?? note);
+    const plainText =
+      editorRef.current?.getText({ blockSeparator: "\n" }) ??
+      note?.content ??
+      "";
 
-    const changed =
-      note.title !== originalNote.title ||
-      note.content !== originalNote.content ||
-      note.pinned !== originalNote.pinned ||
-      !tagsEqual(noteTags, originalTags);
+    const payload = {
+      title: trimmedTitle,
+      tags,
+      pinned,
+      richContent,
+      content: plainText,
+      contentText: plainText,
+    };
 
-    setHasChanges(changed);
-  }, [note, originalNote]);
+    setSaving(true);
+    try {
+      const response = await api.put(`/notes/${id}`, payload);
+      const normalized = {
+        ...response.data,
+        tags: Array.isArray(response.data.tags) ? response.data.tags : [],
+        pinned: Boolean(response.data.pinned),
+      };
+      originalSnapshotRef.current = normalized;
+      queryClient.setQueryData(["note", id], normalized);
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      setTitle(normalized.title ?? trimmedTitle);
+      setTags(normalized.tags ?? []);
+      setPinned(Boolean(normalized.pinned));
+      setLastSavedAt(new Date(normalized.updatedAt ?? Date.now()));
+      setHasChanges(false);
+      toast.success("Note updated successfully");
+    } catch (error) {
+      const message =
+        error.response?.data?.message ?? "Failed to update note. Please retry.";
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
+  }, [doc, id, note, pinned, queryClient, tags, title]);
+
+  const handleRevert = useCallback(() => {
+    const snapshot = originalSnapshotRef.current;
+    if (!snapshot) return;
+
+    setTitle(snapshot.title ?? "");
+    setTags(Array.isArray(snapshot.tags) ? [...snapshot.tags] : []);
+    setPinned(Boolean(snapshot.pinned));
+
+    if (doc) {
+      const fragment = doc.getXmlFragment("default");
+      fragment.delete(0, fragment.length);
+      const node = snapshot.richContent ?? buildInitialNode(snapshot);
+      if (node) {
+        const seedDoc = TiptapTransformer.toYdoc(node, "default");
+        const update = Y.encodeStateAsUpdate(seedDoc);
+        Y.applyUpdate(doc, update);
+      }
+    }
+
+    const text = editorRef.current?.getText({ blockSeparator: "\n" }) ?? "";
+    setContentStats(computeStats(text));
+    setHasChanges(false);
+    toast.success("Changes reverted");
+  }, [doc]);
+
+  const handleTogglePinned = useCallback(async () => {
+    if (!id) return;
+    const desiredPinned = !pinned;
+    setPinning(true);
+    try {
+      const response = await api.put(`/notes/${id}`, { pinned: desiredPinned });
+      const normalized = {
+        ...response.data,
+        tags: Array.isArray(response.data.tags) ? response.data.tags : [],
+        pinned: Boolean(response.data.pinned ?? desiredPinned),
+      };
+      originalSnapshotRef.current = normalized;
+      queryClient.setQueryData(["note", id], normalized);
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      setPinned(Boolean(normalized.pinned));
+      setLastSavedAt(new Date(normalized.updatedAt ?? Date.now()));
+      toast.success(
+        normalized.pinned ? "Note pinned to top" : "Note removed from pinned"
+      );
+    } catch (error) {
+      const message =
+        error.response?.data?.message ?? "Failed to update pin status";
+      toast.error(message);
+    } finally {
+      setPinning(false);
+    }
+  }, [id, pinned, queryClient]);
+
+  const openConfirm = useCallback(() => {
+    setConfirmOpen(true);
+  }, []);
+
+  const closeConfirm = useCallback(() => {
+    if (!deleting) {
+      setConfirmOpen(false);
+    }
+  }, [deleting]);
+
+  const handleDelete = useCallback(async () => {
+    if (!id) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/notes/${id}`);
+      toast.success("Note deleted");
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      navigate("/app");
+    } catch (error) {
+      console.error("Failed to delete note", error);
+      toast.error("Failed to delete note");
+    } finally {
+      setDeleting(false);
+      setConfirmOpen(false);
+    }
+  }, [id, navigate, queryClient]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const handleKeyDown = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        if (!saving && hasChanges) {
+          void handleSave();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleSave, hasChanges, saving]);
 
   const createdAt = useMemo(() => {
     if (!note?.createdAt) return null;
@@ -92,16 +341,6 @@ function NoteDetailPage() {
     if (note?.updatedAt) return new Date(note.updatedAt);
     return createdAt;
   }, [note?.updatedAt, createdAt]);
-
-  const wordCount = useMemo(
-    () => countWords(note?.content ?? ""),
-    [note?.content]
-  );
-
-  const characterCount = useMemo(
-    () => (note?.content ? note.content.length : 0),
-    [note?.content]
-  );
 
   const lastSavedDisplay = useMemo(() => {
     if (hasChanges) return "Unsaved changes";
@@ -128,18 +367,11 @@ function NoteDetailPage() {
     return /Mac|iPhone|iPad/i.test(platform) ? "⌘S" : "Ctrl+S";
   }, []);
 
-  const tagLimit = 8;
-  const tagCount = Array.isArray(note?.tags) ? note.tags.length : 0;
-  const disableSave = saving || !hasChanges;
-  const disableRevert = saving || !hasChanges;
-  const sanitizedTitle = note?.title?.trim() ? note.title : "Untitled note";
-
   const statusBadge = useMemo(() => {
     if (hasChanges) {
       return {
         className: "badge-warning",
         label: "Unsaved changes",
-        shortLabel: "Unsaved",
         Icon: RefreshCwIcon,
         iconClassName: "size-3 text-warning-content shrink-0",
       };
@@ -148,202 +380,25 @@ function NoteDetailPage() {
     return {
       className: "badge-success",
       label: "Up to date",
-      shortLabel: "Saved",
       Icon: CheckIcon,
       iconClassName: "size-3 text-success-content shrink-0",
     };
   }, [hasChanges]);
   const StatusBadgeIcon = statusBadge.Icon;
 
-  const handleTitleChange = useCallback((event) => {
-    const { value } = event.target;
-    setNote((prev) => (prev ? { ...prev, title: value } : prev));
-  }, []);
+  const collabBadge = useMemo(
+    () => mapCollabStatus(collabStatus, participants.length),
+    [collabStatus, participants.length]
+  );
+  const CollabBadgeIcon = collabBadge.Icon;
 
-  const handleContentChange = useCallback((event) => {
-    const { value } = event.target;
-    setNote((prev) => (prev ? { ...prev, content: value } : prev));
-  }, []);
+  const sanitizedTitle = title.trim() ? title.trim() : "Untitled note";
+  const { wordCount, characterCount } = contentStats;
+  const tagCount = tags.length;
+  const disableSave = saving || !hasChanges;
+  const disableRevert = saving || !hasChanges;
 
-  const handleTagsChange = useCallback((nextTags) => {
-    setNote((prev) =>
-      prev ? { ...prev, tags: Array.isArray(nextTags) ? nextTags : [] } : prev
-    );
-  }, []);
-
-  const handleSave = useCallback(async () => {
-    if (!note) return;
-
-    const trimmedTitle = note.title?.trim() ?? "";
-    const trimmedContent = note.content?.trim() ?? "";
-
-    if (!trimmedTitle && !trimmedContent) {
-      toast.error("Add a title or content before saving");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const payload = {
-        title: trimmedTitle || "Untitled note",
-        content: trimmedContent,
-        tags: Array.isArray(note.tags)
-          ? note.tags.map((tag) => tag.trim()).filter((tag) => Boolean(tag))
-          : [],
-        pinned: Boolean(note.pinned),
-      };
-
-      const response = await api.put(`/notes/${id}`, payload);
-      const responseData = response?.data ?? {};
-      const merged = {
-        ...note,
-        ...responseData,
-        title: responseData.title ?? payload.title,
-        content: responseData.content ?? payload.content,
-        tags: Array.isArray(responseData.tags)
-          ? responseData.tags
-          : payload.tags,
-        pinned:
-          typeof responseData.pinned === "boolean"
-            ? responseData.pinned
-            : payload.pinned,
-      };
-
-      const normalizedTags = Array.isArray(merged.tags) ? merged.tags : [];
-
-      setNote({
-        ...merged,
-        tags: [...normalizedTags],
-      });
-
-      setOriginalNote({
-        ...merged,
-        tags: [...normalizedTags],
-      });
-
-      const savedAt = merged.updatedAt
-        ? new Date(merged.updatedAt)
-        : new Date();
-      setLastSavedAt(savedAt);
-
-      toast.success("Note updated successfully");
-    } catch (error) {
-      console.error("Error saving the note", error);
-      const message = error.response?.data?.message ?? "Failed to update note";
-      toast.error(message);
-    } finally {
-      setSaving(false);
-    }
-  }, [id, note]);
-
-  const handleRevert = useCallback(() => {
-    if (!originalNote) return;
-    setNote({
-      ...originalNote,
-      tags: [...(originalNote.tags ?? [])],
-      pinned: Boolean(originalNote.pinned),
-    });
-    toast.success("Changes reverted");
-  }, [originalNote]);
-
-  const handleTogglePinned = useCallback(async () => {
-    if (!note) return;
-
-    const nextPinned = !note.pinned;
-    setPinning(true);
-    try {
-      const response = await api.put(`/notes/${id}`, { pinned: nextPinned });
-      const responseData = response?.data ?? {};
-
-      const resolvedPinned =
-        typeof responseData.pinned === "boolean"
-          ? responseData.pinned
-          : nextPinned;
-      const resolvedUpdatedAt = responseData.updatedAt ?? note.updatedAt;
-
-      setNote((prev) =>
-        prev
-          ? {
-              ...prev,
-              pinned: resolvedPinned,
-              updatedAt: resolvedUpdatedAt,
-              tags: Array.isArray(prev.tags) ? [...prev.tags] : [],
-            }
-          : prev
-      );
-
-      setOriginalNote((prev) =>
-        prev
-          ? {
-              ...prev,
-              pinned: resolvedPinned,
-              updatedAt: resolvedUpdatedAt,
-              tags: Array.isArray(prev.tags) ? [...prev.tags] : [],
-            }
-          : prev
-      );
-
-      const savedAt = resolvedUpdatedAt
-        ? new Date(resolvedUpdatedAt)
-        : new Date();
-      setLastSavedAt(savedAt);
-
-      toast.success(
-        resolvedPinned ? "Note pinned to top" : "Note removed from pinned"
-      );
-    } catch (error) {
-      console.error("Error toggling pinned state", error);
-      const message =
-        error.response?.data?.message ?? "Failed to update pin status";
-      toast.error(message);
-    } finally {
-      setPinning(false);
-    }
-  }, [id, note]);
-
-  const openConfirm = () => setConfirmOpen(true);
-
-  const closeConfirm = () => {
-    if (!deleting) {
-      setConfirmOpen(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    setDeleting(true);
-    try {
-      await api.delete(`/notes/${id}`);
-      toast.success("Note deleted");
-      navigate("/app");
-    } catch (error) {
-      console.error("Error deleting the note", error);
-      toast.error("Failed to delete note");
-    } finally {
-      setDeleting(false);
-      setConfirmOpen(false);
-    }
-  };
-
-  useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-
-    const handleKeyDown = (event) => {
-      if (
-        (event.ctrlKey || event.metaKey) &&
-        (event.key === "s" || event.key === "S")
-      ) {
-        event.preventDefault();
-        if (!saving && hasChanges) {
-          void handleSave();
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleSave, hasChanges, saving]);
-
-  if (loading) {
+  if (noteQuery.isLoading) {
     return (
       <div className="min-h-screen bg-base-200 flex items-center justify-center">
         <LoaderIcon className="animate-spin size-10" />
@@ -375,8 +430,8 @@ function NoteDetailPage() {
   return (
     <>
       <div className="min-h-screen bg-gradient-to-br from-base-200 via-base-100 to-base-300">
-        <header className="sticky top-0 z-30 mx-auto max-w-3xl rounded-b-2xl shadow-lg border border-base-300/30 bg-base-100/90 backdrop-blur-lg mt-2">
-          <div className="flex w-full flex-col gap-4 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <header className="sticky top-0 z-30 mx-auto max-w-4xl rounded-b-2xl shadow-lg border border-base-300/30 bg-base-100/90 backdrop-blur-lg mt-2">
+          <div className="flex w-full flex-col gap-4 px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-1 min-w-0 items-start gap-4">
               <Link
                 to="/app"
@@ -390,7 +445,7 @@ function NoteDetailPage() {
                   <span className="text-lg font-bold text-base-content truncate">
                     {sanitizedTitle}
                   </span>
-                  {note?.pinned && (
+                  {pinned && (
                     <span className="badge badge-warning badge-lg flex items-center gap-2">
                       <PinIcon className="size-4" />
                       Pinned
@@ -412,58 +467,69 @@ function NoteDetailPage() {
                 </div>
               </div>
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-              <button
-                type="button"
-                className={`btn btn-outline btn-md gap-2 ${
-                  note?.pinned ? "border-warning text-warning" : ""
-                }`}
-                onClick={handleTogglePinned}
-                disabled={pinning}
-                title={note?.pinned ? "Unpin note" : "Pin note"}
-              >
-                {pinning ? (
-                  <LoaderIcon className="size-4 animate-spin" />
-                ) : note?.pinned ? (
-                  <PinOffIcon className="size-4" />
-                ) : (
-                  <PinIcon className="size-4" />
-                )}
-                <span>{note?.pinned ? "Unpin" : "Pin"}</span>
-              </button>
-              <button
-                type="button"
-                className="btn btn-outline btn-md gap-2"
-                onClick={handleRevert}
-                disabled={disableRevert}
-                title="Revert changes"
-              >
-                <RefreshCwIcon className="size-4" />
-                <span>Revert</span>
-              </button>
-              <button
-                type="button"
-                className="btn btn-outline btn-error btn-md gap-2"
-                onClick={openConfirm}
-                title="Delete note"
-              >
-                <Trash2Icon className="size-4" strokeWidth={2.2} />
-                <span>Delete</span>
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary btn-md font-semibold gap-2 shadow-lg hover:scale-[1.02] transition-all duration-150"
-                onClick={handleSave}
-                disabled={disableSave}
-                title="Save changes"
-              >
-                {saving ? (
-                  <LoaderIcon className="size-4 animate-spin" />
-                ) : (
-                  <SaveIcon className="size-4" />
-                )}
-                <span>{saving ? "Saving" : "Save changes"}</span>
-              </button>
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-2">
+                <PresenceAvatars participants={participants} />
+                <span
+                  className={`badge gap-1 ${collabBadge.className} whitespace-nowrap`}
+                >
+                  <CollabBadgeIcon className="size-3" />
+                  {collabBadge.label}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  className={`btn btn-outline btn-sm sm:btn-md gap-2 ${
+                    pinned ? "border-warning text-warning" : ""
+                  }`}
+                  onClick={handleTogglePinned}
+                  disabled={pinning}
+                  title={pinned ? "Unpin note" : "Pin note"}
+                >
+                  {pinning ? (
+                    <LoaderIcon className="size-4 animate-spin" />
+                  ) : pinned ? (
+                    <PinOffIcon className="size-4" />
+                  ) : (
+                    <PinIcon className="size-4" />
+                  )}
+                  <span>{pinned ? "Unpin" : "Pin"}</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm sm:btn-md gap-2"
+                  onClick={handleRevert}
+                  disabled={disableRevert}
+                  title="Revert changes"
+                >
+                  <RefreshCwIcon className="size-4" />
+                  <span>Revert</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-error btn-sm sm:btn-md gap-2"
+                  onClick={openConfirm}
+                  title="Delete note"
+                >
+                  <Trash2Icon className="size-4" strokeWidth={2.2} />
+                  <span>Delete</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm sm:btn-md font-semibold gap-2 shadow-lg"
+                  onClick={handleSave}
+                  disabled={disableSave}
+                  title="Save changes"
+                >
+                  {saving ? (
+                    <LoaderIcon className="size-4 animate-spin" />
+                  ) : (
+                    <SaveIcon className="size-4" />
+                  )}
+                  <span>{saving ? "Saving" : "Save changes"}</span>
+                </button>
+              </div>
             </div>
           </div>
         </header>
@@ -471,59 +537,44 @@ function NoteDetailPage() {
         <main
           id="main-content"
           tabIndex={-1}
-          className="mx-auto w-full max-w-3xl space-y-8 px-4 py-10"
+          className="mx-auto w-full max-w-4xl space-y-8 px-4 py-10"
         >
-          <section className="grid gap-6 sm:grid-cols-3">
-            <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-base-100 via-base-200 to-primary/10 p-5 shadow-lg">
-              <p className="text-xs font-bold uppercase text-primary tracking-wide mb-1">
+          <section className="grid gap-6 md:grid-cols-3">
+            <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-base-100 via-base-200 to-primary/10 p-5 shadow-lg space-y-3">
+              <p className="text-xs font-bold uppercase text-primary tracking-wide">
                 Status
               </p>
               <p
-                className="mt-2 flex items-center gap-2 text-base font-semibold text-base-content"
+                className="flex items-center gap-2 text-sm font-semibold text-base-content"
                 title={lastSavedTooltip ?? undefined}
               >
-                <ClockIcon className="size-5 text-primary" />
+                <ClockIcon className="size-4 text-primary" />
                 {lastSavedDisplay}
               </p>
-              <p className="mt-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-warning">
-                {note?.pinned ? (
-                  <>
-                    <PinIcon className="size-4 mr-1" />
-                    <span>Pinned to top</span>
-                  </>
-                ) : (
-                  <span className="text-base-content/60 flex items-center gap-1">
-                    <PinOffIcon className="size-4" />
-                    Not pinned
-                  </span>
-                )}
-              </p>
-              <p className="mt-3 text-xs text-base-content/60">
-                <span className="bg-base-300/40 rounded px-2 py-1 font-mono">
+              <p className="text-xs text-base-content/60">
+                Shortcut:
+                <span className="ml-2 rounded px-2 py-1 font-mono bg-base-300/40">
                   {shortcutLabel}
-                </span>{" "}
-                to save
+                </span>
               </p>
             </div>
-            <div className="rounded-2xl border border-secondary/30 bg-gradient-to-br from-base-100 via-base-200 to-secondary/10 p-5 shadow-lg">
-              <p className="text-xs font-bold uppercase text-secondary tracking-wide mb-1">
-                Word count
+            <div className="rounded-2xl border border-secondary/30 bg-gradient-to-br from-base-100 via-base-200 to-secondary/10 p-5 shadow-lg space-y-3">
+              <p className="text-xs font-bold uppercase text-secondary tracking-wide">
+                Writing stats
               </p>
-              <p className="mt-2 text-3xl font-bold text-secondary">
-                {wordCount}
-              </p>
-              <p className="text-xs text-base-content/60 mt-1">
+              <p className="text-3xl font-bold text-secondary">{wordCount}</p>
+              <p className="text-xs text-base-content/60">
                 {characterCount} characters
               </p>
             </div>
-            <div className="rounded-2xl border border-accent/30 bg-gradient-to-br from-base-100 via-base-200 to-accent/10 p-5 shadow-lg">
-              <p className="text-xs font-bold uppercase text-accent tracking-wide mb-1">
+            <div className="rounded-2xl border border-accent/30 bg-gradient-to-br from-base-100 via-base-200 to-accent/10 p-5 shadow-lg space-y-3">
+              <p className="text-xs font-bold uppercase text-accent tracking-wide">
                 Timeline
               </p>
-              <p className="mt-2 text-base font-semibold text-accent">
+              <p className="text-sm font-semibold text-accent">
                 {updatedAt ? `Updated ${formatRelativeTime(updatedAt)}` : "–"}
               </p>
-              <p className="text-xs text-base-content/60 mt-1">
+              <p className="text-xs text-base-content/60">
                 Created {createdAt ? formatDate(createdAt) : "–"}
               </p>
             </div>
@@ -531,33 +582,46 @@ function NoteDetailPage() {
 
           <section className="space-y-6">
             <div className="card border border-base-300/60 bg-base-100/90 shadow-lg rounded-2xl">
-              <div className="card-body space-y-6">
+              <div className="card-body space-y-4">
                 <label className="form-control gap-2">
-                  <span className="label-text text-base font-bold text-primary">
+                  <span className="label-text text-sm font-semibold text-primary">
                     Title
                   </span>
                   <input
                     type="text"
                     placeholder="Note title"
                     className="input input-bordered input-lg bg-base-200/60 rounded-xl focus:ring-2 focus:ring-primary/40 transition-all"
-                    value={note.title ?? ""}
+                    value={title}
                     onChange={handleTitleChange}
                   />
                 </label>
-                <label className="form-control gap-2">
-                  <span className="label-text text-base font-bold text-secondary">
-                    Content
-                  </span>
-                  <textarea
-                    placeholder="Write your note here..."
-                    className="textarea textarea-bordered min-h-[18rem] leading-relaxed rounded-xl focus:ring-2 focus:ring-secondary/40 transition-all"
-                    value={note.content ?? ""}
-                    onChange={handleContentChange}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-secondary">
+                      Collaborative content
+                    </span>
+                    <span className="badge badge-outline gap-1 text-xs">
+                      <UsersIcon className="size-3" />
+                      {participants.length || "No"} collaborator
+                      {participants.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                  <CollaborativeEditor
+                    provider={provider}
+                    doc={doc}
+                    color={color}
+                    user={user}
+                    onReady={handleEditorReady}
+                    onTyping={signalTyping}
+                    placeholder="Draft the note together..."
                   />
-                  <span className="text-right text-xs text-base-content/60 mt-1">
-                    {wordCount} words · {characterCount} characters
-                  </span>
-                </label>
+                  <div className="flex items-center justify-between">
+                    <TypingIndicator typingUsers={typingUsers} />
+                    <p className="text-right text-xs text-base-content/60">
+                      {wordCount} words · {characterCount} characters
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -567,14 +631,80 @@ function NoteDetailPage() {
                   <div>
                     <h3 className="text-base font-bold text-accent">Tags</h3>
                     <p className="text-xs text-base-content/60">
-                      Press Enter or comma to add up to {tagLimit} tags
+                      Press Enter or comma to add up to {TAG_LIMIT} tags
                     </p>
                   </div>
                   <span className="badge badge-accent badge-outline text-xs px-3 py-1">
-                    {tagCount}/{tagLimit}
+                    {tagCount}/{TAG_LIMIT}
                   </span>
                 </div>
-                <TagInput value={note.tags ?? []} onChange={handleTagsChange} />
+                <TagInput value={tags} onChange={handleTagsChange} />
+              </div>
+            </div>
+
+            <div className="card border border-base-300/60 bg-base-100/90 shadow-lg rounded-2xl">
+              <div className="card-body space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-primary">
+                      Change history
+                    </h3>
+                    <p className="text-xs text-base-content/60">
+                      Recent edits from your team
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-ghost gap-2"
+                    onClick={() => setShowHistory((value) => !value)}
+                  >
+                    <HistoryIcon className="size-4" />
+                    {showHistory ? "Hide" : "Show"} timeline
+                  </button>
+                </div>
+                {showHistory && (
+                  <div className="space-y-3">
+                    {historyQuery.isFetching && history.length === 0 ? (
+                      <div className="flex items-center justify-center py-6">
+                        <LoaderIcon className="size-5 animate-spin" />
+                      </div>
+                    ) : history.length ? (
+                      <ul className="space-y-3">
+                        {history.map((entry) => {
+                          const timestamp = entry.createdAt
+                            ? new Date(entry.createdAt)
+                            : null;
+                          return (
+                            <li
+                              key={entry.id}
+                              className="rounded-xl border border-base-300/60 bg-base-200/60 px-4 py-3"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-medium text-base-content">
+                                    {entry.summary ?? entry.eventType}
+                                  </p>
+                                  <p className="text-xs uppercase tracking-wide text-base-content/60">
+                                    {entry.eventType}
+                                  </p>
+                                </div>
+                                <span className="text-xs text-base-content/60 whitespace-nowrap">
+                                  {timestamp
+                                    ? formatRelativeTime(timestamp)
+                                    : ""}
+                                </span>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-base-content/60">
+                        Be the first to make a change and it will show up here.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

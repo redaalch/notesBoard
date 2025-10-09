@@ -1,10 +1,16 @@
 import mongoose from "mongoose";
 import Note from "../models/Note.js";
-import Board from "../models/Board.js";
-import Workspace from "../models/Workspace.js";
 import CollabDocument from "../models/CollabDocument.js";
+import NoteHistory from "../models/NoteHistory.js";
 import logger from "../utils/logger.js";
 import { isValidObjectId } from "../utils/validators.js";
+import {
+  resolveBoardForUser,
+  resolveNoteForUser,
+  listAccessibleWorkspaceIds,
+  touchWorkspaceMember,
+  getWorkspaceMembership,
+} from "../utils/access.js";
 
 const INTERNAL_SERVER_ERROR = {
   message: "Internal server error",
@@ -18,13 +24,7 @@ const NOTE_NOT_FOUND = {
   message: "Note not found",
 };
 
-const hasWorkspaceRole = (workspace, userId) => {
-  if (!workspace) return false;
-  if (String(workspace.ownerId) === String(userId)) return true;
-  return (workspace.members ?? []).some(
-    (member) => String(member.userId) === String(userId)
-  );
-};
+const EDIT_ROLES = new Set(["owner", "admin", "editor"]);
 
 const MAX_TAGS_PER_NOTE = 8;
 
@@ -58,62 +58,50 @@ const normalizeTags = (tags) => {
   return unique.slice(0, MAX_TAGS_PER_NOTE);
 };
 
-const loadBoardContext = async (userId, boardId) => {
-  if (!boardId || !isValidObjectId(boardId)) {
-    return null;
-  }
-
-  const board = await Board.findById(boardId).lean();
-  if (!board) {
-    return null;
-  }
-
-  const workspace = await Workspace.findById(board.workspaceId).lean();
-  if (!workspace) {
-    return null;
-  }
-
-  if (!hasWorkspaceRole(workspace, userId)) {
-    return null;
-  }
-
-  return { board, workspace };
-};
-
-const resolveBoardContext = async (req, explicitBoardId) => {
-  const desiredBoardId = explicitBoardId || req.user?.defaultBoard;
-  if (!desiredBoardId) {
-    return null;
-  }
-
-  return loadBoardContext(req.user.id, desiredBoardId);
-};
-
 export const getAllNotes = async (req, res) => {
   try {
-    const filter = { owner: req.user.id };
-
+    const userId = req.user.id;
     const requestedBoardId = req.query?.boardId;
+    const query = {};
+
     if (requestedBoardId) {
-      const context = await resolveBoardContext(req, requestedBoardId);
+      const context = await resolveBoardForUser(requestedBoardId, userId);
       if (!context) {
         return res.status(404).json({ message: "Board not found" });
       }
-      filter.boardId = context.board._id;
+      query.boardId = context.board._id;
+      query.workspaceId = context.workspace._id;
+      await touchWorkspaceMember(context.workspace._id, userId);
     } else if (req.user?.defaultBoard) {
-      filter.boardId = req.user.defaultBoard;
+      const context = await resolveBoardForUser(req.user.defaultBoard, userId);
+      if (context) {
+        query.boardId = context.board._id;
+        query.workspaceId = context.workspace._id;
+      }
     }
 
-    if (filter.boardId && !isValidObjectId(filter.boardId)) {
-      return res.status(400).json({ message: "Invalid board id" });
+    if (!query.boardId) {
+      const accessibleWorkspaceIds = await listAccessibleWorkspaceIds(userId);
+      const orFilter = [{ owner: new mongoose.Types.ObjectId(userId) }];
+
+      if (accessibleWorkspaceIds.length) {
+        orFilter.push({
+          workspaceId: {
+            $in: accessibleWorkspaceIds.map(
+              (id) => new mongoose.Types.ObjectId(id)
+            ),
+          },
+        });
+      }
+
+      if (orFilter.length === 1) {
+        Object.assign(query, orFilter[0]);
+      } else {
+        query.$or = orFilter;
+      }
     }
 
-    const normalizedFilter = { ...filter };
-    if (filter.boardId) {
-      normalizedFilter.boardId = new mongoose.Types.ObjectId(filter.boardId);
-    }
-
-    const notes = await Note.find(normalizedFilter)
+    const notes = await Note.find(query)
       .sort({ pinned: -1, updatedAt: -1, createdAt: -1 })
       .lean();
     return res.status(200).json(notes);
@@ -130,10 +118,16 @@ export const getNoteById = async (req, res) => {
       return res.status(400).json(INVALID_NOTE_ID);
     }
 
-    const note = await Note.findOne({ _id: id, owner: req.user.id });
-    if (!note) return res.status(404).json(NOTE_NOT_FOUND);
+    const access = await resolveNoteForUser(id, req.user.id);
+    if (!access) {
+      return res.status(404).json(NOTE_NOT_FOUND);
+    }
 
-    return res.status(200).json(note);
+    if (access.workspaceId) {
+      await touchWorkspaceMember(access.workspaceId, req.user.id);
+    }
+
+    return res.status(200).json(access.note);
   } catch (error) {
     logger.error("Error in getNoteById", { error: error?.message });
     return res.status(500).json(INTERNAL_SERVER_ERROR);
@@ -150,9 +144,10 @@ export const createNote = async (req, res) => {
         .json({ message: "title and content are required" });
     }
 
+    const userId = req.user.id;
     const boardContext =
-      (await resolveBoardContext(req, boardId)) ??
-      (await resolveBoardContext(req, req.user?.defaultBoard));
+      (await resolveBoardForUser(boardId, userId)) ??
+      (await resolveBoardForUser(req.user?.defaultBoard, userId));
 
     if (!boardContext) {
       return res
@@ -160,8 +155,15 @@ export const createNote = async (req, res) => {
         .json({ message: "Board not found or inaccessible" });
     }
 
+    const role = boardContext.member?.role ?? "owner";
+    if (!EDIT_ROLES.has(role)) {
+      return res.status(403).json({ message: "Insufficient permissions" });
+    }
+
+    await touchWorkspaceMember(boardContext.workspace._id, userId);
+
     const payload = {
-      owner: req.user.id,
+      owner: userId,
       workspaceId: boardContext.workspace._id,
       boardId: boardContext.board._id,
       title,
@@ -182,6 +184,14 @@ export const createNote = async (req, res) => {
     }
 
     const savedNote = await Note.create(payload);
+    await NoteHistory.create({
+      noteId: savedNote._id,
+      workspaceId: savedNote.workspaceId,
+      boardId: savedNote.boardId,
+      actorId: userId,
+      eventType: "create",
+      summary: "Created note",
+    });
     return res.status(201).json(savedNote);
   } catch (error) {
     logger.error("Error in createNote", { error: error?.message });
@@ -202,6 +212,17 @@ export const updateNote = async (req, res) => {
       return res.status(400).json(INVALID_NOTE_ID);
     }
 
+    const access = await resolveNoteForUser(id, req.user.id);
+    if (!access) {
+      return res.status(404).json(NOTE_NOT_FOUND);
+    }
+
+    const isOwner = String(access.ownerId) === String(req.user.id);
+    const role = access.membership?.member?.role ?? (isOwner ? "owner" : null);
+    if (!isOwner && !EDIT_ROLES.has(role)) {
+      return res.status(403).json({ message: "Insufficient permissions" });
+    }
+
     const updates = {};
     if (typeof title !== "undefined") updates.title = title;
     if (typeof content !== "undefined") updates.content = content;
@@ -219,11 +240,15 @@ export const updateNote = async (req, res) => {
     }
 
     if (typeof boardId !== "undefined") {
-      const boardContext = await resolveBoardContext(req, boardId);
+      const boardContext = await resolveBoardForUser(boardId, req.user.id);
       if (!boardContext) {
         return res
           .status(404)
           .json({ message: "Board not found or inaccessible" });
+      }
+      const boardRole = boardContext.member?.role ?? "owner";
+      if (!EDIT_ROLES.has(boardRole)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
       }
       updates.boardId = boardContext.board._id;
       updates.workspaceId = boardContext.workspace._id;
@@ -233,18 +258,68 @@ export const updateNote = async (req, res) => {
       return res.status(400).json({ message: "No update data provided" });
     }
 
-    const updatedNote = await Note.findOneAndUpdate(
-      { _id: id, owner: req.user.id },
-      updates,
-      {
-        new: true,
-        runValidators: true,
-      }
+    await touchWorkspaceMember(
+      updates.workspaceId ?? access.workspaceId ?? access.note.workspaceId,
+      req.user.id
     );
+
+    const updatedNote = await Note.findOneAndUpdate({ _id: id }, updates, {
+      new: true,
+      runValidators: true,
+    });
 
     if (!updatedNote) {
       return res.status(404).json(NOTE_NOT_FOUND);
     }
+
+    const changes = [];
+    let eventType = "edit";
+
+    if (typeof title !== "undefined" && title !== access.note.title) {
+      changes.push("title");
+      eventType = "title";
+    }
+
+    if (typeof content !== "undefined" && content !== access.note.content) {
+      changes.push("content");
+    }
+
+    if (
+      typeof tags !== "undefined" &&
+      Array.isArray(tags) &&
+      JSON.stringify(tags) !== JSON.stringify(access.note.tags ?? [])
+    ) {
+      changes.push("tags");
+      if (eventType === "edit") {
+        eventType = "tag";
+      }
+    }
+
+    if (
+      typeof pinned !== "undefined" &&
+      access.note.pinned !== updates.pinned
+    ) {
+      eventType = updates.pinned ? "pin" : "unpin";
+      changes.push("pinned");
+    }
+
+    if (
+      typeof boardId !== "undefined" &&
+      String(access.note.boardId ?? "") !== String(updatedNote.boardId ?? "")
+    ) {
+      eventType = "move";
+      changes.push("board");
+    }
+
+    await NoteHistory.create({
+      noteId: updatedNote._id,
+      workspaceId: updatedNote.workspaceId ?? access.workspaceId ?? null,
+      boardId: updatedNote.boardId ?? access.boardId ?? null,
+      actorId: req.user.id,
+      eventType,
+      summary:
+        changes.length === 0 ? "Edited note" : `Updated ${changes.join(", ")}`,
+    });
 
     return res.status(200).json(updatedNote);
   } catch (error) {
@@ -263,10 +338,18 @@ export const deleteNote = async (req, res) => {
       return res.status(400).json(INVALID_NOTE_ID);
     }
 
-    const deletedNote = await Note.findOneAndDelete({
-      _id: id,
-      owner: req.user.id,
-    });
+    const access = await resolveNoteForUser(id, req.user.id);
+    if (!access) {
+      return res.status(404).json(NOTE_NOT_FOUND);
+    }
+
+    const isOwner = String(access.ownerId) === String(req.user.id);
+    const role = access.membership?.member?.role ?? (isOwner ? "owner" : null);
+    if (!isOwner && !EDIT_ROLES.has(role)) {
+      return res.status(403).json({ message: "Insufficient permissions" });
+    }
+
+    const deletedNote = await Note.findOneAndDelete({ _id: id });
     if (!deletedNote) {
       return res.status(404).json(NOTE_NOT_FOUND);
     }
@@ -274,6 +357,15 @@ export const deleteNote = async (req, res) => {
     if (deletedNote.docName) {
       await CollabDocument.findOneAndDelete({ name: deletedNote.docName });
     }
+
+    await NoteHistory.create({
+      noteId: deletedNote._id,
+      workspaceId: deletedNote.workspaceId ?? access.workspaceId ?? null,
+      boardId: deletedNote.boardId ?? access.boardId ?? null,
+      actorId: req.user.id,
+      eventType: "delete",
+      summary: "Deleted note",
+    });
 
     // 204 No Content is common; 200 is fine too.
     return res.status(200).json({ message: "Deleted" });
@@ -292,29 +384,57 @@ export const getTagStats = async (req, res) => {
     }
 
     let targetBoardId = req.query?.boardId;
+    let targetWorkspaceId = null;
     if (targetBoardId) {
-      const context = await resolveBoardContext(req, targetBoardId);
+      const context = await resolveBoardForUser(targetBoardId, ownerId);
       if (!context) {
         return res
           .status(404)
           .json({ message: "Board not found or inaccessible" });
       }
       targetBoardId = context.board._id.toString();
+      targetWorkspaceId = context.workspace._id.toString();
+      await touchWorkspaceMember(context.workspace._id, ownerId);
     } else if (req.user?.defaultBoard) {
-      targetBoardId = req.user.defaultBoard;
+      const context = await resolveBoardForUser(req.user.defaultBoard, ownerId);
+      if (context) {
+        targetBoardId = context.board._id.toString();
+        targetWorkspaceId = context.workspace._id.toString();
+      }
+    }
+
+    const accessibleWorkspaceIds = await listAccessibleWorkspaceIds(ownerId);
+    const workspaceObjectIds = accessibleWorkspaceIds.map(
+      (value) => new mongoose.Types.ObjectId(value)
+    );
+
+    const ownerMatch = new mongoose.Types.ObjectId(ownerId);
+    const matchStage = targetBoardId
+      ? {
+          boardId: new mongoose.Types.ObjectId(targetBoardId),
+          tags: { $exists: true, $ne: [] },
+        }
+      : {
+          $and: [
+            {
+              $or: [
+                { owner: ownerMatch },
+                ...(workspaceObjectIds.length
+                  ? [{ workspaceId: { $in: workspaceObjectIds } }]
+                  : []),
+              ],
+            },
+            { tags: { $exists: true, $ne: [] } },
+          ],
+        };
+
+    if (targetWorkspaceId) {
+      matchStage.workspaceId = new mongoose.Types.ObjectId(targetWorkspaceId);
     }
 
     const rawAggregation = await Note.aggregate([
       {
-        $match: {
-          owner: new mongoose.Types.ObjectId(ownerId),
-          ...(targetBoardId
-            ? {
-                boardId: new mongoose.Types.ObjectId(targetBoardId),
-              }
-            : {}),
-          tags: { $exists: true, $ne: [] },
-        },
+        $match: matchStage,
       },
       { $project: { tags: 1 } },
       { $unwind: "$tags" },
@@ -382,16 +502,107 @@ export const bulkUpdateNotes = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
+    const workspaceIds = await listAccessibleWorkspaceIds(ownerId);
+    const workspaceObjectIds = workspaceIds.map(
+      (value) => new mongoose.Types.ObjectId(value)
+    );
+
     const baseFilter = {
-      owner: new mongoose.Types.ObjectId(ownerId),
       _id: { $in: normalizedIds.map((id) => new mongoose.Types.ObjectId(id)) },
+      $or: [
+        { owner: new mongoose.Types.ObjectId(ownerId) },
+        ...(workspaceObjectIds.length
+          ? [{ workspaceId: { $in: workspaceObjectIds } }]
+          : []),
+      ],
     };
+
+    if (baseFilter.$or.length === 1) {
+      delete baseFilter.$or;
+      Object.assign(baseFilter, {
+        owner: new mongoose.Types.ObjectId(ownerId),
+      });
+    }
+
+    const candidateNotes = await Note.find(baseFilter).lean();
+    if (!candidateNotes.length) {
+      return res.status(200).json({
+        action,
+        updated: 0,
+        deleted: 0,
+        noteIds: [],
+      });
+    }
+
+    const membershipCache = new Map();
+    const resolveRole = async (workspaceId) => {
+      if (!workspaceId) return null;
+      const key = workspaceId.toString();
+      if (membershipCache.has(key)) {
+        return membershipCache.get(key);
+      }
+      const membership = await getWorkspaceMembership(workspaceId, ownerId);
+      const role = membership?.member?.role ?? (membership ? "owner" : null);
+      membershipCache.set(key, role);
+      return role;
+    };
+
+    const permittedNotes = [];
+    for (const note of candidateNotes) {
+      const isOwner = String(note.owner) === String(ownerId);
+      let role = null;
+      if (note.workspaceId) {
+        role = await resolveRole(note.workspaceId);
+      }
+      if (isOwner || (role && EDIT_ROLES.has(role))) {
+        permittedNotes.push(note);
+      }
+    }
+
+    const allowedIds = permittedNotes.map((note) => note._id);
+    if (!allowedIds.length) {
+      return res
+        .status(403)
+        .json({ message: "No editable notes in selection" });
+    }
+
+    const touchIds = new Set(
+      permittedNotes
+        .map((note) => note.workspaceId)
+        .filter((value) => !!value)
+        .map((value) => value.toString())
+    );
+
+    const touchPromises = [...touchIds].map((workspaceId) =>
+      touchWorkspaceMember(workspaceId, ownerId)
+    );
+
+    const objectIdArray = allowedIds.map(
+      (id) => new mongoose.Types.ObjectId(id)
+    );
 
     if (action === "pin" || action === "unpin") {
       const desiredPinned = action === "pin";
-      const result = await Note.updateMany(baseFilter, {
-        $set: { pinned: desiredPinned },
-      });
+      const result = await Note.updateMany(
+        { _id: { $in: objectIdArray } },
+        {
+          $set: { pinned: desiredPinned },
+        }
+      );
+
+      await Promise.all([
+        ...touchPromises,
+        NoteHistory.insertMany(
+          permittedNotes.map((note) => ({
+            noteId: note._id,
+            workspaceId: note.workspaceId ?? null,
+            boardId: note.boardId ?? null,
+            actorId: ownerId,
+            eventType: desiredPinned ? "pin" : "unpin",
+            summary: desiredPinned ? "Pinned note" : "Unpinned note",
+          }))
+        ),
+      ]);
 
       return res.status(200).json({
         action,
@@ -401,8 +612,7 @@ export const bulkUpdateNotes = async (req, res) => {
     }
 
     if (action === "delete") {
-      const notes = await Note.find(baseFilter).select({ docName: 1 }).lean();
-      const docNames = notes
+      const docNames = permittedNotes
         .map((note) => note.docName)
         .filter((name) => typeof name === "string" && name.length > 0);
 
@@ -410,7 +620,21 @@ export const bulkUpdateNotes = async (req, res) => {
         await CollabDocument.deleteMany({ name: { $in: docNames } });
       }
 
-      const result = await Note.deleteMany(baseFilter);
+      const result = await Note.deleteMany({ _id: { $in: objectIdArray } });
+
+      await Promise.all([
+        ...touchPromises,
+        NoteHistory.insertMany(
+          permittedNotes.map((note) => ({
+            noteId: note._id,
+            workspaceId: note.workspaceId ?? null,
+            boardId: note.boardId ?? null,
+            actorId: ownerId,
+            eventType: "delete",
+            summary: "Deleted note",
+          }))
+        ),
+      ]);
 
       return res.status(200).json({
         action,
@@ -427,10 +651,8 @@ export const bulkUpdateNotes = async (req, res) => {
           .json({ message: "At least one valid tag is required" });
       }
 
-      const notes = await Note.find(baseFilter);
       let updatedCount = 0;
-
-      for (const note of notes) {
+      for (const note of permittedNotes) {
         const existingTags = Array.isArray(note.tags) ? note.tags : [];
         const merged = Array.from(
           new Set([
@@ -438,10 +660,24 @@ export const bulkUpdateNotes = async (req, res) => {
             ...normalizedTags,
           ])
         ).slice(0, MAX_TAGS_PER_NOTE);
-        note.tags = merged;
-        await note.save();
-        updatedCount += 1;
+        const result = await Note.updateOne(
+          { _id: note._id },
+          { $set: { tags: merged } }
+        );
+        if (result.modifiedCount) {
+          updatedCount += 1;
+          await NoteHistory.create({
+            noteId: note._id,
+            workspaceId: note.workspaceId ?? null,
+            boardId: note.boardId ?? null,
+            actorId: ownerId,
+            eventType: "tag",
+            summary: `Added tags: ${normalizedTags.join(", ")}`,
+          });
+        }
       }
+
+      await Promise.all(touchPromises);
 
       return res.status(200).json({
         action,
@@ -452,19 +688,42 @@ export const bulkUpdateNotes = async (req, res) => {
     }
 
     if (action === "move") {
-      const boardContext = await resolveBoardContext(req, boardId);
+      const boardContext = await resolveBoardForUser(boardId, ownerId);
       if (!boardContext) {
         return res
           .status(404)
           .json({ message: "Board not found or inaccessible" });
       }
 
-      const result = await Note.updateMany(baseFilter, {
-        $set: {
-          boardId: boardContext.board._id,
-          workspaceId: boardContext.workspace._id,
-        },
-      });
+      const boardRole = boardContext.member?.role ?? "owner";
+      if (!EDIT_ROLES.has(boardRole)) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const result = await Note.updateMany(
+        { _id: { $in: objectIdArray } },
+        {
+          $set: {
+            boardId: boardContext.board._id,
+            workspaceId: boardContext.workspace._id,
+          },
+        }
+      );
+
+      await Promise.all([
+        ...touchPromises,
+        touchWorkspaceMember(boardContext.workspace._id, ownerId),
+        NoteHistory.insertMany(
+          permittedNotes.map((note) => ({
+            noteId: note._id,
+            workspaceId: boardContext.workspace._id,
+            boardId: boardContext.board._id,
+            actorId: ownerId,
+            eventType: "move",
+            summary: `Moved to ${boardContext.board.name}`,
+          }))
+        ),
+      ]);
 
       return res.status(200).json({
         action,
@@ -477,6 +736,80 @@ export const bulkUpdateNotes = async (req, res) => {
     return res.status(400).json({ message: "Unsupported action" });
   } catch (error) {
     logger.error("Bulk update notes failed", { error: error?.message });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
+  }
+};
+
+export const getNoteHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(INVALID_NOTE_ID);
+    }
+
+    const access = await resolveNoteForUser(id, req.user.id);
+    if (!access) {
+      return res.status(404).json(NOTE_NOT_FOUND);
+    }
+
+    if (access.workspaceId) {
+      await touchWorkspaceMember(access.workspaceId, req.user.id);
+    }
+
+    const limit = Math.min(
+      Number.parseInt(req.query?.limit ?? "100", 10) || 100,
+      500
+    );
+
+    const entries = await NoteHistory.find({ noteId: id })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    const payload = entries.map((entry) => ({
+      id: entry._id.toString(),
+      eventType: entry.eventType,
+      summary: entry.summary,
+      actorId: entry.actorId?.toString?.() ?? null,
+      createdAt: entry.createdAt,
+      diff: entry.diff ?? null,
+      awarenessState: entry.awarenessState ?? null,
+    }));
+
+    return res.status(200).json({ history: payload });
+  } catch (error) {
+    logger.error("Failed to fetch note history", { error: error?.message });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
+  }
+};
+
+export const getNotePresence = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(INVALID_NOTE_ID);
+    }
+
+    const access = await resolveNoteForUser(id, req.user.id);
+    if (!access) {
+      return res.status(404).json(NOTE_NOT_FOUND);
+    }
+
+    if (access.workspaceId) {
+      await touchWorkspaceMember(access.workspaceId, req.user.id);
+    }
+
+    const docName = access.note?.docName ?? `note:${id}`;
+    const collabDoc = await CollabDocument.findOne({ name: docName })
+      .select({ awareness: 1, updatedAt: 1 })
+      .lean();
+
+    return res.status(200).json({
+      updatedAt: collabDoc?.updatedAt ?? null,
+      awareness: collabDoc?.awareness ?? {},
+    });
+  } catch (error) {
+    logger.error("Failed to fetch note presence", { error: error?.message });
     return res.status(500).json(INTERNAL_SERVER_ERROR);
   }
 };

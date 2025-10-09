@@ -28,6 +28,23 @@ const memberSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    displayName: {
+      type: String,
+      trim: true,
+      maxlength: 80,
+      default: "",
+    },
+    avatarColor: {
+      type: String,
+      trim: true,
+      maxlength: 16,
+      default: "",
+    },
+    lastActiveAt: {
+      type: Date,
+      default: Date.now,
+      index: true,
+    },
   },
   { _id: false }
 );

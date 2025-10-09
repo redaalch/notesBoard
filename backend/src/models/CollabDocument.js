@@ -12,6 +12,10 @@ const collabDocumentSchema = new mongoose.Schema(
       type: Buffer,
       required: true,
     },
+    awareness: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
     updatedAt: {
       type: Date,
       default: Date.now,
