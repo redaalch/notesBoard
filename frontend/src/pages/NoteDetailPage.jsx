@@ -523,12 +523,16 @@ function NoteDetailPage() {
                   title={lastSavedTooltip ?? undefined}
                 >
                   <ClockIcon className="size-3.5 sm:size-4" />
-                  <span className="truncate text-[10px] sm:text-xs">{lastSavedDisplay}</span>
+                  <span className="truncate text-[10px] sm:text-xs">
+                    {lastSavedDisplay}
+                  </span>
                   <span
                     className={`badge badge-xs sm:badge-sm items-center gap-1 ${statusBadge.className} whitespace-nowrap`}
                   >
                     <StatusBadgeIcon className={statusBadge.iconClassName} />
-                    <span className="hidden sm:inline">{statusBadge.label}</span>
+                    <span className="hidden sm:inline">
+                      {statusBadge.label}
+                    </span>
                   </span>
                 </div>
               </div>
@@ -540,7 +544,9 @@ function NoteDetailPage() {
                   className={`badge badge-xs sm:badge-sm gap-1 ${collabBadge.className} whitespace-nowrap`}
                 >
                   <CollabBadgeIcon className="size-3" />
-                  <span className="text-[10px] sm:text-xs">{collabBadge.label}</span>
+                  <span className="text-[10px] sm:text-xs">
+                    {collabBadge.label}
+                  </span>
                 </span>
               </div>
               <div className="grid grid-cols-4 lg:flex lg:flex-wrap items-center gap-1.5 sm:gap-2 w-full lg:w-auto">
@@ -560,7 +566,9 @@ function NoteDetailPage() {
                   ) : (
                     <PinIcon className="size-3 sm:size-4" />
                   )}
-                  <span className="hidden sm:inline">{pinned ? "Unpin" : "Pin"}</span>
+                  <span className="hidden sm:inline">
+                    {pinned ? "Unpin" : "Pin"}
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -593,7 +601,9 @@ function NoteDetailPage() {
                   ) : (
                     <SaveIcon className="size-3 sm:size-4" />
                   )}
-                  <span className="hidden sm:inline">{saving ? "Saving" : "Save changes"}</span>
+                  <span className="hidden sm:inline">
+                    {saving ? "Saving" : "Save changes"}
+                  </span>
                 </button>
               </div>
             </div>
