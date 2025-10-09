@@ -2,12 +2,18 @@ import mongoose from "mongoose";
 import Workspace from "../models/Workspace.js";
 import Board from "../models/Board.js";
 import Note from "../models/Note.js";
+import NoteCollaborator from "../models/NoteCollaborator.js";
 import { isValidObjectId } from "./validators.js";
 
 const toObjectId = (value) =>
   value instanceof mongoose.Types.ObjectId
     ? value
     : new mongoose.Types.ObjectId(String(value));
+
+const WORKSPACE_EDIT_ROLES = new Set(["owner", "admin", "editor"]);
+const WORKSPACE_MANAGE_ROLES = new Set(["owner", "admin"]);
+const NOTE_COLLAB_EDIT_ROLES = new Set(["editor"]);
+const NOTE_COLLAB_COMMENT_ROLES = new Set(["editor", "commenter"]);
 
 export const getWorkspaceMembership = async (workspaceId, userId) => {
   if (!workspaceId || !userId) return null;
@@ -82,10 +88,30 @@ export const resolveNoteForUser = async (noteId, userId) => {
     return null;
   }
 
+  const isOwner = String(note.owner) === String(userId);
   const membership = await getWorkspaceMembership(workspaceId, userId);
-  if (!membership && String(note.owner) !== String(userId)) {
+  const collaborator = await NoteCollaborator.findOne({
+    noteId: note._id,
+    userId: toObjectId(userId),
+  })
+    .lean()
+    .catch(() => null);
+
+  if (!isOwner && !membership && !collaborator) {
     return null;
   }
+
+  const workspaceRole = membership?.member?.role ?? null;
+  const collaboratorRole = collaborator?.role ?? null;
+  const canEdit =
+    isOwner ||
+    (workspaceRole && WORKSPACE_EDIT_ROLES.has(workspaceRole)) ||
+    (collaboratorRole && NOTE_COLLAB_EDIT_ROLES.has(collaboratorRole));
+  const canComment =
+    canEdit ||
+    (collaboratorRole && NOTE_COLLAB_COMMENT_ROLES.has(collaboratorRole));
+  const canManageCollaborators =
+    isOwner || (workspaceRole && WORKSPACE_MANAGE_ROLES.has(workspaceRole));
 
   return {
     note,
@@ -93,6 +119,16 @@ export const resolveNoteForUser = async (noteId, userId) => {
     boardId: note.boardId ?? null,
     ownerId: note.owner,
     membership,
+    collaborator,
+    permissions: {
+      isOwner,
+      workspaceRole,
+      collaboratorRole,
+      canView: true,
+      canComment,
+      canEdit,
+      canManageCollaborators,
+    },
   };
 };
 

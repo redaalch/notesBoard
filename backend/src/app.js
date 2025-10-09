@@ -9,6 +9,7 @@ import { fileURLToPath } from "url";
 import notesRoutes from "./routes/notesRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import boardRoutes from "./routes/boardRoutes.js";
+import workspaceRoutes from "./routes/workspaceRoutes.js";
 import rateLimiter from "./middleware/rateLimiter.js";
 import logger from "./utils/logger.js";
 
@@ -81,6 +82,7 @@ app.use("/api", rateLimiter);
 app.use("/api/auth", authRoutes);
 app.use("/api/notes", notesRoutes);
 app.use("/api/boards", boardRoutes);
+app.use("/api/workspaces", workspaceRoutes);
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(dist));

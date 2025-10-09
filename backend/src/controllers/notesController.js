@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Note from "../models/Note.js";
 import CollabDocument from "../models/CollabDocument.js";
 import NoteHistory from "../models/NoteHistory.js";
+import NoteCollaborator from "../models/NoteCollaborator.js";
 import logger from "../utils/logger.js";
 import { isValidObjectId } from "../utils/validators.js";
 import {
@@ -62,6 +63,22 @@ export const getAllNotes = async (req, res) => {
   try {
     const userId = req.user.id;
     const requestedBoardId = req.query?.boardId;
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const collaboratorDocs = await NoteCollaborator.find({
+      userId: userObjectId,
+    })
+      .select({ noteId: 1, role: 1 })
+      .lean();
+
+    const collaboratorByNoteId = new Map();
+    const collaboratorNoteObjectIds = [];
+    collaboratorDocs.forEach((entry) => {
+      if (!entry?.noteId) return;
+      const noteIdString = entry.noteId.toString();
+      collaboratorByNoteId.set(noteIdString, entry.role);
+      collaboratorNoteObjectIds.push(new mongoose.Types.ObjectId(noteIdString));
+    });
+
     const query = {};
 
     if (requestedBoardId) {
@@ -82,10 +99,10 @@ export const getAllNotes = async (req, res) => {
 
     if (!query.boardId) {
       const accessibleWorkspaceIds = await listAccessibleWorkspaceIds(userId);
-      const orFilter = [{ owner: new mongoose.Types.ObjectId(userId) }];
+      const filters = [{ owner: userObjectId }];
 
       if (accessibleWorkspaceIds.length) {
-        orFilter.push({
+        filters.push({
           workspaceId: {
             $in: accessibleWorkspaceIds.map(
               (id) => new mongoose.Types.ObjectId(id)
@@ -94,17 +111,37 @@ export const getAllNotes = async (req, res) => {
         });
       }
 
-      if (orFilter.length === 1) {
-        Object.assign(query, orFilter[0]);
+      if (collaboratorNoteObjectIds.length) {
+        filters.push({ _id: { $in: collaboratorNoteObjectIds } });
+      }
+
+      if (filters.length === 1) {
+        Object.assign(query, filters[0]);
       } else {
-        query.$or = orFilter;
+        query.$or = filters;
       }
     }
 
     const notes = await Note.find(query)
       .sort({ pinned: -1, updatedAt: -1, createdAt: -1 })
       .lean();
-    return res.status(200).json(notes);
+
+    const response = notes.map((note) => {
+      const noteId = note._id.toString();
+      const collabRole = collaboratorByNoteId.get(noteId) ?? null;
+      return {
+        ...note,
+        collaboratorRole: collabRole,
+        accessRole:
+          String(note.owner) === String(userId)
+            ? "owner"
+            : collabRole
+            ? `collaborator:${collabRole}`
+            : "workspace",
+      };
+    });
+
+    return res.status(200).json(response);
   } catch (error) {
     logger.error("Error in getAllNotes", { error: error?.message });
     return res.status(500).json(INTERNAL_SERVER_ERROR);
@@ -127,7 +164,20 @@ export const getNoteById = async (req, res) => {
       await touchWorkspaceMember(access.workspaceId, req.user.id);
     }
 
-    return res.status(200).json(access.note);
+    const permissions = access.permissions ?? {};
+    const payload = {
+      ...access.note,
+      membershipRole: permissions.workspaceRole ?? null,
+      collaboratorRole: permissions.collaboratorRole ?? null,
+      canManageMembers: permissions.canManageCollaborators ?? false,
+      canManageCollaborators: permissions.canManageCollaborators ?? false,
+      canEdit: permissions.canEdit ?? false,
+      accessRole: permissions.isOwner
+        ? "owner"
+        : permissions.workspaceRole ?? permissions.collaboratorRole ?? null,
+    };
+
+    return res.status(200).json(payload);
   } catch (error) {
     logger.error("Error in getNoteById", { error: error?.message });
     return res.status(500).json(INTERNAL_SERVER_ERROR);
@@ -217,9 +267,8 @@ export const updateNote = async (req, res) => {
       return res.status(404).json(NOTE_NOT_FOUND);
     }
 
-    const isOwner = String(access.ownerId) === String(req.user.id);
-    const role = access.membership?.member?.role ?? (isOwner ? "owner" : null);
-    if (!isOwner && !EDIT_ROLES.has(role)) {
+    const permissions = access.permissions ?? {};
+    if (!permissions.canEdit) {
       return res.status(403).json({ message: "Insufficient permissions" });
     }
 
@@ -321,7 +370,27 @@ export const updateNote = async (req, res) => {
         changes.length === 0 ? "Edited note" : `Updated ${changes.join(", ")}`,
     });
 
-    return res.status(200).json(updatedNote);
+    const refreshedAccess = await resolveNoteForUser(
+      updatedNote._id,
+      req.user.id
+    );
+    const nextPermissions =
+      refreshedAccess?.permissions ?? access.permissions ?? {};
+    const payload = {
+      ...updatedNote.toObject(),
+      membershipRole: nextPermissions.workspaceRole ?? null,
+      collaboratorRole: nextPermissions.collaboratorRole ?? null,
+      canManageMembers: nextPermissions.canManageCollaborators ?? false,
+      canManageCollaborators: nextPermissions.canManageCollaborators ?? false,
+      canEdit: nextPermissions.canEdit ?? false,
+      accessRole: nextPermissions.isOwner
+        ? "owner"
+        : nextPermissions.workspaceRole ??
+          nextPermissions.collaboratorRole ??
+          null,
+    };
+
+    return res.status(200).json(payload);
   } catch (error) {
     logger.error("Error in updateNote", { error: error?.message });
     if (error instanceof mongoose.Error.ValidationError) {
@@ -343,9 +412,10 @@ export const deleteNote = async (req, res) => {
       return res.status(404).json(NOTE_NOT_FOUND);
     }
 
-    const isOwner = String(access.ownerId) === String(req.user.id);
-    const role = access.membership?.member?.role ?? (isOwner ? "owner" : null);
-    if (!isOwner && !EDIT_ROLES.has(role)) {
+    const permissions = access.permissions ?? {};
+    const isOwner = permissions.isOwner;
+    const workspaceRole = permissions.workspaceRole ?? null;
+    if (!isOwner && !(workspaceRole && EDIT_ROLES.has(workspaceRole))) {
       return res.status(403).json({ message: "Insufficient permissions" });
     }
 
@@ -357,6 +427,8 @@ export const deleteNote = async (req, res) => {
     if (deletedNote.docName) {
       await CollabDocument.findOneAndDelete({ name: deletedNote.docName });
     }
+
+    await NoteCollaborator.deleteMany({ noteId: deletedNote._id });
 
     await NoteHistory.create({
       noteId: deletedNote._id,
@@ -621,6 +693,7 @@ export const bulkUpdateNotes = async (req, res) => {
       }
 
       const result = await Note.deleteMany({ _id: { $in: objectIdArray } });
+      await NoteCollaborator.deleteMany({ noteId: { $in: objectIdArray } });
 
       await Promise.all([
         ...touchPromises,
