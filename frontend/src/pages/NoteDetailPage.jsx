@@ -85,10 +85,13 @@ function NoteDetailPage() {
     characterCount: 0,
   });
   const [showHistory, setShowHistory] = useState(false);
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState(null);
 
   const editorRef = useRef(null);
   const originalSnapshotRef = useRef(null);
   const skipInitialUpdateRef = useRef(true);
+  const allowNavigationRef = useRef(false);
 
   const noteQuery = useQuery({
     queryKey: ["note", id],
@@ -360,6 +363,69 @@ function NoteDetailPage() {
     if (updatedAt) return formatDate(updatedAt);
     return null;
   }, [hasChanges, lastSavedAt, updatedAt]);
+
+  // Navigation guard - prevent leaving with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      // Allow navigation if we're intentionally saving and leaving
+      if (hasChanges && !allowNavigationRef.current) {
+        e.preventDefault();
+        e.returnValue = "";
+        return "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasChanges]);
+
+  // Block React Router navigation when there are unsaved changes
+  useEffect(() => {
+    if (!hasChanges) return undefined;
+
+    const handleClick = (e) => {
+      // Check if clicking a link that would navigate away
+      const link = e.target.closest("a");
+      if (link && link.href && !link.href.includes(window.location.pathname)) {
+        e.preventDefault();
+        setPendingNavigation(link.href);
+        setShowUnsavedModal(true);
+      }
+    };
+
+    document.addEventListener("click", handleClick, true);
+    return () => document.removeEventListener("click", handleClick, true);
+  }, [hasChanges]);
+
+  const handleCancelNavigation = useCallback(() => {
+    setShowUnsavedModal(false);
+    setPendingNavigation(null);
+  }, []);
+
+  const handleConfirmNavigation = useCallback(() => {
+    setShowUnsavedModal(false);
+    allowNavigationRef.current = true;
+    if (pendingNavigation) {
+      window.location.href = pendingNavigation;
+    }
+  }, [pendingNavigation]);
+
+  const handleSaveAndNavigate = useCallback(async () => {
+    try {
+      await handleSave();
+      setShowUnsavedModal(false);
+      allowNavigationRef.current = true;
+      if (pendingNavigation) {
+        // Use setTimeout to ensure hasChanges updates before navigation
+        setTimeout(() => {
+          window.location.href = pendingNavigation;
+        }, 100);
+      }
+    } catch {
+      toast.error("Failed to save changes");
+      allowNavigationRef.current = false;
+    }
+  }, [handleSave, pendingNavigation]);
 
   const shortcutLabel = useMemo(() => {
     if (typeof navigator === "undefined") return "Ctrl+S";
@@ -734,6 +800,66 @@ function NoteDetailPage() {
         onCancel={closeConfirm}
         onConfirm={handleDelete}
       />
+
+      {/* Unsaved Changes Navigation Modal */}
+      <dialog
+        className={`modal ${showUnsavedModal ? "modal-open" : ""}`}
+        role="dialog"
+        aria-labelledby="unsaved-modal-title"
+      >
+        <div className="modal-box border border-warning/30">
+          <h3
+            id="unsaved-modal-title"
+            className="text-lg font-bold text-warning flex items-center gap-2"
+          >
+            <RefreshCwIcon className="size-5" />
+            Unsaved Changes
+          </h3>
+          <p className="py-4 text-base-content/80">
+            You have unsaved changes that will be lost if you leave this page.
+            What would you like to do?
+          </p>
+          <div className="modal-action flex-col sm:flex-row gap-2">
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={handleCancelNavigation}
+            >
+              Stay on Page
+            </button>
+            <button
+              type="button"
+              className="btn btn-error"
+              onClick={handleConfirmNavigation}
+            >
+              Leave Without Saving
+            </button>
+            <button
+              type="button"
+              className="btn btn-success"
+              onClick={handleSaveAndNavigate}
+              disabled={saving}
+            >
+              {saving ? (
+                <>
+                  <LoaderIcon className="size-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <SaveIcon className="size-4" />
+                  Save & Leave
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+        <form method="dialog" className="modal-backdrop">
+          <button type="button" onClick={handleCancelNavigation}>
+            close
+          </button>
+        </form>
+      </dialog>
     </>
   );
 }
