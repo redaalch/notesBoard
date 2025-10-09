@@ -710,9 +710,7 @@ function HomePage() {
                         type="button"
                         role="tab"
                         className={`btn btn-sm h-auto min-h-[2.5rem] flex-1 sm:flex-initial ${
-                          activeTab === tab.id 
-                            ? "btn-primary" 
-                            : "btn-outline"
+                          activeTab === tab.id ? "btn-primary" : "btn-outline"
                         }`}
                         onClick={() => setActiveTab(tab.id)}
                       >
@@ -1090,9 +1088,7 @@ function HomePage() {
                       />
                       <span>{title}</span>
                     </span>
-                    <ChevronDownIcon
-                      className="size-5 transition-transform duration-200 group-open:rotate-180"
-                    />
+                    <ChevronDownIcon className="size-5 transition-transform duration-200 group-open:rotate-180" />
                   </summary>
                   <div className="px-4 pb-4 text-sm text-base-content/70">
                     <p className="leading-relaxed">{description}</p>

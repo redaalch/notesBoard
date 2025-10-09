@@ -205,9 +205,7 @@ function Navbar({ onMobileFilterClick = () => {} }) {
               >
                 <MenuIcon className="size-5" />
               </summary>
-              <div
-                className="dropdown-content z-40 mt-3 w-72 space-y-3 rounded-3xl border border-base-content/10 bg-gradient-to-br from-base-200/95 via-base-200/80 to-base-100/90 p-4 shadow-2xl shadow-primary/20 backdrop-blur"
-              >
+              <div className="dropdown-content z-40 mt-3 w-72 space-y-3 rounded-3xl border border-base-content/10 bg-gradient-to-br from-base-200/95 via-base-200/80 to-base-100/90 p-4 shadow-2xl shadow-primary/20 backdrop-blur">
                 <div className="rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/20 via-secondary/10 to-accent/10 p-4">
                   <p className="text-xs uppercase tracking-[0.35em] text-primary/90">
                     Quick actions
