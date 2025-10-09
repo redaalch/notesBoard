@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Navbar from "../Components/Navbar.jsx";
+import WorkspaceMembersCard from "../Components/WorkspaceMembersCard.jsx";
 import useAuth from "../hooks/useAuth.js";
 import { formatDate, formatRelativeTime } from "../lib/Utils.js";
 
@@ -23,6 +24,7 @@ const emptyPasswordState = {
 
 function ProfilePage() {
   const { user, updateProfile, changePassword } = useAuth();
+  const defaultWorkspaceId = user?.defaultWorkspace ?? null;
   const [profileForm, setProfileForm] = useState({
     name: "",
     email: "",
@@ -472,6 +474,20 @@ function ProfilePage() {
             </button>
           </form>
         </section>
+
+        {defaultWorkspaceId ? (
+          <section className="space-y-4 rounded-3xl border border-base-content/10 bg-base-100/90 p-6 shadow-md shadow-primary/10 backdrop-blur">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-2xl font-semibold text-base-content">
+                Workspace collaborators
+              </h2>
+              <p className="text-sm text-base-content/70">
+                Manage who can access your personal workspace.
+              </p>
+            </div>
+            <WorkspaceMembersCard workspaceId={defaultWorkspaceId} />
+          </section>
+        ) : null}
       </main>
     </div>
   );
