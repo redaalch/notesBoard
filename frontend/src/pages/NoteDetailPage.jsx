@@ -497,56 +497,56 @@ function NoteDetailPage() {
     <>
       <div className="min-h-screen bg-gradient-to-br from-base-200 via-base-100 to-base-300">
         <header className="sticky top-0 z-30 mx-auto max-w-4xl rounded-b-2xl shadow-lg border border-base-300/30 bg-base-100/90 backdrop-blur-lg mt-2">
-          <div className="flex w-full flex-col gap-4 px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-1 min-w-0 items-start gap-4">
+          <div className="flex w-full flex-col gap-3 px-3 py-3 sm:px-6 sm:py-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-1 min-w-0 items-start gap-2 sm:gap-4">
               <Link
                 to="/app"
-                className="btn btn-ghost btn-circle shadow-md hover:bg-primary/10"
+                className="btn btn-ghost btn-sm btn-circle sm:btn-md shadow-md hover:bg-primary/10"
                 aria-label="Back to notes"
               >
-                <ArrowLeftIcon className="size-5" />
+                <ArrowLeftIcon className="size-4 sm:size-5" />
               </Link>
-              <div className="flex-1 min-w-0 space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-lg font-bold text-base-content truncate">
+              <div className="flex-1 min-w-0 space-y-1.5 sm:space-y-2">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <span className="text-base sm:text-lg font-bold text-base-content truncate">
                     {sanitizedTitle}
                   </span>
                   {pinned && (
-                    <span className="badge badge-warning badge-lg flex items-center gap-2">
-                      <PinIcon className="size-4" />
-                      Pinned
+                    <span className="badge badge-warning badge-sm sm:badge-lg flex items-center gap-1 sm:gap-2">
+                      <PinIcon className="size-3 sm:size-4" />
+                      <span className="hidden sm:inline">Pinned</span>
                     </span>
                   )}
                 </div>
                 <div
-                  className="flex flex-wrap items-center gap-2 text-xs text-base-content/60"
+                  className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs text-base-content/60"
                   title={lastSavedTooltip ?? undefined}
                 >
-                  <ClockIcon className="size-4" />
-                  <span className="truncate">{lastSavedDisplay}</span>
+                  <ClockIcon className="size-3.5 sm:size-4" />
+                  <span className="truncate text-[10px] sm:text-xs">{lastSavedDisplay}</span>
                   <span
-                    className={`badge items-center gap-2 ${statusBadge.className} whitespace-nowrap`}
+                    className={`badge badge-xs sm:badge-sm items-center gap-1 ${statusBadge.className} whitespace-nowrap`}
                   >
                     <StatusBadgeIcon className={statusBadge.iconClassName} />
-                    {statusBadge.label}
+                    <span className="hidden sm:inline">{statusBadge.label}</span>
                   </span>
                 </div>
               </div>
             </div>
-            <div className="flex flex-col items-end gap-2">
+            <div className="flex flex-col items-start lg:items-end gap-2">
               <div className="flex items-center gap-2">
                 <PresenceAvatars participants={participants} />
                 <span
-                  className={`badge gap-1 ${collabBadge.className} whitespace-nowrap`}
+                  className={`badge badge-xs sm:badge-sm gap-1 ${collabBadge.className} whitespace-nowrap`}
                 >
                   <CollabBadgeIcon className="size-3" />
-                  {collabBadge.label}
+                  <span className="text-[10px] sm:text-xs">{collabBadge.label}</span>
                 </span>
               </div>
-              <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+              <div className="grid grid-cols-4 lg:flex lg:flex-wrap items-center gap-1.5 sm:gap-2 w-full lg:w-auto">
                 <button
                   type="button"
-                  className={`btn btn-outline btn-sm sm:btn-md gap-2 ${
+                  className={`btn btn-outline btn-xs sm:btn-sm lg:btn-md gap-1 sm:gap-2 ${
                     pinned ? "border-warning text-warning" : ""
                   }`}
                   onClick={handleTogglePinned}
@@ -554,46 +554,46 @@ function NoteDetailPage() {
                   title={pinned ? "Unpin note" : "Pin note"}
                 >
                   {pinning ? (
-                    <LoaderIcon className="size-4 animate-spin" />
+                    <LoaderIcon className="size-3 sm:size-4 animate-spin" />
                   ) : pinned ? (
-                    <PinOffIcon className="size-4" />
+                    <PinOffIcon className="size-3 sm:size-4" />
                   ) : (
-                    <PinIcon className="size-4" />
+                    <PinIcon className="size-3 sm:size-4" />
                   )}
-                  <span>{pinned ? "Unpin" : "Pin"}</span>
+                  <span className="hidden sm:inline">{pinned ? "Unpin" : "Pin"}</span>
                 </button>
                 <button
                   type="button"
-                  className="btn btn-outline btn-sm sm:btn-md gap-2"
+                  className="btn btn-outline btn-xs sm:btn-sm lg:btn-md gap-1 sm:gap-2"
                   onClick={handleRevert}
                   disabled={disableRevert}
                   title="Revert changes"
                 >
-                  <RefreshCwIcon className="size-4" />
-                  <span>Revert</span>
+                  <RefreshCwIcon className="size-3 sm:size-4" />
+                  <span className="hidden sm:inline">Revert</span>
                 </button>
                 <button
                   type="button"
-                  className="btn btn-outline btn-error btn-sm sm:btn-md gap-2"
+                  className="btn btn-outline btn-error btn-xs sm:btn-sm lg:btn-md gap-1 sm:gap-2"
                   onClick={openConfirm}
                   title="Delete note"
                 >
-                  <Trash2Icon className="size-4" strokeWidth={2.2} />
-                  <span>Delete</span>
+                  <Trash2Icon className="size-3 sm:size-4" strokeWidth={2.2} />
+                  <span className="hidden sm:inline">Delete</span>
                 </button>
                 <button
                   type="button"
-                  className="btn btn-primary btn-sm sm:btn-md font-semibold gap-2 shadow-lg"
+                  className="btn btn-primary btn-xs sm:btn-sm lg:btn-md font-semibold gap-1 sm:gap-2 shadow-lg"
                   onClick={handleSave}
                   disabled={disableSave}
                   title="Save changes"
                 >
                   {saving ? (
-                    <LoaderIcon className="size-4 animate-spin" />
+                    <LoaderIcon className="size-3 sm:size-4 animate-spin" />
                   ) : (
-                    <SaveIcon className="size-4" />
+                    <SaveIcon className="size-3 sm:size-4" />
                   )}
-                  <span>{saving ? "Saving" : "Save changes"}</span>
+                  <span className="hidden sm:inline">{saving ? "Saving" : "Save changes"}</span>
                 </button>
               </div>
             </div>
