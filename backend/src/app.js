@@ -29,7 +29,12 @@ const cspDirectives = {
   scriptSrc: ["'self'", "'unsafe-inline'"],
   styleSrc: ["'self'", "'unsafe-inline'"],
   imgSrc: ["'self'", "data:", "blob:", "https://bg.ibelick.com"],
-  connectSrc: ["'self'"],
+  connectSrc: [
+    "'self'",
+    "ws://localhost:6001",
+    "wss://localhost:6001",
+    process.env.COLLAB_WS_URL || "ws://localhost:6001",
+  ].filter(Boolean),
   fontSrc: ["'self'", "https://fonts.gstatic.com"],
   baseUri: ["'self'"],
   formAction: ["'self'"],
