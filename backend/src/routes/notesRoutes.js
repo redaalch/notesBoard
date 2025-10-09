@@ -7,6 +7,8 @@ import {
   getNoteById,
   getTagStats,
   bulkUpdateNotes,
+  getNoteHistory,
+  getNotePresence,
 } from "../controllers/notesController.js";
 import auth from "../middleware/auth.js";
 
@@ -20,6 +22,8 @@ router.get("/tags/stats", getTagStats);
 
 router.post("/bulk", bulkUpdateNotes);
 
+router.get("/:id/history", getNoteHistory);
+router.get("/:id/presence", getNotePresence);
 router.get("/:id", getNoteById);
 
 router.post("/", createNote);
