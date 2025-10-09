@@ -20,7 +20,7 @@ const average = (numbers) => {
 function NotesStats({ notes, loading, tagStats }) {
   if (loading) {
     return (
-      <div className="stats stats-vertical sm:stats-horizontal shadow bg-base-100 w-full">
+      <div className="stats stats-vertical lg:stats-horizontal shadow bg-base-100 w-full">
         <div className="stat">
           <div className="skeleton mb-2 h-6 w-24" />
           <div className="skeleton h-8 w-32" />
@@ -79,7 +79,7 @@ function NotesStats({ notes, loading, tagStats }) {
     .sort((a, b) => new Date(b) - new Date(a))[0];
 
   return (
-    <div className="stats stats-vertical sm:stats-horizontal shadow bg-base-100 w-full">
+    <div className="stats stats-vertical lg:stats-horizontal shadow bg-base-100 w-full overflow-x-auto">
       <div className="stat">
         <div className="stat-figure text-primary">
           <BarChart3Icon className="size-7 sm:size-8" />
