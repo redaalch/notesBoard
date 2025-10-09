@@ -24,6 +24,7 @@ import TagInput from "../Components/TagInput.jsx";
 import CollaborativeEditor from "../Components/CollaborativeEditor.jsx";
 import PresenceAvatars from "../Components/PresenceAvatars.jsx";
 import TypingIndicator from "../Components/TypingIndicator.jsx";
+import NoteCollaboratorsCard from "../Components/NoteCollaboratorsCard.jsx";
 import { countWords, formatDate, formatRelativeTime } from "../lib/Utils.js";
 import useCollaborativeNote, {
   buildInitialNode,
@@ -108,6 +109,8 @@ function NoteDetailPage() {
   });
 
   const note = noteQuery.data ?? null;
+  const canManageNoteCollaborators = note?.canManageCollaborators ?? false;
+  const canEditNote = note?.canEdit ?? true;
 
   const {
     provider,
@@ -689,6 +692,7 @@ function NoteDetailPage() {
                     user={user}
                     onReady={handleEditorReady}
                     onTyping={signalTyping}
+                    readOnly={!canEditNote}
                     placeholder="Draft the note together..."
                   />
                   <div className="flex items-center justify-between">
@@ -700,6 +704,13 @@ function NoteDetailPage() {
                 </div>
               </div>
             </div>
+
+            {note ? (
+              <NoteCollaboratorsCard
+                noteId={note._id}
+                canManage={canManageNoteCollaborators}
+              />
+            ) : null}
 
             <div className="card border border-base-300/60 bg-base-100/90 shadow-lg rounded-2xl">
               <div className="card-body space-y-5">

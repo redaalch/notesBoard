@@ -10,6 +10,11 @@ import {
   getNoteHistory,
   getNotePresence,
 } from "../controllers/notesController.js";
+import {
+  addNoteCollaborator,
+  listNoteCollaborators,
+  removeNoteCollaborator,
+} from "../controllers/noteCollaboratorsController.js";
 import auth from "../middleware/auth.js";
 
 const router = express.Router();
@@ -24,6 +29,9 @@ router.post("/bulk", bulkUpdateNotes);
 
 router.get("/:id/history", getNoteHistory);
 router.get("/:id/presence", getNotePresence);
+router.get("/:id/collaborators", listNoteCollaborators);
+router.post("/:id/collaborators", addNoteCollaborator);
+router.delete("/:id/collaborators/:collaboratorId", removeNoteCollaborator);
 router.get("/:id", getNoteById);
 
 router.post("/", createNote);

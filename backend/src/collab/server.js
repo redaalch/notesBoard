@@ -1,5 +1,6 @@
 import "../config/env.js";
 import { Server } from "@hocuspocus/server";
+import { encodeStateAsUpdate } from "yjs";
 
 import { connectDb } from "../config/db.js";
 import logger from "../utils/logger.js";
@@ -64,6 +65,29 @@ const loadNoteForDocument = async (documentName) => {
   return null;
 };
 
+const coerceState = (state, document, logContext) => {
+  if (state instanceof Uint8Array) {
+    return state;
+  }
+
+  if (document) {
+    try {
+      return encodeStateAsUpdate(document);
+    } catch (error) {
+      logger.error("Failed to encode document state", {
+        ...logContext,
+        message: error?.message,
+      });
+    }
+  }
+
+  logger.warn("Unable to coerce document state to Uint8Array", {
+    ...logContext,
+    stateType: typeof state,
+  });
+  return null;
+};
+
 const server = Server.configure({
   name: "notesboard-collab",
   maxDocumentSize: 5 * 1024 * 1024,
@@ -83,6 +107,10 @@ const server = Server.configure({
     const access = await resolveNoteForUser(noteId, userId);
     if (!access) {
       throw new Error("Note access denied");
+    }
+
+    if (!access.permissions?.canEdit) {
+      throw new Error("Note editing denied");
     }
 
     if (access.workspaceId) {
@@ -118,13 +146,17 @@ const server = Server.configure({
     }
     return null;
   },
-  async onStoreDocument({ documentName, state }) {
+  async onStoreDocument({ documentName, state, document }) {
     try {
+      const nextState = coerceState(state, document, { documentName });
+      if (!nextState) {
+        return;
+      }
       await CollabDocument.findOneAndUpdate(
         { name: documentName },
         {
           $set: {
-            state: Buffer.from(state),
+            state: Buffer.from(nextState),
             updatedAt: new Date(),
           },
           $setOnInsert: {
@@ -176,11 +208,18 @@ const server = Server.configure({
       });
     }
   },
-  async onChange({ documentName, context, state }) {
+  async onChange({ documentName, context, state, document, update }) {
     if (!context?.userId) {
       return;
     }
     try {
+      const historyState =
+        update instanceof Uint8Array
+          ? update
+          : coerceState(state, document, { documentName, handler: "onChange" });
+      if (!historyState) {
+        return;
+      }
       const noteInfo = await loadNoteForDocument(documentName);
       if (!noteInfo) {
         return;
@@ -192,7 +231,7 @@ const server = Server.configure({
         actorId: context.userId,
         eventType: "edit",
         summary: "Edited collaboratively",
-        diff: Buffer.from(state).toString("base64"),
+        diff: Buffer.from(historyState).toString("base64"),
       });
     } catch (error) {
       logger.error("Failed to append note history from collaboration", {
