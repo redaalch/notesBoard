@@ -24,18 +24,28 @@ const ROOT = path.join(__dirname, "../../");
 const dist = path.join(ROOT, "frontend", "dist");
 
 const allowedOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
+const frontendOrigin = process.env.FRONTEND_ORIGIN;
+if (frontendOrigin) {
+  allowedOrigins.push(frontendOrigin);
+}
+
+const collabSources = new Set(["ws://localhost:6001", "wss://localhost:6001"]);
+
+if (process.env.COLLAB_WS_URL) {
+  collabSources.add(process.env.COLLAB_WS_URL);
+}
+
+const publicHost = process.env.PUBLIC_HOST;
+if (publicHost) {
+  collabSources.add(`wss://${publicHost}/collab`);
+}
 
 const cspDirectives = {
   defaultSrc: ["'self'"],
   scriptSrc: ["'self'", "'unsafe-inline'"],
-  styleSrc: ["'self'", "'unsafe-inline'"],
+  styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
   imgSrc: ["'self'", "data:", "blob:", "https://bg.ibelick.com"],
-  connectSrc: [
-    "'self'",
-    "ws://localhost:6001",
-    "wss://localhost:6001",
-    process.env.COLLAB_WS_URL || "ws://localhost:6001",
-  ].filter(Boolean),
+  connectSrc: ["'self'", ...collabSources],
   fontSrc: ["'self'", "https://fonts.gstatic.com"],
   baseUri: ["'self'"],
   formAction: ["'self'"],
