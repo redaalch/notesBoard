@@ -5,8 +5,20 @@ import { TiptapTransformer } from "@hocuspocus/transformer";
 import { Awareness } from "y-protocols/awareness";
 import useAuth from "./useAuth.js";
 
-const DEFAULT_COLLAB_URL =
-  import.meta.env.VITE_COLLAB_SERVER_URL ?? "ws://localhost:6001";
+const resolveCollabUrl = () => {
+  if (import.meta.env.VITE_COLLAB_SERVER_URL) {
+    return import.meta.env.VITE_COLLAB_SERVER_URL;
+  }
+
+  if (typeof window !== "undefined" && window.location) {
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    return `${protocol}://${window.location.host}/collab`;
+  }
+
+  return "ws://localhost:6001";
+};
+
+const DEFAULT_COLLAB_URL = resolveCollabUrl();
 
 const decodeJWT = (token) => {
   try {
