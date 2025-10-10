@@ -9,6 +9,8 @@ import {
   bulkUpdateNotes,
   getNoteHistory,
   getNotePresence,
+  getNoteLayout,
+  updateNoteLayout,
 } from "../controllers/notesController.js";
 import {
   addNoteCollaborator,
@@ -22,6 +24,9 @@ const router = express.Router();
 router.use(auth);
 
 router.get("/", getAllNotes);
+
+router.get("/layout", getNoteLayout);
+router.put("/layout", updateNoteLayout);
 
 router.get("/tags/stats", getTagStats);
 

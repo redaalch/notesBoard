@@ -5,6 +5,7 @@ import {
   BookmarkPlusIcon,
   CalendarClockIcon,
   EyeIcon,
+  GripVerticalIcon,
   LoaderIcon,
   NotebookPenIcon,
   TrashIcon,
@@ -27,6 +28,12 @@ function NoteCard({
   selectionMode = false,
   selected = false,
   onSelectionChange,
+  customizeMode = false,
+  dragHandleProps = null,
+  dragHandleRef = null,
+  innerRef = null,
+  style,
+  dragging = false,
 }) {
   const queryClient = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -138,11 +145,13 @@ function NoteCard({
   return (
     <>
       <article
+        ref={innerRef}
+        style={style}
         className={`card bg-base-100/90 backdrop-blur border border-base-200/70 shadow-md transition-all duration-200 h-full ${
           selected
             ? "border-primary/60 ring-1 ring-primary/40"
             : "hover:border-primary/30 hover:shadow-xl"
-        }`}
+        } ${dragging ? "opacity-80 shadow-2xl" : ""}`}
         onClick={selectionMode ? toggleSelection : undefined}
         role="group"
         aria-pressed={selectionMode ? selected : undefined}
@@ -150,7 +159,7 @@ function NoteCard({
         <div className="card-body space-y-5 flex flex-col h-full">
           <header className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
-              {selectionMode && (
+              {selectionMode && !customizeMode && (
                 <div className="pt-1">
                   <input
                     type="checkbox"
@@ -183,40 +192,52 @@ function NoteCard({
               </div>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              {!selectionMode && (
-                <>
-                  <div
-                    className="tooltip tooltip-left"
-                    data-tip={note.pinned ? "Unpin note" : "Pin note"}
-                  >
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={handleTogglePin}
-                      disabled={pinning}
-                      aria-label={note.pinned ? "Unpin note" : "Pin note"}
+              {customizeMode ? (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm btn-circle cursor-grab active:cursor-grabbing"
+                  aria-label="Drag note"
+                  ref={dragHandleRef}
+                  {...(dragHandleProps ?? {})}
+                >
+                  <GripVerticalIcon className="size-4" />
+                </button>
+              ) : (
+                !selectionMode && (
+                  <>
+                    <div
+                      className="tooltip tooltip-left"
+                      data-tip={note.pinned ? "Unpin note" : "Pin note"}
                     >
-                      {pinning ? (
-                        <LoaderIcon className="size-4 animate-spin" />
-                      ) : note.pinned ? (
-                        <BookmarkIcon className="size-4" />
-                      ) : (
-                        <BookmarkPlusIcon className="size-4" />
-                      )}
-                    </button>
-                  </div>
-                  <div
-                    className="tooltip tooltip-left"
-                    data-tip="Open note details"
-                  >
-                    <Link
-                      to={`/note/${note._id}`}
-                      className="btn btn-ghost btn-sm"
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={handleTogglePin}
+                        disabled={pinning}
+                        aria-label={note.pinned ? "Unpin note" : "Pin note"}
+                      >
+                        {pinning ? (
+                          <LoaderIcon className="size-4 animate-spin" />
+                        ) : note.pinned ? (
+                          <BookmarkIcon className="size-4" />
+                        ) : (
+                          <BookmarkPlusIcon className="size-4" />
+                        )}
+                      </button>
+                    </div>
+                    <div
+                      className="tooltip tooltip-left"
+                      data-tip="Open note details"
                     >
-                      <NotebookPenIcon className="size-4" />
-                    </Link>
-                  </div>
-                </>
+                      <Link
+                        to={`/note/${note._id}`}
+                        className="btn btn-ghost btn-sm"
+                      >
+                        <NotebookPenIcon className="size-4" />
+                      </Link>
+                    </div>
+                  </>
+                )
               )}
             </div>
           </header>
@@ -263,7 +284,7 @@ function NoteCard({
                 Last updated {formatDate(updatedAt)}
               </p>
             </div>
-            {!selectionMode && (
+            {!selectionMode && !customizeMode && (
               <div className="flex items-center gap-2 flex-shrink-0">
                 <div
                   className="tooltip tooltip-bottom"
