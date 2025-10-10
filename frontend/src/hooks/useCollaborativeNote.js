@@ -10,12 +10,28 @@ const resolveCollabUrl = () => {
     return import.meta.env.VITE_COLLAB_SERVER_URL;
   }
 
+  const path = import.meta.env.VITE_COLLAB_PATH || "/collab";
+  const devPort = import.meta.env.VITE_COLLAB_SERVER_PORT || "6001";
+
   if (typeof window !== "undefined" && window.location) {
-    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    return `${protocol}://${window.location.host}/collab`;
+    const { protocol, hostname, port } = window.location;
+    const wsProtocol = protocol === "https:" ? "wss" : "ws";
+    const localPorts = [
+      "5173",
+      "4173",
+      "3000",
+      import.meta.env.VITE_DEV_SERVER_PORT,
+    ].filter(Boolean);
+
+    if (import.meta.env.DEV && (localPorts.includes(port) || !port)) {
+      return `${wsProtocol}://${hostname}:${devPort}${path}`;
+    }
+
+    const portSuffix = port ? `:${port}` : "";
+    return `${wsProtocol}://${hostname}${portSuffix}${path}`;
   }
 
-  return "ws://localhost:6001";
+  return `ws://localhost:${devPort}${path}`;
 };
 
 const DEFAULT_COLLAB_URL = resolveCollabUrl();
