@@ -93,6 +93,7 @@ function NoteDetailPage() {
   const originalSnapshotRef = useRef(null);
   const skipInitialUpdateRef = useRef(true);
   const allowNavigationRef = useRef(false);
+  const titleSharedRef = useRef(null);
 
   const noteQuery = useQuery({
     queryKey: ["note", id],
@@ -122,6 +123,58 @@ function NoteDetailPage() {
     signalTyping,
   } = useCollaborativeNote(id, note);
 
+  const applySharedTitle = useCallback((value) => {
+    const shared = titleSharedRef.current;
+    const nextValue = typeof value === "string" ? value : "";
+    if (!shared) {
+      return;
+    }
+    const currentValue = shared.toString();
+    if (currentValue === nextValue) {
+      return;
+    }
+
+    const docInstance = shared.doc;
+    if (!docInstance) {
+      return;
+    }
+
+    docInstance.transact(() => {
+      let start = 0;
+      const currentLength = currentValue.length;
+      const nextLength = nextValue.length;
+
+      while (
+        start < currentLength &&
+        start < nextLength &&
+        currentValue[start] === nextValue[start]
+      ) {
+        start += 1;
+      }
+
+      let currentEnd = currentLength;
+      let nextEnd = nextLength;
+
+      while (
+        currentEnd > start &&
+        nextEnd > start &&
+        currentValue[currentEnd - 1] === nextValue[nextEnd - 1]
+      ) {
+        currentEnd -= 1;
+        nextEnd -= 1;
+      }
+
+      const deleteCount = currentEnd - start;
+      if (deleteCount > 0) {
+        shared.delete(start, deleteCount);
+      }
+
+      if (nextEnd > start) {
+        shared.insert(start, nextValue.slice(start, nextEnd));
+      }
+    });
+  }, []);
+
   const historyQuery = useQuery({
     queryKey: ["note-history", id],
     queryFn: async () => {
@@ -138,7 +191,9 @@ function NoteDetailPage() {
 
   useEffect(() => {
     if (!note) return;
-    setTitle(note.title ?? "");
+    const nextTitle = note.title ?? "";
+    setTitle(nextTitle);
+    applySharedTitle(nextTitle);
     setTags(Array.isArray(note.tags) ? [...note.tags] : []);
     setPinned(Boolean(note.pinned));
     const savedAt = note.updatedAt ?? note.createdAt;
@@ -149,7 +204,7 @@ function NoteDetailPage() {
     skipInitialUpdateRef.current = true;
     setHasChanges(false);
     setContentStats(computeStats(note.content ?? ""));
-  }, [note]);
+  }, [note, applySharedTitle]);
 
   useEffect(() => {
     if (!doc) return undefined;
@@ -170,6 +225,36 @@ function NoteDetailPage() {
     };
   }, [doc]);
 
+  useEffect(() => {
+    if (!doc) return undefined;
+
+    const sharedTitle = doc.getText("title");
+    titleSharedRef.current = sharedTitle;
+
+    if (sharedTitle.length === 0 && (note?.title ?? "")) {
+      sharedTitle.doc?.transact(() => {
+        if (sharedTitle.length > 0) {
+          sharedTitle.delete(0, sharedTitle.length);
+        }
+        sharedTitle.insert(0, note?.title ?? "");
+      });
+    }
+
+    const syncFromShared = () => {
+      setTitle(sharedTitle.toString());
+    };
+
+    syncFromShared();
+    sharedTitle.observe(syncFromShared);
+
+    return () => {
+      sharedTitle.unobserve(syncFromShared);
+      if (titleSharedRef.current === sharedTitle) {
+        titleSharedRef.current = null;
+      }
+    };
+  }, [doc, note?.title]);
+
   const handleEditorReady = useCallback((editor) => {
     editorRef.current = editor;
     const text = editor.getText({ blockSeparator: "\n" }) ?? "";
@@ -181,10 +266,15 @@ function NoteDetailPage() {
     });
   }, []);
 
-  const handleTitleChange = useCallback((event) => {
-    setTitle(event.target.value);
-    setHasChanges(true);
-  }, []);
+  const handleTitleChange = useCallback(
+    (event) => {
+      const value = event.target.value;
+      setTitle(value);
+      setHasChanges(true);
+      applySharedTitle(value);
+    },
+    [applySharedTitle]
+  );
 
   const handleTagsChange = useCallback((nextTags) => {
     setTags(Array.isArray(nextTags) ? nextTags.slice(0, TAG_LIMIT) : []);
@@ -228,7 +318,9 @@ function NoteDetailPage() {
       originalSnapshotRef.current = normalized;
       queryClient.setQueryData(["note", id], normalized);
       queryClient.invalidateQueries({ queryKey: ["notes"] });
-      setTitle(normalized.title ?? trimmedTitle);
+      const savedTitle = normalized.title ?? trimmedTitle;
+      setTitle(savedTitle);
+      applySharedTitle(savedTitle);
       setTags(normalized.tags ?? []);
       setPinned(Boolean(normalized.pinned));
       setLastSavedAt(new Date(normalized.updatedAt ?? Date.now()));
@@ -241,13 +333,15 @@ function NoteDetailPage() {
     } finally {
       setSaving(false);
     }
-  }, [doc, id, note, pinned, queryClient, tags, title]);
+  }, [doc, id, note, pinned, queryClient, tags, title, applySharedTitle]);
 
   const handleRevert = useCallback(() => {
     const snapshot = originalSnapshotRef.current;
     if (!snapshot) return;
 
-    setTitle(snapshot.title ?? "");
+    const revertedTitle = snapshot.title ?? "";
+    setTitle(revertedTitle);
+    applySharedTitle(revertedTitle);
     setTags(Array.isArray(snapshot.tags) ? [...snapshot.tags] : []);
     setPinned(Boolean(snapshot.pinned));
 
@@ -266,7 +360,7 @@ function NoteDetailPage() {
     setContentStats(computeStats(text));
     setHasChanges(false);
     toast.success("Changes reverted");
-  }, [doc]);
+  }, [doc, applySharedTitle]);
 
   const handleTogglePinned = useCallback(async () => {
     if (!id) return;
