@@ -1,5 +1,6 @@
 import "../config/env.js";
 import { Server } from "@hocuspocus/server";
+import mongoose from "mongoose";
 import { encodeStateAsUpdate } from "yjs";
 
 import { connectDb } from "../config/db.js";
@@ -88,7 +89,7 @@ const coerceState = (state, document, logContext) => {
   return null;
 };
 
-const server = Server.configure({
+const collabServer = Server.configure({
   address: "0.0.0.0",
   name: "notesboard-collab",
   maxDocumentSize: 5 * 1024 * 1024,
@@ -253,20 +254,49 @@ const server = Server.configure({
   },
 });
 
-const PORT = Number.parseInt(process.env.COLLAB_SERVER_PORT ?? "6001", 10);
-
-const start = async () => {
+export const startCollabServer = async ({
+  server,
+  path = "/collab",
+  port,
+} = {}) => {
   try {
-    await connectDb();
-    await server.listen(PORT, null, { path: "/collab" });
-    logger.info("Collaborative server running", { port: PORT });
+    if (mongoose.connection.readyState === 0) {
+      await connectDb();
+    }
+
+    if (server) {
+      await collabServer.listen({ server, path });
+      logger.info("Collaborative server attached", { path });
+      return collabServer;
+    }
+
+    const listenPort =
+      port ??
+      Number.parseInt(
+        process.env.COLLAB_SERVER_PORT ?? process.env.PORT ?? "6001",
+        10
+      );
+
+    await collabServer.listen(listenPort, null, { path });
+    logger.info("Collaborative server running", { port: listenPort, path });
+    return collabServer;
   } catch (error) {
     logger.error("Collaborative server failed to start", {
       message: error?.message,
       stack: error?.stack,
     });
-    process.exit(1);
+    throw error;
   }
 };
 
-start();
+const executedDirectly =
+  import.meta.url ===
+  (typeof process !== "undefined" && process.argv?.[1]
+    ? new URL(process.argv[1], "file://").href
+    : "");
+
+if (executedDirectly) {
+  startCollabServer().catch(() => {
+    process.exit(1);
+  });
+}
