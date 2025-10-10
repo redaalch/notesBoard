@@ -89,12 +89,6 @@ export const getAllNotes = async (req, res) => {
       query.boardId = context.board._id;
       query.workspaceId = context.workspace._id;
       await touchWorkspaceMember(context.workspace._id, userId);
-    } else if (req.user?.defaultBoard) {
-      const context = await resolveBoardForUser(req.user.defaultBoard, userId);
-      if (context) {
-        query.boardId = context.board._id;
-        query.workspaceId = context.workspace._id;
-      }
     }
 
     if (!query.boardId) {
