@@ -258,7 +258,7 @@ const PORT = Number.parseInt(process.env.COLLAB_SERVER_PORT ?? "6001", 10);
 const start = async () => {
   try {
     await connectDb();
-  await server.listen(PORT, null, { path: "/collab" });
+    await server.listen(PORT, null, { path: "/collab" });
     logger.info("Collaborative server running", { port: PORT });
   } catch (error) {
     logger.error("Collaborative server failed to start", {
