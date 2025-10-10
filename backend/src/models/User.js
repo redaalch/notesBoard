@@ -80,6 +80,15 @@ const userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Board",
     },
+    customNoteOrder: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Note",
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );

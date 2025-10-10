@@ -3,6 +3,7 @@ import Note from "../models/Note.js";
 import CollabDocument from "../models/CollabDocument.js";
 import NoteHistory from "../models/NoteHistory.js";
 import NoteCollaborator from "../models/NoteCollaborator.js";
+import User from "../models/User.js";
 import logger from "../utils/logger.js";
 import { isValidObjectId } from "../utils/validators.js";
 import {
@@ -877,6 +878,100 @@ export const getNotePresence = async (req, res) => {
     });
   } catch (error) {
     logger.error("Failed to fetch note presence", { error: error?.message });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
+  }
+};
+
+export const getNoteLayout = async (req, res) => {
+  try {
+    const user = req.userDocument ?? (await User.findById(req.user.id));
+    const noteIds = Array.isArray(user?.customNoteOrder)
+      ? user.customNoteOrder.map((id) => id.toString())
+      : [];
+    return res.status(200).json({ noteIds });
+  } catch (error) {
+    logger.error("Failed to fetch note layout", {
+      error: error?.message,
+      userId: req.user?.id,
+    });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
+  }
+};
+
+export const updateNoteLayout = async (req, res) => {
+  try {
+    const { noteIds } = req.body ?? {};
+    const normalizedIds = normalizeNoteIds(noteIds);
+    const userId = req.user.id;
+
+    if (!normalizedIds.length) {
+      if (req.userDocument) {
+        req.userDocument.customNoteOrder = [];
+        await req.userDocument.save();
+      } else {
+        await User.findByIdAndUpdate(userId, { customNoteOrder: [] });
+      }
+      return res.status(200).json({ noteIds: [] });
+    }
+
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const accessibleWorkspaceIds = await listAccessibleWorkspaceIds(userId);
+    const workspaceObjectIds = accessibleWorkspaceIds.map(
+      (value) => new mongoose.Types.ObjectId(value)
+    );
+
+    const collaboratorDocs = await NoteCollaborator.find({
+      userId: userObjectId,
+    })
+      .select({ noteId: 1 })
+      .lean();
+
+    const collaboratorNoteObjectIds = collaboratorDocs.map(
+      (entry) => new mongoose.Types.ObjectId(entry.noteId)
+    );
+
+    const orConditions = [{ owner: userObjectId }];
+
+    if (workspaceObjectIds.length) {
+      orConditions.push({ workspaceId: { $in: workspaceObjectIds } });
+    }
+
+    if (collaboratorNoteObjectIds.length) {
+      orConditions.push({ _id: { $in: collaboratorNoteObjectIds } });
+    }
+
+    const candidates = await Note.find(
+      {
+        _id: {
+          $in: normalizedIds.map((id) => new mongoose.Types.ObjectId(id)),
+        },
+        $or: orConditions,
+      },
+      { _id: 1 }
+    ).lean();
+
+    const allowedSet = new Set(candidates.map((note) => note._id.toString()));
+    const filteredIds = normalizedIds.filter((id) => allowedSet.has(id));
+
+    if (req.userDocument) {
+      req.userDocument.customNoteOrder = filteredIds.map(
+        (id) => new mongoose.Types.ObjectId(id)
+      );
+      await req.userDocument.save();
+    } else {
+      await User.findByIdAndUpdate(userId, {
+        customNoteOrder: filteredIds.map(
+          (id) => new mongoose.Types.ObjectId(id)
+        ),
+      });
+    }
+
+    return res.status(200).json({ noteIds: filteredIds });
+  } catch (error) {
+    logger.error("Failed to update note layout", {
+      error: error?.message,
+      userId: req.user?.id,
+    });
     return res.status(500).json(INTERNAL_SERVER_ERROR);
   }
 };

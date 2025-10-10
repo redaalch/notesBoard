@@ -1,9 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   AlertTriangleIcon,
   ChevronDownIcon,
   FilterIcon,
+  MoveIcon,
   ListChecksIcon,
   PlusIcon,
   RefreshCwIcon,
@@ -30,11 +44,84 @@ import { useCommandPalette } from "../contexts/CommandPaletteContext.jsx";
 
 const FILTER_STORAGE_KEY = "notesboard-filters-v1";
 
+const mergeOrder = (primary = [], fallback = []) => {
+  const fallbackStrings = new Set(
+    fallback
+      .map((id) => (typeof id === "string" ? id : id?.toString?.() ?? null))
+      .filter(Boolean)
+  );
+
+  const result = [];
+  const seen = new Set();
+
+  primary.forEach((id) => {
+    const strId = typeof id === "string" ? id : id?.toString?.();
+    if (strId && !seen.has(strId) && fallbackStrings.has(strId)) {
+      result.push(strId);
+      seen.add(strId);
+    }
+  });
+
+  fallback.forEach((id) => {
+    const strId = typeof id === "string" ? id : id?.toString?.();
+    if (strId && !seen.has(strId)) {
+      result.push(strId);
+      seen.add(strId);
+    }
+  });
+
+  return result;
+};
+
+const noop = () => {};
+
+const getNoteId = (note) => {
+  if (!note) return null;
+  const rawId = note._id ?? note.id;
+  return typeof rawId === "string" ? rawId : rawId?.toString?.() ?? null;
+};
+
+function SortableNoteCard({ note, selectedTags, onTagClick }) {
+  const id = getNoteId(note);
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <NoteCard
+      note={note}
+      customizeMode
+      selectionMode={false}
+      selected={false}
+      onSelectionChange={noop}
+      selectedTags={selectedTags}
+      onTagClick={onTagClick}
+      innerRef={setNodeRef}
+      dragHandleProps={{ ...attributes, ...listeners }}
+      dragHandleRef={setActivatorNodeRef}
+      style={style}
+      dragging={isDragging}
+    />
+  );
+}
+
 const sortLabelMap = {
   newest: "Newest first",
   oldest: "Oldest first",
   alphabetical: "A → Z",
   updated: "Recently updated",
+  custom: "Custom order",
 };
 
 const BULK_SUCCESS_MESSAGES = {
@@ -62,10 +149,13 @@ function HomePage() {
   const [selectedBoardId, setSelectedBoardId] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [customizeMode, setCustomizeMode] = useState(false);
+  const [customOrderOverride, setCustomOrderOverride] = useState([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const filterPanelRef = useRef(null);
   const hasInitializedFilters = useRef(false);
   const searchInputRef = useRef(null);
+  const previousSortRef = useRef("newest");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { registerCommands } = useCommandPalette();
@@ -95,11 +185,110 @@ function HomePage() {
     },
   });
 
+  const layoutQuery = useQuery({
+    queryKey: ["note-layout"],
+    queryFn: async () => {
+      const response = await api.get("/notes/layout");
+      const noteIds = Array.isArray(response.data?.noteIds)
+        ? response.data.noteIds.map((id) =>
+            typeof id === "string" ? id : id?.toString?.()
+          )
+        : [];
+      return noteIds.filter(Boolean);
+    },
+    staleTime: 300_000,
+  });
+
   const notes = useMemo(
     () => (Array.isArray(notesQuery.data) ? notesQuery.data : []),
     [notesQuery.data]
   );
   const loading = notesQuery.isLoading;
+  const layoutOrder = useMemo(() => {
+    return Array.isArray(layoutQuery.data) ? layoutQuery.data : [];
+  }, [layoutQuery.data]);
+  const allNoteIds = useMemo(
+    () =>
+      notes.map((note) =>
+        typeof note._id === "string" ? note._id : note._id?.toString?.()
+      ),
+    [notes]
+  );
+  const baseCustomOrder =
+    customOrderOverride.length > 0 ? customOrderOverride : layoutOrder;
+  const effectiveCustomOrder = useMemo(
+    () => mergeOrder(baseCustomOrder, allNoteIds),
+    [baseCustomOrder, allNoteIds]
+  );
+  const customOrderIndex = useMemo(() => {
+    const map = new Map();
+    effectiveCustomOrder.forEach((id, index) => {
+      if (id) {
+        map.set(id, index);
+      }
+    });
+    return map;
+  }, [effectiveCustomOrder]);
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    })
+  );
+
+  const updateLayoutMutation = useMutation({
+    mutationFn: async (noteIds) => {
+      const response = await api.put("/notes/layout", { noteIds });
+      const savedIds = Array.isArray(response.data?.noteIds)
+        ? response.data.noteIds.map((id) =>
+            typeof id === "string" ? id : id?.toString?.()
+          )
+        : [];
+      return savedIds.filter(Boolean);
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["note-layout"], data);
+    },
+    onError: (error) => {
+      const message =
+        error?.response?.data?.message ?? "Failed to save note layout";
+      toast.error(message);
+      layoutQuery.refetch().catch(() => {});
+    },
+  });
+
+  const handleDragEnd = useCallback(
+    ({ active, over }) => {
+      if (!customizeMode || !over) return;
+
+      const activeId =
+        typeof active?.id === "string"
+          ? active.id
+          : active?.id?.toString?.() ?? null;
+      const overId =
+        typeof over?.id === "string" ? over.id : over?.id?.toString?.() ?? null;
+
+      if (!activeId || !overId || activeId === overId) {
+        return;
+      }
+
+      setCustomOrderOverride((prev) => {
+        const baseline = prev.length
+          ? mergeOrder(prev, allNoteIds)
+          : mergeOrder(layoutOrder, allNoteIds);
+        const oldIndex = baseline.indexOf(activeId);
+        const newIndex = baseline.indexOf(overId);
+
+        if (oldIndex === -1 || newIndex === -1) {
+          return baseline;
+        }
+
+        const reordered = arrayMove(baseline, oldIndex, newIndex);
+        updateLayoutMutation.mutate(reordered);
+        return reordered;
+      });
+    },
+    [allNoteIds, customizeMode, layoutOrder, updateLayoutMutation]
+  );
 
   const tagStatsQuery = useQuery({
     queryKey: ["tag-stats"],
@@ -183,6 +372,7 @@ function HomePage() {
       "oldest",
       "alphabetical",
       "updated",
+      "custom",
     ]);
     const initialSort = params.sort ?? storedFilters.sortOrder ?? "newest";
     setSortOrder(allowedSorts.has(initialSort) ? initialSort : "newest");
@@ -347,26 +537,53 @@ function HomePage() {
         })
       : byWords;
 
-    const sorted = [...byTags].sort((a, b) => {
-      const pinPriority = Number(!!b.pinned) - Number(!!a.pinned);
-      if (pinPriority !== 0) return pinPriority;
-      if (sortOrder === "newest") {
-        return new Date(b.createdAt) - new Date(a.createdAt);
-      }
-      if (sortOrder === "oldest") {
-        return new Date(a.createdAt) - new Date(b.createdAt);
-      }
-      if (sortOrder === "alphabetical") {
-        return a.title.localeCompare(b.title);
-      }
-      if (sortOrder === "updated") {
-        return (
-          new Date(b.updatedAt ?? b.createdAt) -
-          new Date(a.updatedAt ?? a.createdAt)
-        );
-      }
-      return 0;
-    });
+    const sorted =
+      sortOrder === "custom"
+        ? [...byTags].sort((a, b) => {
+            const aId = typeof a._id === "string" ? a._id : a._id?.toString?.();
+            const bId = typeof b._id === "string" ? b._id : b._id?.toString?.();
+            const indexA = aId !== undefined ? customOrderIndex.get(aId) : null;
+            const indexB = bId !== undefined ? customOrderIndex.get(bId) : null;
+
+            if (indexA !== undefined && indexA !== null) {
+              if (indexB !== undefined && indexB !== null) {
+                return indexA - indexB;
+              }
+              return -1;
+            }
+
+            if (indexB !== undefined && indexB !== null) {
+              return 1;
+            }
+
+            const fallback =
+              new Date(b.updatedAt ?? b.createdAt) -
+              new Date(a.updatedAt ?? a.createdAt);
+            if (fallback !== 0) {
+              return fallback;
+            }
+            return new Date(b.createdAt) - new Date(a.createdAt);
+          })
+        : [...byTags].sort((a, b) => {
+            const pinPriority = Number(!!b.pinned) - Number(!!a.pinned);
+            if (pinPriority !== 0) return pinPriority;
+            if (sortOrder === "newest") {
+              return new Date(b.createdAt) - new Date(a.createdAt);
+            }
+            if (sortOrder === "oldest") {
+              return new Date(a.createdAt) - new Date(b.createdAt);
+            }
+            if (sortOrder === "alphabetical") {
+              return a.title.localeCompare(b.title);
+            }
+            if (sortOrder === "updated") {
+              return (
+                new Date(b.updatedAt ?? b.createdAt) -
+                new Date(a.updatedAt ?? a.createdAt)
+              );
+            }
+            return 0;
+          });
 
     return sorted;
   }, [
@@ -379,6 +596,7 @@ function HomePage() {
     longFormNotes,
     shortNotes,
     selectedTags,
+    customOrderIndex,
   ]);
 
   const selectedNoteIdSet = useMemo(
@@ -402,6 +620,15 @@ function HomePage() {
     !notesQuery.isError &&
     notes.length > 0 &&
     !filteredNotes.length;
+
+  const customizeDisabled =
+    !customizeMode &&
+    (notes.length <= 1 ||
+      loading ||
+      isFetchingNotes ||
+      isRateLimited ||
+      notesQuery.isError ||
+      filtersApplied);
 
   const tagOptions = useMemo(() => {
     if (availableTags.length) {
@@ -466,6 +693,25 @@ function HomePage() {
     setSelectedNoteIds([]);
     setSelectionMode(false);
   }, []);
+
+  const handleToggleCustomize = useCallback(() => {
+    setCustomizeMode((prev) => {
+      const next = !prev;
+      if (next) {
+        previousSortRef.current = sortOrder;
+        setCustomOrderOverride(effectiveCustomOrder);
+        setSortOrder("custom");
+        setSelectionMode(false);
+        setSelectedNoteIds([]);
+      } else {
+        setCustomOrderOverride([]);
+        if (previousSortRef.current && previousSortRef.current !== "custom") {
+          setSortOrder(previousSortRef.current);
+        }
+      }
+      return next;
+    });
+  }, [effectiveCustomOrder, sortOrder]);
 
   const performBulkAction = useCallback(
     async (action, extraPayload = {}) => {
@@ -596,6 +842,13 @@ function HomePage() {
   }, [selectionMode]);
 
   useEffect(() => {
+    if (customizeMode && sortOrder !== "custom") {
+      setCustomizeMode(false);
+      setCustomOrderOverride([]);
+    }
+  }, [customizeMode, sortOrder]);
+
+  useEffect(() => {
     if (!moveModalOpen || !boardOptions.length) return;
     setSelectedBoardId((previous) => {
       if (previous && boardOptions.some((board) => board.id === previous)) {
@@ -689,6 +942,18 @@ function HomePage() {
                   >
                     <ListChecksIcon className="size-4" />
                     {selectionMode ? "Exit multi-select" : "Multi-select"}
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm gap-2 ${
+                      customizeMode ? "btn-primary" : "btn-outline"
+                    }`}
+                    onClick={handleToggleCustomize}
+                    disabled={customizeDisabled}
+                    aria-pressed={customizeMode}
+                  >
+                    <MoveIcon className="size-4" />
+                    {customizeMode ? "Finish arranging" : "Customize order"}
                   </button>
                 </div>
                 <div className="text-xs text-base-content/60">
@@ -828,6 +1093,7 @@ function HomePage() {
                       <option value="oldest">Oldest first</option>
                       <option value="alphabetical">Alphabetical</option>
                       <option value="updated">Recently updated</option>
+                      <option value="custom">Custom order</option>
                     </select>
                   </label>
                   <div className="flex items-end justify-end">
@@ -892,6 +1158,24 @@ function HomePage() {
                   </button>
                 </div>
               )}
+
+              {customizeMode && (
+                <div className="alert alert-info border border-primary/30 bg-primary/5 shadow-sm">
+                  <MoveIcon className="size-5" />
+                  <div>
+                    <h3 className="font-semibold">Arrange your notes</h3>
+                    <p className="text-sm text-base-content/70">
+                      Drag cards to reorder. Changes save automatically when you
+                      drop a note.
+                    </p>
+                  </div>
+                  {updateLayoutMutation.isPending && (
+                    <span className="text-xs font-medium text-primary">
+                      Saving order...
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {loading && <NoteSkeleton />}
@@ -910,26 +1194,53 @@ function HomePage() {
               </div>
             )}
 
-            {!loading && !isFetchingNotes && filteredNotes.length > 0 && (
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {filteredNotes.map((note) => {
-                  const isSelected = selectedNoteIdSet.has(note._id);
-                  return (
-                    <NoteCard
-                      key={note._id}
-                      note={note}
-                      onTagClick={
-                        selectionMode ? undefined : toggleTagSelection
-                      }
-                      selectedTags={selectedTags}
-                      selectionMode={selectionMode}
-                      selected={isSelected}
-                      onSelectionChange={handleNoteSelectionChange}
-                    />
-                  );
-                })}
-              </div>
-            )}
+            {!loading &&
+              !isFetchingNotes &&
+              filteredNotes.length > 0 &&
+              (customizeMode ? (
+                <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+                  <SortableContext
+                    items={filteredNotes
+                      .map((note) => getNoteId(note))
+                      .filter(Boolean)}
+                    strategy={rectSortingStrategy}
+                  >
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                      {filteredNotes.map((note) => {
+                        const id = getNoteId(note);
+                        if (!id) return null;
+                        return (
+                          <SortableNoteCard
+                            key={id}
+                            note={note}
+                            onTagClick={toggleTagSelection}
+                            selectedTags={selectedTags}
+                          />
+                        );
+                      })}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              ) : (
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {filteredNotes.map((note) => {
+                    const isSelected = selectedNoteIdSet.has(note._id);
+                    return (
+                      <NoteCard
+                        key={note._id}
+                        note={note}
+                        onTagClick={
+                          selectionMode ? undefined : toggleTagSelection
+                        }
+                        selectedTags={selectedTags}
+                        selectionMode={selectionMode}
+                        selected={isSelected}
+                        onSelectionChange={handleNoteSelectionChange}
+                      />
+                    );
+                  })}
+                </div>
+              ))}
 
             {showFilterEmptyState && (
               <div className="alert alert-info shadow-lg">
@@ -1035,6 +1346,7 @@ function HomePage() {
               <option value="oldest">Oldest first</option>
               <option value="alphabetical">Alphabetical</option>
               <option value="updated">Recently updated</option>
+              <option value="custom">Custom order</option>
             </select>
           </label>
 
