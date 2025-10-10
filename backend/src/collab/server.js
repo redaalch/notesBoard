@@ -1,6 +1,7 @@
 import "../config/env.js";
 import { Server } from "@hocuspocus/server";
 import mongoose from "mongoose";
+import { WebSocketServer } from "ws";
 import { encodeStateAsUpdate } from "yjs";
 
 import { connectDb } from "../config/db.js";
@@ -265,8 +266,37 @@ export const startCollabServer = async ({
     }
 
     if (server) {
-      await collabServer.listen({ server, path });
-      logger.info("Collaborative server attached", { path });
+      const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+      const wss = new WebSocketServer({ noServer: true });
+
+      server.on("upgrade", async (request, socket, head) => {
+        try {
+          const requestUrl = request.url ?? normalizedPath;
+          const pathname = new URL(requestUrl, "http://localhost").pathname;
+          if (pathname !== normalizedPath) {
+            return;
+          }
+
+          await collabServer.hooks("onUpgrade", {
+            request,
+            socket,
+            head,
+            instance: collabServer,
+          });
+
+          wss.handleUpgrade(request, socket, head, (ws) => {
+            wss.emit("connection", ws, request);
+          });
+        } catch (error) {
+          socket.destroy();
+        }
+      });
+
+      wss.on("connection", (ws, request) => {
+        collabServer.handleConnection(ws, request);
+      });
+
+      logger.info("Collaborative server attached", { path: normalizedPath });
       return collabServer;
     }
 
