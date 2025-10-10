@@ -905,11 +905,9 @@ export const updateNoteLayout = async (req, res) => {
     const userId = req.user.id;
 
     if (!normalizedIds.length) {
+      await User.findByIdAndUpdate(userId, { customNoteOrder: [] });
       if (req.userDocument) {
         req.userDocument.customNoteOrder = [];
-        await req.userDocument.save();
-      } else {
-        await User.findByIdAndUpdate(userId, { customNoteOrder: [] });
       }
       return res.status(200).json({ noteIds: [] });
     }
@@ -926,9 +924,12 @@ export const updateNoteLayout = async (req, res) => {
       .select({ noteId: 1 })
       .lean();
 
-    const collaboratorNoteObjectIds = collaboratorDocs.map(
-      (entry) => new mongoose.Types.ObjectId(entry.noteId)
-    );
+    const collaboratorNoteObjectIds = collaboratorDocs
+      .map((entry) => entry?.noteId)
+      .filter((noteId) =>
+        noteId ? mongoose.Types.ObjectId.isValid(noteId) : false
+      )
+      .map((noteId) => new mongoose.Types.ObjectId(noteId));
 
     const orConditions = [{ owner: userObjectId }];
 
@@ -953,23 +954,23 @@ export const updateNoteLayout = async (req, res) => {
     const allowedSet = new Set(candidates.map((note) => note._id.toString()));
     const filteredIds = normalizedIds.filter((id) => allowedSet.has(id));
 
+    const objectIdOrder = filteredIds.map(
+      (id) => new mongoose.Types.ObjectId(id)
+    );
+
+    await User.findByIdAndUpdate(userId, {
+      customNoteOrder: objectIdOrder,
+    });
+
     if (req.userDocument) {
-      req.userDocument.customNoteOrder = filteredIds.map(
-        (id) => new mongoose.Types.ObjectId(id)
-      );
-      await req.userDocument.save();
-    } else {
-      await User.findByIdAndUpdate(userId, {
-        customNoteOrder: filteredIds.map(
-          (id) => new mongoose.Types.ObjectId(id)
-        ),
-      });
+      req.userDocument.customNoteOrder = objectIdOrder;
     }
 
     return res.status(200).json({ noteIds: filteredIds });
   } catch (error) {
     logger.error("Failed to update note layout", {
       error: error?.message,
+      stack: error?.stack,
       userId: req.user?.id,
     });
     return res.status(500).json(INTERNAL_SERVER_ERROR);

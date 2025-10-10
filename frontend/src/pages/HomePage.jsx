@@ -81,7 +81,11 @@ const getNoteId = (note) => {
   return typeof rawId === "string" ? rawId : rawId?.toString?.() ?? null;
 };
 
-function SortableNoteCard({ note, selectedTags, onTagClick }) {
+function SortableNoteCard({
+  note,
+  selectedTags,
+  onTagClick,
+}) {
   const id = getNoteId(note);
   const {
     attributes,
@@ -265,7 +269,9 @@ function HomePage() {
           ? active.id
           : active?.id?.toString?.() ?? null;
       const overId =
-        typeof over?.id === "string" ? over.id : over?.id?.toString?.() ?? null;
+        typeof over?.id === "string"
+          ? over.id
+          : over?.id?.toString?.() ?? null;
 
       if (!activeId || !overId || activeId === overId) {
         return;
@@ -1165,8 +1171,7 @@ function HomePage() {
                   <div>
                     <h3 className="font-semibold">Arrange your notes</h3>
                     <p className="text-sm text-base-content/70">
-                      Drag cards to reorder. Changes save automatically when you
-                      drop a note.
+                      Drag cards to reorder. Changes save automatically when you drop a note.
                     </p>
                   </div>
                   {updateLayoutMutation.isPending && (
@@ -1194,10 +1199,8 @@ function HomePage() {
               </div>
             )}
 
-            {!loading &&
-              !isFetchingNotes &&
-              filteredNotes.length > 0 &&
-              (customizeMode ? (
+            {!loading && !isFetchingNotes && filteredNotes.length > 0 && (
+              customizeMode ? (
                 <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
                   <SortableContext
                     items={filteredNotes
@@ -1240,7 +1243,8 @@ function HomePage() {
                     );
                   })}
                 </div>
-              ))}
+              )
+            )}
 
             {showFilterEmptyState && (
               <div className="alert alert-info shadow-lg">
