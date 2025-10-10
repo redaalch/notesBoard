@@ -13,11 +13,17 @@ const start = async () => {
   try {
     await connectDb();
     const httpServer = http.createServer(app);
-    await startCollabServer({ server: httpServer });
 
-    httpServer.listen(PORT, () =>
-      logger.info("Server started", { port: PORT })
-    );
+    await new Promise((resolve, reject) => {
+      httpServer.once("error", reject);
+      httpServer.listen(PORT, () => {
+        httpServer.off("error", reject);
+        logger.info("Server started", { port: PORT });
+        resolve();
+      });
+    });
+
+    await startCollabServer({ server: httpServer });
   } catch (error) {
     logger.error("Server failed to start", {
       message: error?.message,
