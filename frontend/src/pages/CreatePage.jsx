@@ -83,7 +83,6 @@ const CreatePage = () => {
       : [];
   }, [notebooksQuery.data]);
 
-
   useEffect(() => {
     const cleanup = registerCommands([
       {
