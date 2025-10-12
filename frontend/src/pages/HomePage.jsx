@@ -5,6 +5,8 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  DragOverlay,
+  defaultDropAnimationSideEffects,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -81,11 +83,7 @@ const getNoteId = (note) => {
   return typeof rawId === "string" ? rawId : rawId?.toString?.() ?? null;
 };
 
-function SortableNoteCard({
-  note,
-  selectedTags,
-  onTagClick,
-}) {
+function SortableNoteCard({ note, selectedTags, onTagClick }) {
   const id = getNoteId(note);
   const {
     attributes,
@@ -99,7 +97,13 @@ function SortableNoteCard({
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition:
+      transition ??
+      (transform ? "transform 180ms cubic-bezier(0.2, 0, 0, 1)" : undefined),
+    zIndex: isDragging ? 2 : undefined,
+    pointerEvents: isDragging ? "none" : undefined,
+    touchAction: "none",
+    willChange: "transform",
   };
 
   return (
@@ -155,6 +159,7 @@ function HomePage() {
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [customizeMode, setCustomizeMode] = useState(false);
   const [customOrderOverride, setCustomOrderOverride] = useState([]);
+  const [activeDragId, setActiveDragId] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const filterPanelRef = useRef(null);
   const hasInitializedFilters = useRef(false);
@@ -239,6 +244,23 @@ function HomePage() {
     })
   );
 
+  const dropAnimation = useMemo(
+    () => ({
+      duration: 220,
+      easing: "cubic-bezier(0.2, 0, 0, 1)",
+      sideEffects: defaultDropAnimationSideEffects({
+        styles: {
+          active: {
+            opacity: "0.4",
+            transform: "scale(1.02)",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+          },
+        },
+      }),
+    }),
+    []
+  );
+
   const updateLayoutMutation = useMutation({
     mutationFn: async (noteIds) => {
       const response = await api.put("/notes/layout", { noteIds });
@@ -260,6 +282,18 @@ function HomePage() {
     },
   });
 
+  const handleDragStart = useCallback(({ active }) => {
+    const activeId =
+      typeof active?.id === "string"
+        ? active.id
+        : active?.id?.toString?.() ?? null;
+    setActiveDragId(activeId);
+  }, []);
+
+  const handleDragCancel = useCallback(() => {
+    setActiveDragId(null);
+  }, []);
+
   const handleDragEnd = useCallback(
     ({ active, over }) => {
       if (!customizeMode || !over) return;
@@ -269,9 +303,7 @@ function HomePage() {
           ? active.id
           : active?.id?.toString?.() ?? null;
       const overId =
-        typeof over?.id === "string"
-          ? over.id
-          : over?.id?.toString?.() ?? null;
+        typeof over?.id === "string" ? over.id : over?.id?.toString?.() ?? null;
 
       if (!activeId || !overId || activeId === overId) {
         return;
@@ -292,6 +324,7 @@ function HomePage() {
         updateLayoutMutation.mutate(reordered);
         return reordered;
       });
+      setActiveDragId(null);
     },
     [allNoteIds, customizeMode, layoutOrder, updateLayoutMutation]
   );
@@ -609,6 +642,11 @@ function HomePage() {
     () => new Set(selectedNoteIds),
     [selectedNoteIds]
   );
+
+  const activeDragNote = useMemo(() => {
+    if (!activeDragId) return null;
+    return filteredNotes.find((note) => getNoteId(note) === activeDragId);
+  }, [activeDragId, filteredNotes]);
 
   useEffect(() => {
     if (!selectedNoteIds.length) return;
@@ -1171,7 +1209,8 @@ function HomePage() {
                   <div>
                     <h3 className="font-semibold">Arrange your notes</h3>
                     <p className="text-sm text-base-content/70">
-                      Drag cards to reorder. Changes save automatically when you drop a note.
+                      Drag cards to reorder. Changes save automatically when you
+                      drop a note.
                     </p>
                   </div>
                   {updateLayoutMutation.isPending && (
@@ -1199,9 +1238,16 @@ function HomePage() {
               </div>
             )}
 
-            {!loading && !isFetchingNotes && filteredNotes.length > 0 && (
-              customizeMode ? (
-                <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+            {!loading &&
+              !isFetchingNotes &&
+              filteredNotes.length > 0 &&
+              (customizeMode ? (
+                <DndContext
+                  sensors={sensors}
+                  onDragStart={handleDragStart}
+                  onDragCancel={handleDragCancel}
+                  onDragEnd={handleDragEnd}
+                >
                   <SortableContext
                     items={filteredNotes
                       .map((note) => getNoteId(note))
@@ -1223,6 +1269,17 @@ function HomePage() {
                       })}
                     </div>
                   </SortableContext>
+                  <DragOverlay dropAnimation={dropAnimation}>
+                    {activeDragNote ? (
+                      <NoteCard
+                        note={activeDragNote}
+                        customizeMode
+                        selectedTags={selectedTags}
+                        onTagClick={toggleTagSelection}
+                        dragging
+                      />
+                    ) : null}
+                  </DragOverlay>
                 </DndContext>
               ) : (
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -1243,8 +1300,7 @@ function HomePage() {
                     );
                   })}
                 </div>
-              )
-            )}
+              ))}
 
             {showFilterEmptyState && (
               <div className="alert alert-info shadow-lg">
