@@ -36,11 +36,22 @@ function BulkActionsBar({
   onMoveNotebook,
   onDelete,
   busy,
+  notebookOptions = [],
+  onQuickMoveNotebook,
 }) {
   const summary = useMemo(() => {
     if (selectedCount === 1) return "1 note selected";
     return `${selectedCount} notes selected`;
   }, [selectedCount]);
+
+  const handleQuickMoveChange = (event) => {
+    const value = event.target.value;
+    if (!value) return;
+    if (typeof onQuickMoveNotebook === "function") {
+      onQuickMoveNotebook(value);
+    }
+    event.target.value = "";
+  };
 
   return (
     <div className="sticky top-20 z-30 mb-4 rounded-2xl border border-primary/20 bg-base-100/90 px-4 py-3 shadow-lg shadow-primary/20 backdrop-blur">
@@ -89,6 +100,30 @@ function BulkActionsBar({
             onClick={onMoveNotebook}
             disabled={busy}
           />
+          {notebookOptions.length > 0 && (
+            <div className="flex items-center gap-2">
+              <label htmlFor="bulk-move-notebook" className="sr-only">
+                Move selected notes to notebook
+              </label>
+              <select
+                id="bulk-move-notebook"
+                className="select select-bordered select-sm"
+                defaultValue=""
+                onChange={handleQuickMoveChange}
+                disabled={busy}
+              >
+                <option value="" disabled>
+                  Quick move…
+                </option>
+                <option value="__uncategorized">Uncategorized</option>
+                {notebookOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <ActionButton
             icon={Trash2Icon}
             label="Delete"

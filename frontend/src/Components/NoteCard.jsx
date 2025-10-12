@@ -34,20 +34,21 @@ function NoteCard({
   innerRef = null,
   style,
   dragging = false,
+  cardDragProps = null,
 }) {
   const queryClient = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [pinning, setPinning] = useState(false);
 
-  const handleSelectionChange = (checked) => {
+  const handleSelectionChange = (checked, event = null) => {
     if (typeof onSelectionChange === "function") {
-      onSelectionChange(note._id, checked);
+      onSelectionChange(note._id, checked, { event });
     }
   };
 
-  const toggleSelection = () => {
-    handleSelectionChange(!selected);
+  const toggleSelection = (event) => {
+    handleSelectionChange(!selected, event);
   };
 
   const updateNotesCache = (updater) => {
@@ -147,12 +148,13 @@ function NoteCard({
       <article
         ref={innerRef}
         style={style}
+        {...(cardDragProps ?? {})}
         className={`card bg-base-100/90 backdrop-blur border border-base-200/70 shadow-md transition-all duration-200 h-full ${
           selected
             ? "border-primary/60 ring-1 ring-primary/40"
             : "hover:border-primary/30 hover:shadow-xl"
-        } ${dragging ? "opacity-80 shadow-2xl" : ""}`}
-        onClick={selectionMode ? toggleSelection : undefined}
+        } ${dragging ? "opacity-80 shadow-2xl ring-1 ring-primary/50" : ""}`}
+        onClick={selectionMode ? (event) => toggleSelection(event) : undefined}
         role="group"
         aria-pressed={selectionMode ? selected : undefined}
       >
@@ -167,7 +169,7 @@ function NoteCard({
                     checked={selected}
                     onChange={(event) => {
                       event.stopPropagation();
-                      handleSelectionChange(event.target.checked);
+                      handleSelectionChange(event.target.checked, event);
                     }}
                     aria-label={selected ? "Deselect note" : "Select note"}
                   />
