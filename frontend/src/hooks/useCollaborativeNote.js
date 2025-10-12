@@ -6,32 +6,52 @@ import { Awareness } from "y-protocols/awareness";
 import useAuth from "./useAuth.js";
 
 const resolveCollabUrl = () => {
-  if (import.meta.env.VITE_COLLAB_SERVER_URL) {
-    return import.meta.env.VITE_COLLAB_SERVER_URL;
+  const explicitUrl = import.meta.env.VITE_COLLAB_SERVER_URL;
+  if (explicitUrl) {
+    return explicitUrl;
   }
 
-  const path = import.meta.env.VITE_COLLAB_PATH || "/collab";
-  const devPort = import.meta.env.VITE_COLLAB_SERVER_PORT || "6001";
+  const rawPath = import.meta.env.VITE_COLLAB_PATH || "/collab";
+  const path = rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
 
-  if (typeof window !== "undefined" && window.location) {
-    const { protocol, hostname, port } = window.location;
-    const wsProtocol = protocol === "https:" ? "wss" : "ws";
-    const localPorts = [
-      "5173",
-      "4173",
-      "3000",
-      import.meta.env.VITE_DEV_SERVER_PORT,
-    ].filter(Boolean);
-
-    if (import.meta.env.DEV && (localPorts.includes(port) || !port)) {
-      return `${wsProtocol}://${hostname}:${devPort}${path}`;
+  const buildUrl = (baseUrl) => {
+    try {
+      const url = new URL(baseUrl);
+      url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+      url.pathname = path;
+      url.search = "";
+      url.hash = "";
+      return url.toString();
+    } catch {
+      return null;
     }
+  };
 
-    const portSuffix = port ? `:${port}` : "";
-    return `${wsProtocol}://${hostname}${portSuffix}${path}`;
+  const candidates = [];
+
+  const apiBase =
+    import.meta.env.VITE_API_BASE_URL ??
+    (import.meta.env.DEV ? "http://localhost:5001/api" : "/api");
+  candidates.push(apiBase);
+
+  if (typeof window !== "undefined" && window.location?.origin) {
+    candidates.push(window.location.origin);
   }
 
-  return `ws://localhost:${devPort}${path}`;
+  if (import.meta.env.DEV) {
+    candidates.push("http://localhost:5001");
+  }
+
+  candidates.push("http://localhost");
+
+  for (const candidate of candidates) {
+    const resolved = buildUrl(candidate);
+    if (resolved) {
+      return resolved;
+    }
+  }
+
+  return `ws://localhost:5001${path}`;
 };
 
 const DEFAULT_COLLAB_URL = resolveCollabUrl();
