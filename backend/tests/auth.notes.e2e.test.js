@@ -203,9 +203,9 @@ describe("Auth and notes integration", () => {
     expect(Array.isArray(notebookNotesResponse.body)).toBe(true);
     expect(notebookNotesResponse.body).toHaveLength(1);
     expect(notebookNotesResponse.body[0].title).toBe("Launch Checklist");
-    expect(
-      notebookNotesResponse.body[0].notebookId.toString()
-    ).toBe(notebookId);
+    expect(notebookNotesResponse.body[0].notebookId.toString()).toBe(
+      notebookId
+    );
 
     const notebooksListResponse = await request(app)
       .get("/api/notebooks")
