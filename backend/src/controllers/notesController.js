@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Note from "../models/Note.js";
 import Notebook from "../models/Notebook.js";
+import NotebookMember from "../models/NotebookMember.js";
 import CollabDocument from "../models/CollabDocument.js";
 import NoteHistory from "../models/NoteHistory.js";
 import NoteCollaborator from "../models/NoteCollaborator.js";
@@ -13,6 +14,7 @@ import {
   listAccessibleWorkspaceIds,
   touchWorkspaceMember,
   getWorkspaceMembership,
+  getNotebookMembership,
 } from "../utils/access.js";
 import {
   appendNotesToNotebookOrder,
@@ -33,6 +35,7 @@ const NOTE_NOT_FOUND = {
 };
 
 const EDIT_ROLES = new Set(["owner", "admin", "editor"]);
+const NOTEBOOK_WRITE_ROLES = new Set(["owner", "editor"]);
 
 const MAX_TAGS_PER_NOTE = 8;
 
@@ -72,6 +75,23 @@ export const getAllNotes = async (req, res) => {
     const requestedBoardId = req.query?.boardId;
     const requestedNotebookId = req.query?.notebookId;
     const userObjectId = new mongoose.Types.ObjectId(userId);
+
+    const notebookMemberships = await NotebookMember.find({
+      userId: userObjectId,
+      status: "active",
+    })
+      .select({ notebookId: 1, role: 1 })
+      .lean();
+
+    const notebookRoleById = new Map();
+    const notebookMembershipObjectIds = [];
+    notebookMemberships.forEach((membership) => {
+      if (!membership?.notebookId) return;
+      const key = membership.notebookId.toString();
+      notebookRoleById.set(key, membership.role ?? "viewer");
+      notebookMembershipObjectIds.push(membership.notebookId);
+    });
+
     const collaboratorDocs = await NoteCollaborator.find({
       userId: userObjectId,
     })
@@ -96,15 +116,17 @@ export const getAllNotes = async (req, res) => {
         filterUncategorized = true;
         query.owner = userObjectId;
       } else {
-        const notebook = await ensureNotebookOwnership(
+        const notebookAccess = await getNotebookMembership(
           requestedNotebookId,
           userId
         );
-        if (!notebook) {
+        if (!notebookAccess) {
           return res.status(404).json({ message: "Notebook not found" });
         }
-        notebookFilterObjectId = notebook._id;
-        query.owner = userObjectId;
+        notebookFilterObjectId = notebookAccess.notebook._id;
+        const membershipRole = notebookAccess.membership?.role ?? "owner";
+        notebookRoleById.set(notebookFilterObjectId.toString(), membershipRole);
+        query.notebookId = notebookFilterObjectId;
       }
     }
 
@@ -136,6 +158,15 @@ export const getAllNotes = async (req, res) => {
         filters.push({ _id: { $in: collaboratorNoteObjectIds } });
       }
 
+      if (notebookMembershipObjectIds.length) {
+        const uniqueNotebookIds = Array.from(
+          new Set(notebookMembershipObjectIds.map((id) => id.toString()))
+        ).map((id) => new mongoose.Types.ObjectId(id));
+        if (uniqueNotebookIds.length) {
+          filters.push({ notebookId: { $in: uniqueNotebookIds } });
+        }
+      }
+
       if (filters.length === 1) {
         Object.assign(query, filters[0]);
       } else {
@@ -156,15 +187,23 @@ export const getAllNotes = async (req, res) => {
     const response = notes.map((note) => {
       const noteId = note._id.toString();
       const collabRole = collaboratorByNoteId.get(noteId) ?? null;
+      const isOwner = String(note.owner) === String(userId);
+      const notebookRole = note.notebookId
+        ? notebookRoleById.get(note.notebookId.toString()) ??
+          (isOwner ? "owner" : null)
+        : null;
+      const accessRole = isOwner
+        ? "owner"
+        : notebookRole
+        ? `notebook:${notebookRole}`
+        : collabRole
+        ? `collaborator:${collabRole}`
+        : "workspace";
       return {
         ...note,
         collaboratorRole: collabRole,
-        accessRole:
-          String(note.owner) === String(userId)
-            ? "owner"
-            : collabRole
-            ? `collaborator:${collabRole}`
-            : "workspace",
+        notebookRole,
+        accessRole,
       };
     });
 
@@ -196,9 +235,17 @@ export const getNoteById = async (req, res) => {
       ...access.note,
       membershipRole: permissions.workspaceRole ?? null,
       collaboratorRole: permissions.collaboratorRole ?? null,
+      notebookRole: permissions.notebookRole ?? null,
       canManageMembers: permissions.canManageCollaborators ?? false,
       canManageCollaborators: permissions.canManageCollaborators ?? false,
       canEdit: permissions.canEdit ?? false,
+      effectiveRole:
+        permissions.effectiveRole ??
+        (permissions.isOwner
+          ? "owner"
+          : permissions.canEdit
+          ? "editor"
+          : "viewer"),
       accessRole: permissions.isOwner
         ? "owner"
         : permissions.workspaceRole ?? permissions.collaboratorRole ?? null,
@@ -261,12 +308,18 @@ export const createNote = async (req, res) => {
       if (notebookId === "" || notebookId === "uncategorized") {
         payload.notebookId = null;
       } else {
-        const notebook = await ensureNotebookOwnership(notebookId, userId);
-        if (!notebook) {
+        const notebookAccess = await getNotebookMembership(notebookId, userId);
+        if (!notebookAccess) {
           return res.status(404).json({ message: "Notebook not found" });
         }
-        notebookObjectId = notebook._id;
-        payload.notebookId = notebook._id;
+        const notebookRole = notebookAccess.membership?.role ?? "viewer";
+        if (!NOTEBOOK_WRITE_ROLES.has(notebookRole)) {
+          return res
+            .status(403)
+            .json({ message: "Insufficient notebook permissions" });
+        }
+        notebookObjectId = notebookAccess.notebook._id;
+        payload.notebookId = notebookObjectId;
       }
     }
 
@@ -374,12 +427,21 @@ export const updateNote = async (req, res) => {
         updates.notebookId = null;
         targetNotebookObjectId = null;
       } else {
-        const notebook = await ensureNotebookOwnership(notebookId, req.user.id);
-        if (!notebook) {
+        const notebookAccess = await getNotebookMembership(
+          notebookId,
+          req.user.id
+        );
+        if (!notebookAccess) {
           return res.status(404).json({ message: "Notebook not found" });
         }
-        updates.notebookId = notebook._id;
-        targetNotebookObjectId = notebook._id;
+        const notebookRole = notebookAccess.membership?.role ?? "viewer";
+        if (!NOTEBOOK_WRITE_ROLES.has(notebookRole)) {
+          return res
+            .status(403)
+            .json({ message: "Insufficient notebook permissions" });
+        }
+        updates.notebookId = notebookAccess.notebook._id;
+        targetNotebookObjectId = notebookAccess.notebook._id;
       }
     }
 
@@ -486,9 +548,17 @@ export const updateNote = async (req, res) => {
       ...updatedNote.toObject(),
       membershipRole: nextPermissions.workspaceRole ?? null,
       collaboratorRole: nextPermissions.collaboratorRole ?? null,
+      notebookRole: nextPermissions.notebookRole ?? null,
       canManageMembers: nextPermissions.canManageCollaborators ?? false,
       canManageCollaborators: nextPermissions.canManageCollaborators ?? false,
       canEdit: nextPermissions.canEdit ?? false,
+      effectiveRole:
+        nextPermissions.effectiveRole ??
+        (nextPermissions.isOwner
+          ? "owner"
+          : nextPermissions.canEdit
+          ? "editor"
+          : "viewer"),
       accessRole: nextPermissions.isOwner
         ? "owner"
         : nextPermissions.workspaceRole ??

@@ -4,7 +4,12 @@ import { formatTagLabel, normalizeTag } from "../lib/Utils.js";
 
 const MAX_TAGS = 8;
 
-function TagInput({ value = [], onChange, placeholder = "Add tag" }) {
+function TagInput({
+  value = [],
+  onChange,
+  placeholder = "Add tag",
+  disabled = false,
+}) {
   const [inputValue, setInputValue] = useState("");
 
   const normalizedValue = useMemo(
@@ -13,6 +18,7 @@ function TagInput({ value = [], onChange, placeholder = "Add tag" }) {
   );
 
   const handleAddTag = (rawTag) => {
+    if (disabled) return;
     const trimmed = normalizeTag(rawTag);
     if (!trimmed) return;
 
@@ -30,12 +36,14 @@ function TagInput({ value = [], onChange, placeholder = "Add tag" }) {
   };
 
   const handleRemoveTag = (tagToRemove) => {
+    if (disabled) return;
     onChange?.(
       normalizedValue.filter((tag) => tag !== normalizeTag(tagToRemove))
     );
   };
 
   const handleKeyDown = (event) => {
+    if (disabled) return;
     if (event.key === "Enter" || event.key === ",") {
       event.preventDefault();
       handleAddTag(inputValue);
@@ -49,12 +57,18 @@ function TagInput({ value = [], onChange, placeholder = "Add tag" }) {
   };
 
   const handleBlur = () => {
+    if (disabled) return;
     handleAddTag(inputValue);
   };
 
   return (
     <div className="space-y-2">
-      <div className="input input-bordered flex items-center gap-2">
+      <div
+        className={`input input-bordered flex items-center gap-2 ${
+          disabled ? "pointer-events-none opacity-70" : ""
+        }`}
+        aria-disabled={disabled}
+      >
         <TagIcon className="size-4 text-base-content/60" />
         <input
           type="text"
@@ -65,6 +79,7 @@ function TagInput({ value = [], onChange, placeholder = "Add tag" }) {
           placeholder={placeholder}
           className="flex-1 bg-transparent outline-none"
           aria-label="Add a note tag"
+          disabled={disabled}
         />
         <span className="text-xs text-base-content/50">
           {value.length}/{MAX_TAGS}
@@ -81,6 +96,7 @@ function TagInput({ value = [], onChange, placeholder = "Add tag" }) {
                 onClick={() => handleRemoveTag(tag)}
                 className="btn btn-xs btn-ghost btn-circle"
                 aria-label={`Remove tag ${formatTagLabel(tag)}`}
+                disabled={disabled}
               >
                 <XIcon className="size-3" />
               </button>

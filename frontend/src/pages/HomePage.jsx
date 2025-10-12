@@ -50,6 +50,7 @@ import {
   XIcon,
   BookOpenIcon,
   LayersIcon,
+  Share2Icon,
 } from "lucide-react";
 import { NOTEBOOK_COLORS, NOTEBOOK_ICONS } from "@shared/notebookOptions.js";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -67,6 +68,7 @@ import BulkActionsBar from "../Components/BulkActionsBar.jsx";
 import TagInput from "../Components/TagInput.jsx";
 import ConfirmDialog from "../Components/ConfirmDialog.jsx";
 import { useCommandPalette } from "../contexts/CommandPaletteContext.jsx";
+import NotebookShareDialog from "../Components/NotebookShareDialog.jsx";
 
 const FILTER_STORAGE_KEY = "notesboard-filters-v1";
 
@@ -281,6 +283,7 @@ function HomePage() {
   const [lastSelectedIndex, setLastSelectedIndex] = useState(null);
   const [activeDragNoteIds, setActiveDragNoteIds] = useState([]);
   const [a11yMessage, setA11yMessage] = useState("");
+  const [shareNotebookState, setShareNotebookState] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const filterPanelRef = useRef(null);
   const hasInitializedFilters = useRef(false);
@@ -1293,6 +1296,15 @@ function HomePage() {
     setNotebookIconInput(notebook.icon ?? null);
   };
 
+  const openShareNotebook = (notebook) => {
+    if (!notebook) return;
+    setShareNotebookState(notebook);
+  };
+
+  const closeShareNotebook = () => {
+    setShareNotebookState(null);
+  };
+
   const closeNotebookForm = () => {
     setNotebookFormState(null);
     setNotebookNameInput("");
@@ -1804,6 +1816,17 @@ function HomePage() {
                                   <MoreVerticalIcon className="size-3.5" />
                                 </button>
                                 <ul className="dropdown-content menu menu-xs rounded-box bg-base-100 p-2 shadow-lg">
+                                  <li>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        openShareNotebook(notebook)
+                                      }
+                                    >
+                                      <Share2Icon className="size-3.5" />
+                                      Share & members
+                                    </button>
+                                  </li>
                                   <li>
                                     <button
                                       type="button"
@@ -2655,6 +2678,14 @@ function HomePage() {
           </div>
         </div>
       )}
+
+      {shareNotebookState ? (
+        <NotebookShareDialog
+          notebook={shareNotebookState}
+          open
+          onClose={closeShareNotebook}
+        />
+      ) : null}
 
       {moveNotebookModalOpen && (
         <div

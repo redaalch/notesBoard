@@ -8,6 +8,7 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "bootstrap-owner": "node src/scripts/bootstrapOwner.js",
+    "backfill-notebook-members": "node src/scripts/backfillNotebookMembers.js",
     "collab": "node src/collab/server.js"
   },
   "keywords": [],

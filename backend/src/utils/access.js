@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 import Workspace from "../models/Workspace.js";
 import Board from "../models/Board.js";
+import Notebook from "../models/Notebook.js";
+import NotebookMember, {
+  NOTEBOOK_MEMBER_ROLES,
+} from "../models/NotebookMember.js";
 import Note from "../models/Note.js";
 import NoteCollaborator from "../models/NoteCollaborator.js";
 import { isValidObjectId } from "./validators.js";
@@ -14,6 +18,9 @@ const WORKSPACE_EDIT_ROLES = new Set(["owner", "admin", "editor"]);
 const WORKSPACE_MANAGE_ROLES = new Set(["owner", "admin"]);
 const NOTE_COLLAB_EDIT_ROLES = new Set(["editor"]);
 const NOTE_COLLAB_COMMENT_ROLES = new Set(["editor", "commenter"]);
+const NOTEBOOK_EDIT_ROLES = new Set(["owner", "editor"]);
+const NOTEBOOK_VIEW_ROLES = new Set(NOTEBOOK_MEMBER_ROLES);
+const NOTEBOOK_ACTIVE_STATUSES = new Set(["active"]);
 
 export const getWorkspaceMembership = async (workspaceId, userId) => {
   if (!workspaceId || !userId) return null;
@@ -72,6 +79,53 @@ export const resolveBoardForUser = async (boardId, userId) => {
   return { board, workspace: membership.workspace, member: membership.member };
 };
 
+export const getNotebookMembership = async (notebookId, userId) => {
+  if (!notebookId || !userId) return null;
+  if (!isValidObjectId(notebookId) || !isValidObjectId(userId)) {
+    return null;
+  }
+
+  const notebook = await Notebook.findById(notebookId).lean();
+  if (!notebook) {
+    return null;
+  }
+
+  if (String(notebook.owner) === String(userId)) {
+    return {
+      notebook,
+      membership: {
+        role: "owner",
+        status: "active",
+        userId: toObjectId(userId),
+      },
+    };
+  }
+
+  const record = await NotebookMember.findOne({
+    notebookId: toObjectId(notebookId),
+    userId: toObjectId(userId),
+    status: { $in: Array.from(NOTEBOOK_ACTIVE_STATUSES) },
+  })
+    .lean()
+    .catch(() => null);
+
+  if (!record) {
+    return null;
+  }
+
+  return { notebook, membership: record };
+};
+
+export const ensureNotebookAccess = async (notebookId, userId) => {
+  const context = await getNotebookMembership(notebookId, userId);
+  if (!context) {
+    const error = new Error("Notebook access denied");
+    error.status = 403;
+    throw error;
+  }
+  return context;
+};
+
 export const resolveNoteForUser = async (noteId, userId) => {
   if (!noteId || !userId) return null;
   if (!isValidObjectId(noteId)) {
@@ -90,6 +144,9 @@ export const resolveNoteForUser = async (noteId, userId) => {
 
   const isOwner = String(note.owner) === String(userId);
   const membership = await getWorkspaceMembership(workspaceId, userId);
+  const notebookMembership = note.notebookId
+    ? await getNotebookMembership(note.notebookId, userId)
+    : null;
   const collaborator = await NoteCollaborator.findOne({
     noteId: note._id,
     userId: toObjectId(userId),
@@ -97,37 +154,57 @@ export const resolveNoteForUser = async (noteId, userId) => {
     .lean()
     .catch(() => null);
 
-  if (!isOwner && !membership && !collaborator) {
+  if (!isOwner && !membership && !collaborator && !notebookMembership) {
     return null;
   }
 
   const workspaceRole = membership?.member?.role ?? null;
   const collaboratorRole = collaborator?.role ?? null;
+  const notebookRole = notebookMembership?.membership?.role ?? null;
   const canEdit =
     isOwner ||
     (workspaceRole && WORKSPACE_EDIT_ROLES.has(workspaceRole)) ||
-    (collaboratorRole && NOTE_COLLAB_EDIT_ROLES.has(collaboratorRole));
+    (collaboratorRole && NOTE_COLLAB_EDIT_ROLES.has(collaboratorRole)) ||
+    (notebookRole && NOTEBOOK_EDIT_ROLES.has(notebookRole));
   const canComment =
     canEdit ||
-    (collaboratorRole && NOTE_COLLAB_COMMENT_ROLES.has(collaboratorRole));
+    (collaboratorRole && NOTE_COLLAB_COMMENT_ROLES.has(collaboratorRole)) ||
+    (notebookRole && NOTEBOOK_VIEW_ROLES.has(notebookRole));
   const canManageCollaborators =
-    isOwner || (workspaceRole && WORKSPACE_MANAGE_ROLES.has(workspaceRole));
+    isOwner ||
+    (workspaceRole && WORKSPACE_MANAGE_ROLES.has(workspaceRole)) ||
+    notebookRole === "owner";
+
+  let effectiveRole = "viewer";
+  if (isOwner) {
+    effectiveRole = "owner";
+  } else if (canEdit) {
+    effectiveRole = "editor";
+  } else if (canComment) {
+    effectiveRole = "viewer";
+  } else {
+    effectiveRole = "viewer";
+  }
 
   return {
     note,
     workspaceId: note.workspaceId ?? null,
     boardId: note.boardId ?? null,
+    notebookId: note.notebookId ?? null,
     ownerId: note.owner,
     membership,
+    notebookMembership,
     collaborator,
     permissions: {
       isOwner,
       workspaceRole,
       collaboratorRole,
+      notebookRole,
       canView: true,
       canComment,
       canEdit,
       canManageCollaborators,
+      effectiveRole,
     },
   };
 };

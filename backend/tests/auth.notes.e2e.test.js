@@ -16,6 +16,8 @@ import User from "../src/models/User.js";
 import Board from "../src/models/Board.js";
 import Workspace from "../src/models/Workspace.js";
 import CollabDocument from "../src/models/CollabDocument.js";
+import Notebook from "../src/models/Notebook.js";
+import NotebookMember from "../src/models/NotebookMember.js";
 
 const sentEmails = [];
 const sendMailMock = vi.fn(async (options) => {
@@ -60,6 +62,8 @@ afterEach(async () => {
   await Board.deleteMany({});
   await Workspace.deleteMany({});
   await CollabDocument.deleteMany({});
+  await Notebook.deleteMany({});
+  await NotebookMember.deleteMany({});
   await User.deleteMany({});
 });
 
@@ -216,6 +220,68 @@ describe("Auth and notes integration", () => {
       (entry) => entry.id === notebookId
     );
     expect(createdNotebook?.noteCount).toBe(1);
+  });
+
+  it("allows invited notebook members to accept invitations", async () => {
+    const { response: ownerRegister, payload: ownerPayload } =
+      await registerUser({
+        email: "owner@example.com",
+      });
+    expect(ownerRegister.status).toBe(202);
+
+    const ownerVerify = await verifyLatestEmail(ownerPayload.email);
+    const ownerToken = ownerVerify.body.accessToken;
+    const ownerClientId = ownerVerify.body.user.id;
+
+    const notebookResponse = await request(app)
+      .post("/api/notebooks")
+      .set(authHeaders(ownerToken, ownerClientId))
+      .send({ name: "Shared Research" });
+    expect(notebookResponse.status).toBe(201);
+    const notebookId = notebookResponse.body.id;
+
+    const { response: inviteeRegister, payload: inviteePayload } =
+      await registerUser({
+        email: "invitee@example.com",
+      });
+    expect(inviteeRegister.status).toBe(202);
+
+    const inviteeVerify = await verifyLatestEmail(inviteePayload.email);
+    const inviteeToken = inviteeVerify.body.accessToken;
+    const inviteeClientId = inviteeVerify.body.user.id;
+
+    sentEmails.length = 0;
+    sendMailMock.mockClear();
+
+    const inviteResponse = await request(app)
+      .post(`/api/notebooks/${notebookId}/members`)
+      .set(authHeaders(ownerToken, ownerClientId))
+      .send({ email: inviteePayload.email, role: "viewer" });
+    expect(inviteResponse.status).toBe(201);
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
+
+    const inviteMail = sentEmails[0];
+    expect(inviteMail?.text).toBeTruthy();
+    const linkMatch = inviteMail.text.match(/https?:\/\/[^\s]+/i);
+    expect(linkMatch?.[0]).toBeTruthy();
+    const inviteToken = new URL(linkMatch[0]).searchParams.get("token");
+    expect(inviteToken).toBeTruthy();
+
+    const acceptResponse = await request(app)
+      .post("/api/notebooks/invitations/accept")
+      .set(authHeaders(inviteeToken, inviteeClientId))
+      .send({ token: inviteToken });
+    expect(acceptResponse.status).toBe(200);
+    expect(acceptResponse.body?.accepted).toBe(true);
+    expect(acceptResponse.body?.notebookId).toBe(notebookId);
+
+    const membership = await NotebookMember.findOne({
+      notebookId: new mongoose.Types.ObjectId(notebookId),
+      userId: new mongoose.Types.ObjectId(inviteeClientId),
+    });
+    expect(membership).toBeTruthy();
+    expect(membership.status).toBe("active");
+    expect(membership.role).toBe("viewer");
   });
 
   it("requires users to verify their email before logging in", async () => {

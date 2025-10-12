@@ -14,6 +14,7 @@ import {
   SaveIcon,
   Trash2Icon,
   UsersIcon,
+  EyeIcon,
 } from "lucide-react";
 import * as Y from "yjs";
 import { TiptapTransformer } from "@hocuspocus/transformer";
@@ -66,6 +67,19 @@ const mapCollabStatus = (status, participantCount) => {
   }
 };
 
+const formatRoleLabel = (role) => {
+  switch (role) {
+    case "owner":
+      return "Owner";
+    case "editor":
+      return "Editor";
+    case "viewer":
+      return "Viewer";
+    default:
+      return role ?? "Viewer";
+  }
+};
+
 function NoteDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -112,6 +126,11 @@ function NoteDetailPage() {
   const note = noteQuery.data ?? null;
   const canManageNoteCollaborators = note?.canManageCollaborators ?? false;
   const canEditNote = note?.canEdit ?? true;
+  const isReadOnly = !canEditNote;
+  const notebookRole = note?.notebookRole ?? null;
+  const collaboratorRole = note?.collaboratorRole ?? null;
+  const membershipRole = note?.membershipRole ?? null;
+  const effectiveRole = note?.effectiveRole ?? null;
 
   const {
     provider,
@@ -214,16 +233,19 @@ function NoteDetailPage() {
         skipInitialUpdateRef.current = false;
         return;
       }
-      setHasChanges(true);
       const text = editorRef.current?.getText({ blockSeparator: "\n" }) ?? "";
       setContentStats(computeStats(text));
+      if (!canEditNote) {
+        return;
+      }
+      setHasChanges(true);
     };
 
     doc.on("update", handleUpdate);
     return () => {
       doc.off("update", handleUpdate);
     };
-  }, [doc]);
+  }, [doc, canEditNote]);
 
   useEffect(() => {
     if (!doc) return undefined;
@@ -268,20 +290,29 @@ function NoteDetailPage() {
 
   const handleTitleChange = useCallback(
     (event) => {
+      if (!canEditNote) return;
       const value = event.target.value;
       setTitle(value);
       setHasChanges(true);
       applySharedTitle(value);
     },
-    [applySharedTitle]
+    [applySharedTitle, canEditNote]
   );
 
-  const handleTagsChange = useCallback((nextTags) => {
-    setTags(Array.isArray(nextTags) ? nextTags.slice(0, TAG_LIMIT) : []);
-    setHasChanges(true);
-  }, []);
+  const handleTagsChange = useCallback(
+    (nextTags) => {
+      if (!canEditNote) return;
+      setTags(Array.isArray(nextTags) ? nextTags.slice(0, TAG_LIMIT) : []);
+      setHasChanges(true);
+    },
+    [canEditNote]
+  );
 
   const handleSave = useCallback(async () => {
+    if (!canEditNote) {
+      toast.error("You have view-only access to this note.");
+      return;
+    }
     if (!id) return;
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
@@ -333,9 +364,20 @@ function NoteDetailPage() {
     } finally {
       setSaving(false);
     }
-  }, [doc, id, note, pinned, queryClient, tags, title, applySharedTitle]);
+  }, [
+    applySharedTitle,
+    canEditNote,
+    doc,
+    id,
+    note,
+    pinned,
+    queryClient,
+    tags,
+    title,
+  ]);
 
   const handleRevert = useCallback(() => {
+    if (!canEditNote) return;
     const snapshot = originalSnapshotRef.current;
     if (!snapshot) return;
 
@@ -360,9 +402,13 @@ function NoteDetailPage() {
     setContentStats(computeStats(text));
     setHasChanges(false);
     toast.success("Changes reverted");
-  }, [doc, applySharedTitle]);
+  }, [applySharedTitle, canEditNote, doc]);
 
   const handleTogglePinned = useCallback(async () => {
+    if (!canEditNote) {
+      toast.error("You have view-only access to this note.");
+      return;
+    }
     if (!id) return;
     const desiredPinned = !pinned;
     setPinning(true);
@@ -388,11 +434,15 @@ function NoteDetailPage() {
     } finally {
       setPinning(false);
     }
-  }, [id, pinned, queryClient]);
+  }, [canEditNote, id, pinned, queryClient]);
 
   const openConfirm = useCallback(() => {
+    if (!canEditNote) {
+      toast.error("You have view-only access to this note.");
+      return;
+    }
     setConfirmOpen(true);
-  }, []);
+  }, [canEditNote]);
 
   const closeConfirm = useCallback(() => {
     if (!deleting) {
@@ -401,6 +451,7 @@ function NoteDetailPage() {
   }, [deleting]);
 
   const handleDelete = useCallback(async () => {
+    if (!canEditNote) return;
     if (!id) return;
     setDeleting(true);
     try {
@@ -415,13 +466,17 @@ function NoteDetailPage() {
       setDeleting(false);
       setConfirmOpen(false);
     }
-  }, [id, navigate, queryClient]);
+  }, [canEditNote, id, navigate, queryClient]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
     const handleKeyDown = (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
+        if (!canEditNote) {
+          toast.error("You have view-only access to this note.");
+          return;
+        }
         if (!saving && hasChanges) {
           void handleSave();
         }
@@ -430,7 +485,7 @@ function NoteDetailPage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleSave, hasChanges, saving]);
+  }, [canEditNote, handleSave, hasChanges, saving]);
 
   const createdAt = useMemo(() => {
     if (!note?.createdAt) return null;
@@ -531,6 +586,15 @@ function NoteDetailPage() {
   }, []);
 
   const statusBadge = useMemo(() => {
+    if (isReadOnly) {
+      return {
+        className: "badge-outline",
+        label: "View only",
+        Icon: EyeIcon,
+        iconClassName: "size-3 text-base-content/70 shrink-0",
+      };
+    }
+
     if (hasChanges) {
       return {
         className: "badge-warning",
@@ -546,7 +610,7 @@ function NoteDetailPage() {
       Icon: CheckIcon,
       iconClassName: "size-3 text-success-content shrink-0",
     };
-  }, [hasChanges]);
+  }, [hasChanges, isReadOnly]);
   const StatusBadgeIcon = statusBadge.Icon;
 
   const collabBadge = useMemo(
@@ -558,8 +622,27 @@ function NoteDetailPage() {
   const sanitizedTitle = title.trim() ? title.trim() : "Untitled note";
   const { wordCount, characterCount } = contentStats;
   const tagCount = tags.length;
-  const disableSave = saving || !hasChanges;
-  const disableRevert = saving || !hasChanges;
+  const disableSave = isReadOnly || saving || !hasChanges;
+  const disableRevert = isReadOnly || saving || !hasChanges;
+  const accessSummary = useMemo(() => {
+    const permissionLabel = formatRoleLabel(effectiveRole ?? "viewer");
+    if (notebookRole) {
+      return `You were invited to this notebook as a ${formatRoleLabel(
+        notebookRole
+      )}. Current permission: ${permissionLabel}.`;
+    }
+    if (collaboratorRole) {
+      return `You were added as a ${formatRoleLabel(
+        collaboratorRole
+      )} collaborator on this note. Current permission: ${permissionLabel}.`;
+    }
+    if (membershipRole) {
+      return `Your workspace role is ${formatRoleLabel(
+        membershipRole
+      )}. Current permission: ${permissionLabel}.`;
+    }
+    return `You can view this note but cannot edit it. Current permission: ${permissionLabel}.`;
+  }, [collaboratorRole, effectiveRole, membershipRole, notebookRole]);
 
   if (noteQuery.isLoading) {
     return (
@@ -653,7 +736,7 @@ function NoteDetailPage() {
                     pinned ? "border-warning text-warning" : ""
                   }`}
                   onClick={handleTogglePinned}
-                  disabled={pinning}
+                  disabled={pinning || isReadOnly}
                   title={pinned ? "Unpin note" : "Pin note"}
                 >
                   {pinning ? (
@@ -682,6 +765,7 @@ function NoteDetailPage() {
                   className="btn btn-outline btn-error btn-xs sm:btn-sm lg:btn-md h-12 sm:h-auto w-full lg:w-auto gap-1 sm:gap-2"
                   onClick={openConfirm}
                   title="Delete note"
+                  disabled={isReadOnly}
                 >
                   <Trash2Icon className="size-3 sm:size-4" strokeWidth={2.2} />
                   <span className="hidden sm:inline">Delete</span>
@@ -712,6 +796,19 @@ function NoteDetailPage() {
           tabIndex={-1}
           className="mx-auto w-full max-w-4xl space-y-8 px-4 py-10"
         >
+          {isReadOnly ? (
+            <div className="alert alert-info border border-info/40 bg-info/5 text-info-content">
+              <EyeIcon className="size-5" />
+              <div className="space-y-1">
+                <h3 className="font-semibold">View-only access</h3>
+                <p className="text-sm text-base-content/70">
+                  {accessSummary} Contact an editor or the owner if you need to
+                  contribute edits.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
           <section className="grid gap-6 md:grid-cols-3">
             <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-base-100 via-base-200 to-primary/10 p-5 shadow-lg space-y-3">
               <p className="text-xs font-bold uppercase text-primary tracking-wide">
@@ -766,6 +863,8 @@ function NoteDetailPage() {
                     className="input input-bordered input-lg bg-base-200/60 rounded-xl focus:ring-2 focus:ring-primary/40 transition-all"
                     value={title}
                     onChange={handleTitleChange}
+                    disabled={isReadOnly}
+                    aria-readonly={isReadOnly}
                   />
                 </label>
                 <div className="space-y-3">
@@ -819,7 +918,11 @@ function NoteDetailPage() {
                     {tagCount}/{TAG_LIMIT}
                   </span>
                 </div>
-                <TagInput value={tags} onChange={handleTagsChange} />
+                <TagInput
+                  value={tags}
+                  onChange={handleTagsChange}
+                  disabled={isReadOnly}
+                />
               </div>
             </div>
 

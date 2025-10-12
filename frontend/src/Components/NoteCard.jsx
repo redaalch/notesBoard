@@ -9,6 +9,7 @@ import {
   LoaderIcon,
   NotebookPenIcon,
   TrashIcon,
+  UsersIcon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
@@ -20,6 +21,19 @@ import {
 import api from "../lib/axios.js";
 import toast from "react-hot-toast";
 import ConfirmDialog from "./ConfirmDialog.jsx";
+
+const formatAccessRole = (role) => {
+  switch (role) {
+    case "owner":
+      return "Owner";
+    case "editor":
+      return "Editor";
+    case "viewer":
+      return "Viewer";
+    default:
+      return role ?? "Viewer";
+  }
+};
 
 function NoteCard({
   note,
@@ -142,6 +156,12 @@ function NoteCard({
   const createdAt = new Date(note.createdAt);
   const updatedAt = note.updatedAt ? new Date(note.updatedAt) : createdAt;
   const isRecentlyUpdated = Date.now() - updatedAt.getTime() < 172_800_000; // 48h
+  const notebookRole = note?.notebookRole ?? null;
+  const effectiveRole = note?.effectiveRole ?? null;
+  const notebookBadgeLabel = notebookRole
+    ? `Notebook ${formatAccessRole(notebookRole)}`
+    : null;
+  const isViewOnly = effectiveRole === "viewer";
 
   return (
     <>
@@ -186,6 +206,17 @@ function NoteCard({
                   {note.pinned && (
                     <span className="badge badge-warning badge-sm">Pinned</span>
                   )}
+                  {notebookBadgeLabel ? (
+                    <span className="badge badge-info badge-sm gap-1">
+                      <UsersIcon className="size-3" />
+                      {notebookBadgeLabel}
+                    </span>
+                  ) : null}
+                  {isViewOnly ? (
+                    <span className="badge badge-outline badge-sm">
+                      View only
+                    </span>
+                  ) : null}
                 </div>
                 <p className="text-xs md:text-sm text-base-content/70 flex items-center gap-1">
                   <CalendarClockIcon className="size-4" />
