@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Note from "../models/Note.js";
+import Notebook from "../models/Notebook.js";
 import CollabDocument from "../models/CollabDocument.js";
 import NoteHistory from "../models/NoteHistory.js";
 import NoteCollaborator from "../models/NoteCollaborator.js";
@@ -13,6 +14,11 @@ import {
   touchWorkspaceMember,
   getWorkspaceMembership,
 } from "../utils/access.js";
+import {
+  appendNotesToNotebookOrder,
+  ensureNotebookOwnership,
+  removeNotesFromNotebookOrder,
+} from "../utils/notebooks.js";
 
 const INTERNAL_SERVER_ERROR = {
   message: "Internal server error",
@@ -64,6 +70,7 @@ export const getAllNotes = async (req, res) => {
   try {
     const userId = req.user.id;
     const requestedBoardId = req.query?.boardId;
+    const requestedNotebookId = req.query?.notebookId;
     const userObjectId = new mongoose.Types.ObjectId(userId);
     const collaboratorDocs = await NoteCollaborator.find({
       userId: userObjectId,
@@ -81,6 +88,25 @@ export const getAllNotes = async (req, res) => {
     });
 
     const query = {};
+    let notebookFilterObjectId = null;
+    let filterUncategorized = false;
+
+    if (requestedNotebookId) {
+      if (requestedNotebookId === "uncategorized") {
+        filterUncategorized = true;
+        query.owner = userObjectId;
+      } else {
+        const notebook = await ensureNotebookOwnership(
+          requestedNotebookId,
+          userId
+        );
+        if (!notebook) {
+          return res.status(404).json({ message: "Notebook not found" });
+        }
+        notebookFilterObjectId = notebook._id;
+        query.owner = userObjectId;
+      }
+    }
 
     if (requestedBoardId) {
       const context = await resolveBoardForUser(requestedBoardId, userId);
@@ -92,7 +118,7 @@ export const getAllNotes = async (req, res) => {
       await touchWorkspaceMember(context.workspace._id, userId);
     }
 
-    if (!query.boardId) {
+    if (!query.boardId && !requestedNotebookId) {
       const accessibleWorkspaceIds = await listAccessibleWorkspaceIds(userId);
       const filters = [{ owner: userObjectId }];
 
@@ -115,6 +141,12 @@ export const getAllNotes = async (req, res) => {
       } else {
         query.$or = filters;
       }
+    }
+
+    if (filterUncategorized) {
+      query.notebookId = null;
+    } else if (notebookFilterObjectId) {
+      query.notebookId = notebookFilterObjectId;
     }
 
     const notes = await Note.find(query)
@@ -181,8 +213,16 @@ export const getNoteById = async (req, res) => {
 
 export const createNote = async (req, res) => {
   try {
-    const { title, content, tags, pinned, boardId, richContent, contentText } =
-      req.body;
+    const {
+      title,
+      content,
+      tags,
+      pinned,
+      boardId,
+      notebookId,
+      richContent,
+      contentText,
+    } = req.body;
     if (!title || !content) {
       return res
         .status(400)
@@ -216,6 +256,20 @@ export const createNote = async (req, res) => {
       tags,
     };
 
+    let notebookObjectId = null;
+    if (typeof notebookId !== "undefined" && notebookId !== null) {
+      if (notebookId === "" || notebookId === "uncategorized") {
+        payload.notebookId = null;
+      } else {
+        const notebook = await ensureNotebookOwnership(notebookId, userId);
+        if (!notebook) {
+          return res.status(404).json({ message: "Notebook not found" });
+        }
+        notebookObjectId = notebook._id;
+        payload.notebookId = notebook._id;
+      }
+    }
+
     if (typeof richContent !== "undefined") {
       payload.richContent = richContent;
     }
@@ -237,6 +291,10 @@ export const createNote = async (req, res) => {
       eventType: "create",
       summary: "Created note",
     });
+
+    if (notebookObjectId) {
+      await appendNotesToNotebookOrder(notebookObjectId, [savedNote._id]);
+    }
     return res.status(201).json(savedNote);
   } catch (error) {
     logger.error("Error in createNote", { error: error?.message });
@@ -250,8 +308,16 @@ export const createNote = async (req, res) => {
 export const updateNote = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, content, tags, pinned, boardId, richContent, contentText } =
-      req.body;
+    const {
+      title,
+      content,
+      tags,
+      pinned,
+      boardId,
+      notebookId,
+      richContent,
+      contentText,
+    } = req.body;
 
     if (!isValidObjectId(id)) {
       return res.status(400).json(INVALID_NOTE_ID);
@@ -296,6 +362,25 @@ export const updateNote = async (req, res) => {
       }
       updates.boardId = boardContext.board._id;
       updates.workspaceId = boardContext.workspace._id;
+    }
+
+    let targetNotebookObjectId;
+    if (typeof notebookId !== "undefined") {
+      if (
+        notebookId === null ||
+        notebookId === "" ||
+        notebookId === "uncategorized"
+      ) {
+        updates.notebookId = null;
+        targetNotebookObjectId = null;
+      } else {
+        const notebook = await ensureNotebookOwnership(notebookId, req.user.id);
+        if (!notebook) {
+          return res.status(404).json({ message: "Notebook not found" });
+        }
+        updates.notebookId = notebook._id;
+        targetNotebookObjectId = notebook._id;
+      }
     }
 
     if (!Object.keys(updates).length) {
@@ -355,6 +440,14 @@ export const updateNote = async (req, res) => {
       changes.push("board");
     }
 
+    if (
+      typeof notebookId !== "undefined" &&
+      String(access.note.notebookId ?? "") !==
+        String(updatedNote.notebookId ?? "")
+    ) {
+      changes.push("notebook");
+    }
+
     await NoteHistory.create({
       noteId: updatedNote._id,
       workspaceId: updatedNote.workspaceId ?? access.workspaceId ?? null,
@@ -364,6 +457,24 @@ export const updateNote = async (req, res) => {
       summary:
         changes.length === 0 ? "Edited note" : `Updated ${changes.join(", ")}`,
     });
+
+    const previousNotebookId = access.note.notebookId;
+    const currentNotebookId = updatedNote.notebookId;
+    if (
+      typeof notebookId !== "undefined" &&
+      String(previousNotebookId ?? "") !== String(currentNotebookId ?? "")
+    ) {
+      if (previousNotebookId) {
+        await removeNotesFromNotebookOrder(previousNotebookId, [
+          updatedNote._id,
+        ]);
+      }
+      if (targetNotebookObjectId) {
+        await appendNotesToNotebookOrder(targetNotebookObjectId, [
+          updatedNote._id,
+        ]);
+      }
+    }
 
     const refreshedAccess = await resolveNoteForUser(
       updatedNote._id,
@@ -433,6 +544,12 @@ export const deleteNote = async (req, res) => {
       eventType: "delete",
       summary: "Deleted note",
     });
+
+    if (deletedNote.notebookId) {
+      await removeNotesFromNotebookOrder(deletedNote.notebookId, [
+        deletedNote._id,
+      ]);
+    }
 
     // 204 No Content is common; 200 is fine too.
     return res.status(200).json({ message: "Deleted" });
@@ -552,9 +669,16 @@ export const getTagStats = async (req, res) => {
 
 export const bulkUpdateNotes = async (req, res) => {
   try {
-    const { action, noteIds, tags = [], boardId } = req.body ?? {};
+    const { action, noteIds, tags = [], boardId, notebookId } = req.body ?? {};
 
-    const validActions = new Set(["pin", "unpin", "delete", "addTags", "move"]);
+    const validActions = new Set([
+      "pin",
+      "unpin",
+      "delete",
+      "addTags",
+      "move",
+      "moveNotebook",
+    ]);
     if (!validActions.has(action)) {
       return res.status(400).json({ message: "Unknown bulk action" });
     }
@@ -704,6 +828,20 @@ export const bulkUpdateNotes = async (req, res) => {
         ),
       ]);
 
+      const notebookRemovals = new Set(
+        permittedNotes
+          .map((note) => note.notebookId)
+          .filter((id) => id)
+          .map((id) => id.toString())
+      );
+
+      for (const notebook of notebookRemovals) {
+        await removeNotesFromNotebookOrder(
+          new mongoose.Types.ObjectId(notebook),
+          objectIdArray
+        );
+      }
+
       return res.status(200).json({
         action,
         deleted: result.deletedCount ?? 0,
@@ -801,6 +939,59 @@ export const bulkUpdateNotes = async (req, res) => {
       });
     }
 
+    if (action === "moveNotebook") {
+      let targetNotebookId = null;
+      if (notebookId && notebookId !== "uncategorized") {
+        const notebook = await ensureNotebookOwnership(notebookId, ownerId);
+        if (!notebook) {
+          return res.status(404).json({ message: "Notebook not found" });
+        }
+        targetNotebookId = notebook._id;
+      }
+
+      const ownNotes = permittedNotes.filter(
+        (note) => String(note.owner) === String(ownerId)
+      );
+
+      if (!ownNotes.length) {
+        return res
+          .status(403)
+          .json({ message: "Only personal notes can be moved to notebooks" });
+      }
+
+      const noteObjectIds = ownNotes.map((note) => note._id);
+
+      await Note.updateMany(
+        { _id: { $in: noteObjectIds } },
+        { $set: { notebookId: targetNotebookId } }
+      );
+
+      const previousNotebookIds = new Set(
+        ownNotes
+          .map((note) => note.notebookId)
+          .filter((value) => value)
+          .map((value) => value.toString())
+      );
+
+      for (const notebook of previousNotebookIds) {
+        await removeNotesFromNotebookOrder(
+          new mongoose.Types.ObjectId(notebook),
+          noteObjectIds
+        );
+      }
+
+      if (targetNotebookId) {
+        await appendNotesToNotebookOrder(targetNotebookId, noteObjectIds);
+      }
+
+      return res.status(200).json({
+        action,
+        updated: noteObjectIds.length,
+        noteIds: normalizedIds,
+        notebookId: targetNotebookId ? targetNotebookId.toString() : null,
+      });
+    }
+
     return res.status(400).json({ message: "Unsupported action" });
   } catch (error) {
     logger.error("Bulk update notes failed", { error: error?.message });
@@ -884,7 +1075,28 @@ export const getNotePresence = async (req, res) => {
 
 export const getNoteLayout = async (req, res) => {
   try {
-    const user = req.userDocument ?? (await User.findById(req.user.id));
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const requestedNotebookId = req.query?.notebookId;
+    if (requestedNotebookId && requestedNotebookId !== "uncategorized") {
+      const notebook = await ensureNotebookOwnership(
+        requestedNotebookId,
+        userId
+      );
+      if (!notebook) {
+        return res.status(404).json({ message: "Notebook not found" });
+      }
+
+      const noteIds = Array.isArray(notebook.noteOrder)
+        ? notebook.noteOrder.map((id) => id.toString())
+        : [];
+      return res.status(200).json({ noteIds });
+    }
+
+    const user = req.userDocument ?? (await User.findById(userId));
     const noteIds = Array.isArray(user?.customNoteOrder)
       ? user.customNoteOrder.map((id) => id.toString())
       : [];
@@ -900,11 +1112,20 @@ export const getNoteLayout = async (req, res) => {
 
 export const updateNoteLayout = async (req, res) => {
   try {
-    const { noteIds } = req.body ?? {};
+    const { noteIds, notebookId } = req.body ?? {};
     const normalizedIds = normalizeNoteIds(noteIds);
     const userId = req.user.id;
 
     if (!normalizedIds.length) {
+      if (notebookId && notebookId !== "uncategorized") {
+        const notebook = await ensureNotebookOwnership(notebookId, userId);
+        if (!notebook) {
+          return res.status(404).json({ message: "Notebook not found" });
+        }
+        await Notebook.findByIdAndUpdate(notebook._id, { noteOrder: [] });
+        return res.status(200).json({ noteIds: [] });
+      }
+
       await User.findByIdAndUpdate(userId, { customNoteOrder: [] });
       if (req.userDocument) {
         req.userDocument.customNoteOrder = [];
@@ -939,6 +1160,37 @@ export const updateNoteLayout = async (req, res) => {
 
     if (collaboratorNoteObjectIds.length) {
       orConditions.push({ _id: { $in: collaboratorNoteObjectIds } });
+    }
+
+    if (notebookId && notebookId !== "uncategorized") {
+      const notebook = await ensureNotebookOwnership(notebookId, userId);
+      if (!notebook) {
+        return res.status(404).json({ message: "Notebook not found" });
+      }
+
+      const candidates = await Note.find(
+        {
+          _id: {
+            $in: normalizedIds.map((id) => new mongoose.Types.ObjectId(id)),
+          },
+          owner: userObjectId,
+          notebookId: notebook._id,
+        },
+        { _id: 1 }
+      ).lean();
+
+      const allowedSet = new Set(candidates.map((note) => note._id.toString()));
+      const filteredIds = normalizedIds.filter((id) => allowedSet.has(id));
+
+      const objectIdOrder = filteredIds.map(
+        (id) => new mongoose.Types.ObjectId(id)
+      );
+
+      await Notebook.findByIdAndUpdate(notebook._id, {
+        noteOrder: objectIdOrder,
+      });
+
+      return res.status(200).json({ noteIds: filteredIds });
     }
 
     const candidates = await Note.find(

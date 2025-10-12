@@ -95,6 +95,12 @@ const noteSchema = new mongoose.Schema(
       index: true,
       default: null,
     },
+    notebookId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Notebook",
+      index: true,
+      default: null,
+    },
     title: {
       type: String,
       required: true,
@@ -149,6 +155,7 @@ noteSchema.index({ title: "text", content: "text" });
 noteSchema.index({ owner: 1, pinned: -1, updatedAt: -1 });
 noteSchema.index({ owner: 1, createdAt: -1 });
 noteSchema.index({ owner: 1, tags: 1 });
+noteSchema.index({ owner: 1, notebookId: 1 });
 
 noteSchema.pre("save", function ensureDocName(next) {
   if (!this.docName && this._id) {

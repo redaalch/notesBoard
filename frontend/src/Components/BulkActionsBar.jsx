@@ -3,6 +3,7 @@ import {
   BoxesIcon,
   CheckIcon,
   ListChecksIcon,
+  FolderIcon,
   PinIcon,
   PinOffIcon,
   TagsIcon,
@@ -32,6 +33,7 @@ function BulkActionsBar({
   onUnpinSelected,
   onAddTags,
   onMove,
+  onMoveNotebook,
   onDelete,
   busy,
 }) {
@@ -79,6 +81,12 @@ function BulkActionsBar({
             icon={BoxesIcon}
             label="Move"
             onClick={onMove}
+            disabled={busy}
+          />
+          <ActionButton
+            icon={FolderIcon}
+            label="Move to notebook"
+            onClick={onMoveNotebook}
             disabled={busy}
           />
           <ActionButton
