@@ -4,6 +4,8 @@ import CollabDocument from "../models/CollabDocument.js";
 import NoteHistory from "../models/NoteHistory.js";
 import logger from "../utils/logger.js";
 import Notebook from "../models/Notebook.js";
+import NotebookMember from "../models/NotebookMember.js";
+import ShareLink from "../models/ShareLink.js";
 import {
   appendNotesToNotebookOrder,
   ensureNotebookOwnership,
@@ -107,6 +109,34 @@ export const createNotebook = async (req, res) => {
       icon: normalizedIcon,
       description: normalizedDescription,
     });
+
+    try {
+      await NotebookMember.findOneAndUpdate(
+        {
+          notebookId: notebook._id,
+          userId: notebook.owner,
+        },
+        {
+          $setOnInsert: {
+            role: "owner",
+            status: "active",
+            invitedBy: notebook.owner,
+            invitedAt: notebook.createdAt ?? new Date(),
+            acceptedAt: notebook.createdAt ?? new Date(),
+          },
+        },
+        {
+          upsert: true,
+          new: true,
+          setDefaultsOnInsert: true,
+        }
+      );
+    } catch (membershipError) {
+      logger.error("Failed to seed notebook owner membership", {
+        message: membershipError?.message,
+        notebookId: notebook._id?.toString?.() ?? null,
+      });
+    }
 
     return res.status(201).json({
       id: notebook._id.toString(),
@@ -282,6 +312,11 @@ export const deleteNotebook = async (req, res) => {
     }
 
     await Notebook.deleteOne({ _id: notebookObjectId });
+
+    await Promise.all([
+      NotebookMember.deleteMany({ notebookId: notebookObjectId }),
+      ShareLink.deleteMany({ notebookId: notebookObjectId }),
+    ]);
 
     return res.status(200).json({
       id: notebook._id.toString(),

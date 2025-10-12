@@ -14,6 +14,7 @@ import TermsPage from "./pages/TermsPage.jsx";
 import VerifyEmailPage from "./pages/VerifyEmailPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import SkipToContent from "./Components/SkipToContent.jsx";
+import NotebookInvitePage from "./pages/NotebookInvitePage.jsx";
 
 const App = () => {
   return (
@@ -29,6 +30,14 @@ const App = () => {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
+        <Route
+          path="/notebook/invite"
+          element={
+            <RequireAuth>
+              <NotebookInvitePage />
+            </RequireAuth>
+          }
+        />
         <Route
           path="/app"
           element={
