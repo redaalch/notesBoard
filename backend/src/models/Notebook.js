@@ -1,0 +1,56 @@
+import mongoose from "mongoose";
+
+const notebookSchema = new mongoose.Schema(
+  {
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+    workspaceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Workspace",
+      default: null,
+      index: true,
+    },
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 120,
+    },
+    description: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 500,
+    },
+    color: {
+      type: String,
+      default: null,
+      maxlength: 32,
+    },
+    icon: {
+      type: String,
+      default: null,
+      maxlength: 32,
+    },
+    noteOrder: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Note",
+        },
+      ],
+      default: [],
+    },
+  },
+  { timestamps: true }
+);
+
+notebookSchema.index({ owner: 1, name: 1 }, { unique: true });
+
+const Notebook = mongoose.model("Notebook", notebookSchema);
+
+export default Notebook;
