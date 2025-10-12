@@ -158,6 +158,66 @@ describe("Auth and notes integration", () => {
     expect(listAfterDelete.body).toHaveLength(0);
   });
 
+  it("creates notes inside notebooks and returns them in notebook scoped queries", async () => {
+    const { response: registerResponse, payload } = await registerUser({
+      email: "notebooker@example.com",
+    });
+    expect(registerResponse.status).toBe(202);
+
+    const verifyResponse = await verifyLatestEmail(payload.email);
+    const accessToken = verifyResponse.body.accessToken;
+    const clientId = verifyResponse.body.user.id;
+
+    const notebookResponse = await request(app)
+      .post("/api/notebooks")
+      .set(authHeaders(accessToken, clientId))
+      .send({
+        name: "Product",
+        color: "#22c55e",
+        icon: "Rocket",
+      });
+
+    expect(notebookResponse.status).toBe(201);
+    const notebookId = notebookResponse.body.id;
+    expect(typeof notebookId).toBe("string");
+
+    const noteResponse = await request(app)
+      .post("/api/notes")
+      .set(authHeaders(accessToken, clientId))
+      .send({
+        title: "Launch Checklist",
+        content: "Prep the release",
+        notebookId,
+      });
+
+    expect(noteResponse.status).toBe(201);
+    expect(noteResponse.body.notebookId).toBeDefined();
+    expect(noteResponse.body.notebookId.toString()).toBe(notebookId);
+
+    const notebookNotesResponse = await request(app)
+      .get("/api/notes")
+      .query({ notebookId })
+      .set(authHeaders(accessToken, clientId));
+
+    expect(notebookNotesResponse.status).toBe(200);
+    expect(Array.isArray(notebookNotesResponse.body)).toBe(true);
+    expect(notebookNotesResponse.body).toHaveLength(1);
+    expect(notebookNotesResponse.body[0].title).toBe("Launch Checklist");
+    expect(
+      notebookNotesResponse.body[0].notebookId.toString()
+    ).toBe(notebookId);
+
+    const notebooksListResponse = await request(app)
+      .get("/api/notebooks")
+      .set(authHeaders(accessToken, clientId));
+
+    expect(notebooksListResponse.status).toBe(200);
+    const createdNotebook = notebooksListResponse.body.notebooks.find(
+      (entry) => entry.id === notebookId
+    );
+    expect(createdNotebook?.noteCount).toBe(1);
+  });
+
   it("requires users to verify their email before logging in", async () => {
     const { response: registerResponse, payload } = await registerUser({
       email: "pending@example.com",

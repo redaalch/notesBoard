@@ -139,7 +139,7 @@ const getPreferredTheme = () => {
   return DEFAULT_THEME;
 };
 
-function Navbar({ onMobileFilterClick = () => {} }) {
+function Navbar({ onMobileFilterClick = () => {}, defaultNotebookId = null }) {
   const [theme, setTheme] = useState(getPreferredTheme);
   const currentTheme = useMemo(
     () =>
@@ -166,6 +166,12 @@ function Navbar({ onMobileFilterClick = () => {} }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { openPalette } = useCommandPalette();
+  const createLinkState = useMemo(() => {
+    if (defaultNotebookId) {
+      return { notebookId: defaultNotebookId };
+    }
+    return undefined;
+  }, [defaultNotebookId]);
 
   useIsomorphicLayoutEffect(() => {
     setDocumentTheme(theme);
@@ -217,6 +223,7 @@ function Navbar({ onMobileFilterClick = () => {} }) {
 
                 <Link
                   to="/create"
+                  state={createLinkState}
                   className="group flex items-center gap-3 rounded-2xl border border-primary/30 bg-base-100/80 p-3 shadow-lg shadow-primary/20 transition hover:-translate-y-0.5 hover:border-primary hover:shadow-primary/40"
                   aria-label="Create a new note"
                 >
@@ -334,6 +341,7 @@ function Navbar({ onMobileFilterClick = () => {} }) {
 
             <Link
               to="/create"
+              state={createLinkState}
               className="btn hidden items-center gap-2 rounded-full bg-gradient-to-r from-primary via-secondary to-accent text-primary-content shadow-lg shadow-primary/30 transition hover:shadow-primary/50 lg:inline-flex"
             >
               <PlusCircleIcon className="size-5" />

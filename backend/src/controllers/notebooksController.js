@@ -10,6 +10,12 @@ import {
   normalizeObjectId,
   removeNotesFromNotebookOrder,
 } from "../utils/notebooks.js";
+import {
+  isAllowedNotebookColor,
+  isAllowedNotebookIcon,
+  normalizeNotebookColor,
+  normalizeNotebookIcon,
+} from "../../../shared/notebookOptions.js";
 
 const INTERNAL_SERVER_ERROR = { message: "Internal server error" };
 
@@ -74,22 +80,32 @@ export const createNotebook = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const {
-      name,
-      color = null,
-      icon = null,
-      description = "",
-    } = req.body ?? {};
+    const { name, color, icon, description = "" } = req.body ?? {};
     if (!name || typeof name !== "string") {
       return res.status(400).json({ message: "Name is required" });
     }
 
+    if (color !== undefined && !isAllowedNotebookColor(color)) {
+      return res.status(400).json({ message: "Invalid notebook color" });
+    }
+
+    if (icon !== undefined && !isAllowedNotebookIcon(icon)) {
+      return res.status(400).json({ message: "Invalid notebook icon" });
+    }
+
+    const normalizedColor =
+      color === undefined ? null : normalizeNotebookColor(color);
+    const normalizedIcon =
+      icon === undefined ? null : normalizeNotebookIcon(icon);
+    const normalizedDescription =
+      typeof description === "string" ? description.trim() : "";
+
     const notebook = await Notebook.create({
       owner: ownerId,
       name: name.trim(),
-      color,
-      icon,
-      description,
+      color: normalizedColor,
+      icon: normalizedIcon,
+      description: normalizedDescription,
     });
 
     return res.status(201).json({
@@ -133,11 +149,17 @@ export const updateNotebook = async (req, res) => {
     }
 
     if (color !== undefined) {
-      updates.color = color ?? null;
+      if (!isAllowedNotebookColor(color)) {
+        return res.status(400).json({ message: "Invalid notebook color" });
+      }
+      updates.color = normalizeNotebookColor(color);
     }
 
     if (icon !== undefined) {
-      updates.icon = icon ?? null;
+      if (!isAllowedNotebookIcon(icon)) {
+        return res.status(400).json({ message: "Invalid notebook icon" });
+      }
+      updates.icon = normalizeNotebookIcon(icon);
     }
 
     if (typeof description === "string") {

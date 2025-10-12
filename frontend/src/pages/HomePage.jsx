@@ -17,22 +17,39 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   AlertTriangleIcon,
+  BookmarkIcon,
+  BrainIcon,
+  BriefcaseBusinessIcon,
+  CalendarIcon,
+  CheckIcon,
   ChevronDownIcon,
   FilterIcon,
-  MoveIcon,
-  ListChecksIcon,
-  PlusIcon,
-  RefreshCwIcon,
-  SearchIcon,
-  SparklesIcon,
-  TagIcon,
-  XIcon,
   FolderIcon,
   FolderPlusIcon,
-  PencilLineIcon,
-  Trash2Icon,
+  LightbulbIcon,
+  ListChecksIcon,
+  ListTodoIcon,
+  MoveIcon,
   MoreVerticalIcon,
+  NotebookIcon,
+  NotebookPenIcon,
+  PaletteIcon,
+  PencilLineIcon,
+  PlusIcon,
+  RefreshCwIcon,
+  RocketIcon,
+  SearchIcon,
+  SparklesIcon,
+  StarIcon,
+  TagIcon,
+  TargetIcon,
+  Trash2Icon,
+  WorkflowIcon,
+  XIcon,
+  BookOpenIcon,
+  LayersIcon,
 } from "lucide-react";
+import { NOTEBOOK_COLORS, NOTEBOOK_ICONS } from "@shared/notebookOptions.js";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../Components/Navbar.jsx";
 import RateLimitedUI from "../Components/RateLimitedUI.jsx";
@@ -146,6 +163,25 @@ const BULK_SUCCESS_MESSAGES = {
   moveNotebook: "Updated notebooks for selected notes",
 };
 
+const notebookIconComponents = {
+  Notebook: NotebookIcon,
+  NotebookPen: NotebookPenIcon,
+  Sparkles: SparklesIcon,
+  Lightbulb: LightbulbIcon,
+  Star: StarIcon,
+  Rocket: RocketIcon,
+  Target: TargetIcon,
+  Palette: PaletteIcon,
+  Layers: LayersIcon,
+  BookOpen: BookOpenIcon,
+  Workflow: WorkflowIcon,
+  Calendar: CalendarIcon,
+  ListTodo: ListTodoIcon,
+  Bookmark: BookmarkIcon,
+  BriefcaseBusiness: BriefcaseBusinessIcon,
+  Brain: BrainIcon,
+};
+
 function HomePage() {
   const [isRateLimited, setIsRateLimited] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -169,6 +205,8 @@ function HomePage() {
   const [activeNotebookId, setActiveNotebookId] = useState("all");
   const [notebookFormState, setNotebookFormState] = useState(null);
   const [notebookNameInput, setNotebookNameInput] = useState("");
+  const [notebookColorInput, setNotebookColorInput] = useState(null);
+  const [notebookIconInput, setNotebookIconInput] = useState(null);
   const [notebookDeleteState, setNotebookDeleteState] = useState(null);
   const [moveNotebookModalOpen, setMoveNotebookModalOpen] = useState(false);
   const [selectedNotebookTargetId, setSelectedNotebookTargetId] =
@@ -458,6 +496,16 @@ function HomePage() {
     if (!notebooks.length) return null;
     return notebooks.find((entry) => entry.id === activeNotebookId) ?? null;
   }, [notebooks, activeNotebookId]);
+  const createPageState = useMemo(() => {
+    if (
+      activeNotebookId &&
+      activeNotebookId !== "all" &&
+      activeNotebookId !== "uncategorized"
+    ) {
+      return { notebookId: activeNotebookId };
+    }
+    return undefined;
+  }, [activeNotebookId]);
   const notebooksLoading = notebooksQuery.isLoading;
   const notebooksError = notebooksQuery.isError;
 
@@ -970,7 +1018,17 @@ function HomePage() {
   const handleTemplateSelect = (template) => {
     if (!template) return;
     setTemplateModalOpen(false);
-    navigate("/create", { state: { template } });
+    const notebookState =
+      activeNotebookId &&
+      activeNotebookId !== "all" &&
+      activeNotebookId !== "uncategorized"
+        ? { notebookId: activeNotebookId }
+        : {};
+    navigate("/create", {
+      state: notebookState.notebookId
+        ? { template, notebookId: notebookState.notebookId }
+        : { template },
+    });
   };
 
   const handleSelectNotebook = useCallback(
@@ -996,17 +1054,23 @@ function HomePage() {
   const openCreateNotebook = () => {
     setNotebookFormState({ mode: "create" });
     setNotebookNameInput("");
+    setNotebookColorInput(null);
+    setNotebookIconInput(null);
   };
 
   const openRenameNotebook = (notebook) => {
     if (!notebook) return;
     setNotebookFormState({ mode: "edit", notebook });
     setNotebookNameInput(notebook.name ?? "");
+    setNotebookColorInput(notebook.color ?? null);
+    setNotebookIconInput(notebook.icon ?? null);
   };
 
   const closeNotebookForm = () => {
     setNotebookFormState(null);
     setNotebookNameInput("");
+    setNotebookColorInput(null);
+    setNotebookIconInput(null);
     setNotebookFormLoading(false);
   };
 
@@ -1021,14 +1085,19 @@ function HomePage() {
     setNotebookFormLoading(true);
     try {
       let response;
+      const payload = {
+        name,
+        color: notebookColorInput ?? null,
+        icon: notebookIconInput ?? null,
+      };
       if (notebookFormState?.mode === "edit" && notebookFormState?.notebook) {
         response = await api.patch(
           `/notebooks/${notebookFormState.notebook.id}`,
-          { name }
+          payload
         );
         toast.success("Notebook renamed");
       } else {
-        response = await api.post("/notebooks", { name });
+        response = await api.post("/notebooks", payload);
         toast.success("Notebook created");
       }
 
@@ -1243,7 +1312,16 @@ function HomePage() {
         onChange={(event) => setDrawerOpen(event.target.checked)}
       />
       <div className="drawer-content flex min-h-screen flex-col">
-        <Navbar onMobileFilterClick={openDrawer} />
+        <Navbar
+          onMobileFilterClick={openDrawer}
+          defaultNotebookId={
+            activeNotebookId &&
+            activeNotebookId !== "all" &&
+            activeNotebookId !== "uncategorized"
+              ? activeNotebookId
+              : null
+          }
+        />
 
         {isRateLimited && (
           <RateLimitedUI onDismiss={() => setIsRateLimited(false)} />
@@ -1346,6 +1424,13 @@ function HomePage() {
                     </button>
                     {notebooks.map((notebook) => {
                       const isActive = activeNotebookId === notebook.id;
+                      const hasColor =
+                        typeof notebook.color === "string" &&
+                        notebook.color.length > 0;
+                      const IconComponent =
+                        (notebook.icon &&
+                          notebookIconComponents[notebook.icon]) ??
+                        NotebookIcon;
                       return (
                         <div
                           key={notebook.id}
@@ -1361,8 +1446,26 @@ function HomePage() {
                             onClick={() => handleSelectNotebook(notebook.id)}
                           >
                             <span className="flex items-center gap-2">
-                              <span className="truncate max-w-[10rem]">
-                                {notebook.name}
+                              <span className="flex items-center gap-2">
+                                {hasColor ? (
+                                  <span
+                                    className="size-2.5 rounded-full border border-base-100/60 shadow-sm"
+                                    style={{ backgroundColor: notebook.color }}
+                                    aria-hidden="true"
+                                  />
+                                ) : null}
+                                <IconComponent
+                                  className="size-4"
+                                  style={
+                                    hasColor
+                                      ? { color: notebook.color }
+                                      : undefined
+                                  }
+                                  aria-hidden="true"
+                                />
+                                <span className="truncate max-w-[8rem]">
+                                  {notebook.name}
+                                </span>
                               </span>
                               <span className="badge badge-sm">
                                 {notebook.noteCount ?? 0}
@@ -1760,13 +1863,16 @@ function HomePage() {
               !isFetchingNotes &&
               !isRateLimited &&
               !notesQuery.isError &&
-              notes.length === 0 && <NotesNotFound />}
+              notes.length === 0 && (
+                <NotesNotFound createLinkState={createPageState} />
+              )}
           </section>
         </main>
 
         {!drawerOpen && (
           <Link
             to="/create"
+            state={createPageState}
             className="btn btn-primary btn-circle fixed bottom-6 right-4 z-40 shadow-lg shadow-primary/30 lg:hidden"
             aria-label="Create a new note"
           >
@@ -1957,6 +2063,95 @@ function HomePage() {
                 autoFocus
               />
             </label>
+            <div className="mt-6">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-base-content">
+                  Color <span className="text-base-content/60">(optional)</span>
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs"
+                  onClick={() => setNotebookColorInput(null)}
+                  disabled={!notebookColorInput}
+                >
+                  Clear color
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-base-content/60">
+                Highlight this notebook with a color accent.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {NOTEBOOK_COLORS.map((option) => {
+                  const isSelected = notebookColorInput === option.value;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setNotebookColorInput(option.value)}
+                      aria-pressed={isSelected}
+                      aria-label={`${option.label} color`}
+                      className={`relative flex size-9 items-center justify-center rounded-full border border-white/50 shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100 ${
+                        isSelected
+                          ? "ring-2 ring-primary/70 ring-offset-2 ring-offset-base-100"
+                          : "hover:scale-105"
+                      }`}
+                      style={{ backgroundColor: option.value }}
+                    >
+                      {isSelected ? (
+                        <CheckIcon
+                          className="size-4"
+                          style={{ color: option.textColor }}
+                        />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="mt-6">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-base-content">
+                  Icon <span className="text-base-content/60">(optional)</span>
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs"
+                  onClick={() => setNotebookIconInput(null)}
+                  disabled={!notebookIconInput}
+                >
+                  Clear icon
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-base-content/60">
+                Icons help notebooks stand out across the workspace.
+              </p>
+              <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                {NOTEBOOK_ICONS.map((option) => {
+                  const isSelected = notebookIconInput === option.name;
+                  const IconComponent =
+                    notebookIconComponents[option.name] ?? NotebookIcon;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      title={option.label}
+                      onClick={() => setNotebookIconInput(option.name)}
+                      aria-pressed={isSelected}
+                      className={`flex flex-col items-center gap-1 rounded-lg border px-3 py-2 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100 ${
+                        isSelected
+                          ? "border-primary/80 bg-primary/10 text-primary"
+                          : "border-base-300/80 text-base-content/70 hover:border-base-400 hover:text-base-content"
+                      }`}
+                    >
+                      <IconComponent className="size-5" aria-hidden="true" />
+                      <span className="truncate text-center">
+                        {option.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <div className="mt-6 flex items-center justify-end gap-2">
               <button
                 type="button"
