@@ -1,4 +1,8 @@
 import mongoose from "mongoose";
+import {
+  NOTEBOOK_COLOR_VALUES,
+  NOTEBOOK_ICON_NAMES,
+} from "../../../shared/notebookOptions.js";
 
 const notebookSchema = new mongoose.Schema(
   {
@@ -30,11 +34,13 @@ const notebookSchema = new mongoose.Schema(
       type: String,
       default: null,
       maxlength: 32,
+      enum: [null, ...NOTEBOOK_COLOR_VALUES],
     },
     icon: {
       type: String,
       default: null,
       maxlength: 32,
+      enum: [null, ...NOTEBOOK_ICON_NAMES],
     },
     noteOrder: {
       type: [

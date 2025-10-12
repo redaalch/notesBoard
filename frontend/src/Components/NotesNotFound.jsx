@@ -1,7 +1,12 @@
 import { NotebookIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const NotesNotFound = () => {
+const NotesNotFound = ({ createLinkState = undefined }) => {
+  const linkState =
+    createLinkState && Object.keys(createLinkState).length
+      ? createLinkState
+      : undefined;
+
   return (
     <div className="hero min-h-[28rem] rounded-2xl bg-base-200">
       <div className="hero-content flex-col text-center lg:flex-row-reverse lg:text-left">
@@ -17,10 +22,10 @@ const NotesNotFound = () => {
             first note and watch your workspace come alive.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Link to="/create" className="btn btn-primary">
+            <Link to="/create" state={linkState} className="btn btn-primary">
               Create your first note
             </Link>
-            <Link to="/create" className="btn btn-outline">
+            <Link to="/create" state={linkState} className="btn btn-outline">
               Use a quick capture
             </Link>
           </div>
@@ -29,4 +34,5 @@ const NotesNotFound = () => {
     </div>
   );
 };
+
 export default NotesNotFound;

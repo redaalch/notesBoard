@@ -30,7 +30,7 @@ export const listBoards = async (req, res) => {
     const workspaces = await Workspace.find({
       $or: [{ ownerId: ownerQueryId }, { "members.userId": ownerQueryId }],
     })
-      .select({ name: 1 })
+      .select({ name: 1, ownerId: 1, members: 1, updatedAt: 1 })
       .lean();
 
     if (!workspaces.length) {
@@ -44,10 +44,15 @@ export const listBoards = async (req, res) => {
 
     const collaboratorIds = new Set();
     workspaces.forEach((workspace) => {
-      collaboratorIds.add(workspace.ownerId.toString());
-      (workspace.members ?? []).forEach((member) =>
-        collaboratorIds.add(member.userId.toString())
-      );
+      const ownerId = workspace.ownerId ? workspace.ownerId.toString() : null;
+      if (ownerId) {
+        collaboratorIds.add(ownerId);
+      }
+      (workspace.members ?? []).forEach((member) => {
+        if (member?.userId) {
+          collaboratorIds.add(member.userId.toString());
+        }
+      });
     });
 
     const users = await User.find(
@@ -77,28 +82,35 @@ export const listBoards = async (req, res) => {
       .lean();
 
     const responseBoards = boards.map((board) => {
-      const workspace = workspaceMap.get(board.workspaceId.toString());
+      const workspaceId =
+        board.workspaceId && typeof board.workspaceId.toString === "function"
+          ? board.workspaceId.toString()
+          : null;
+      const workspace = workspaceId ? workspaceMap.get(workspaceId) : null;
       const collaborators = [];
       const seenCollaborators = new Set();
 
       if (workspace) {
-        const ownerId = workspace.ownerId.toString();
-        seenCollaborators.add(ownerId);
-        const ownerMember = (workspace.members ?? []).find(
-          (member) => String(member.userId) === ownerId
-        );
-        collaborators.push({
-          id: ownerId,
-          role: "owner",
-          name:
-            ownerMember?.displayName ??
-            userMap.get(ownerId)?.name ??
-            "Workspace owner",
-          lastActiveAt: ownerMember?.lastActiveAt ?? workspace.updatedAt,
-          avatarColor: ownerMember?.avatarColor ?? null,
-        });
+        const ownerId = workspace.ownerId ? workspace.ownerId.toString() : null;
+        if (ownerId) {
+          seenCollaborators.add(ownerId);
+          const ownerMember = (workspace.members ?? []).find(
+            (member) => String(member.userId) === ownerId
+          );
+          collaborators.push({
+            id: ownerId,
+            role: "owner",
+            name:
+              ownerMember?.displayName ??
+              userMap.get(ownerId)?.name ??
+              "Workspace owner",
+            lastActiveAt: ownerMember?.lastActiveAt ?? workspace.updatedAt,
+            avatarColor: ownerMember?.avatarColor ?? null,
+          });
+        }
 
         (workspace.members ?? []).forEach((member) => {
+          if (!member?.userId) return;
           const memberId = member.userId.toString();
           if (seenCollaborators.has(memberId)) return;
           seenCollaborators.add(memberId);
@@ -118,7 +130,7 @@ export const listBoards = async (req, res) => {
       return {
         id: board._id.toString(),
         name: board.name,
-        workspaceId: board.workspaceId.toString(),
+        workspaceId,
         workspaceName: workspace?.name ?? "",
         createdAt: board.createdAt,
         updatedAt: board.updatedAt,

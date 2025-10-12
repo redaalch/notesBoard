@@ -1,6 +1,6 @@
 import { ArrowLeftIcon, SparklesIcon } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import api from "../lib/axios";
@@ -10,6 +10,7 @@ import { useCommandPalette } from "../contexts/CommandPaletteContext.jsx";
 import { normalizeTag } from "../lib/Utils.js";
 
 const CreatePage = () => {
+  const location = useLocation();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tags, setTags] = useState([]);
@@ -17,9 +18,19 @@ const CreatePage = () => {
   const [loading, setLoading] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [activeTemplate, setActiveTemplate] = useState(null);
+  const [selectedNotebookId, setSelectedNotebookId] = useState(() => {
+    const candidate = location.state?.notebookId;
+    if (
+      typeof candidate === "string" &&
+      candidate !== "all" &&
+      candidate !== "uncategorized"
+    ) {
+      return candidate;
+    }
+    return "";
+  });
 
   const navigate = useNavigate();
-  const location = useLocation();
   const queryClient = useQueryClient();
   const { registerCommands } = useCommandPalette();
 
@@ -42,9 +53,36 @@ const CreatePage = () => {
     const incomingTemplate = location.state?.template;
     if (incomingTemplate) {
       applyTemplate(incomingTemplate);
-      navigate(location.pathname, { replace: true, state: {} });
+      navigate(location.pathname, {
+        replace: true,
+        state: selectedNotebookId ? { notebookId: selectedNotebookId } : {},
+      });
     }
-  }, [applyTemplate, location.pathname, location.state, navigate]);
+  }, [
+    applyTemplate,
+    location.pathname,
+    location.state,
+    navigate,
+    selectedNotebookId,
+  ]);
+  const notebooksQuery = useQuery({
+    queryKey: ["notebooks"],
+    queryFn: async () => {
+      const response = await api.get("/notebooks");
+      const payload = response.data ?? {};
+      return {
+        notebooks: Array.isArray(payload.notebooks) ? payload.notebooks : [],
+      };
+    },
+    staleTime: 180_000,
+  });
+
+  const notebooks = useMemo(() => {
+    return Array.isArray(notebooksQuery.data?.notebooks)
+      ? notebooksQuery.data.notebooks
+      : [];
+  }, [notebooksQuery.data]);
+
 
   useEffect(() => {
     const cleanup = registerCommands([
@@ -79,14 +117,33 @@ const CreatePage = () => {
         content,
         tags,
         pinned,
+        notebookId: selectedNotebookId || null,
       });
 
       toast.success("Note created successfully!");
-      await Promise.all([
+      const invalidateTasks = [
         queryClient.invalidateQueries({ queryKey: ["notes"] }),
         queryClient.invalidateQueries({ queryKey: ["tag-stats"] }),
-      ]);
-      navigate("/app");
+        queryClient.invalidateQueries({ queryKey: ["notebooks"] }),
+      ];
+      if (selectedNotebookId) {
+        invalidateTasks.push(
+          queryClient.invalidateQueries({
+            queryKey: ["note-layout", selectedNotebookId],
+          })
+        );
+        invalidateTasks.push(
+          queryClient.invalidateQueries({
+            queryKey: ["notes", selectedNotebookId],
+          })
+        );
+      }
+      await Promise.all(invalidateTasks);
+
+      const destination = selectedNotebookId
+        ? `/app?notebook=${encodeURIComponent(selectedNotebookId)}`
+        : "/app";
+      navigate(destination);
     } catch (error) {
       console.error("Error creating note", error);
       if (error.response?.status === 429) {
@@ -171,6 +228,43 @@ const CreatePage = () => {
                     </span>
                   </label>
                   <TagInput value={tags} onChange={setTags} />
+                </div>
+
+                <div className="form-control mb-6">
+                  <label className="label">
+                    <span className="label-text">Notebook</span>
+                    <span className="label-text-alt text-base-content/60">
+                      Optional: file this note in a notebook
+                    </span>
+                  </label>
+                  <select
+                    className="select select-bordered"
+                    value={selectedNotebookId}
+                    onChange={(event) =>
+                      setSelectedNotebookId(event.target.value)
+                    }
+                    disabled={notebooksQuery.isLoading}
+                  >
+                    <option value="">
+                      {notebooksQuery.isLoading
+                        ? "Loading notebooks..."
+                        : "All notes"}
+                    </option>
+                    {notebooks.map((notebook) => (
+                      <option key={notebook.id} value={notebook.id}>
+                        {notebook.name}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedNotebookId ? (
+                    <p className="mt-2 text-xs text-base-content/60">
+                      This note will show under the selected notebook.
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-xs text-base-content/60">
+                      Keep it in All notes or pick a notebook to organize it.
+                    </p>
+                  )}
                 </div>
 
                 <div className="form-control mb-6">
