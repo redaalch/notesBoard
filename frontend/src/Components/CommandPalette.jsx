@@ -148,7 +148,7 @@ function CommandPalette() {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-start justify-center bg-black/40 px-4 py-10 backdrop-blur-sm"
+      className="fixed inset-0 z-[10000] flex items-start justify-center bg-black/40 px-4 py-10 backdrop-blur-sm"
       role="presentation"
       onClick={closePalette}
     >
