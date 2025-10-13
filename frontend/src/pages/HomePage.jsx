@@ -57,7 +57,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../Components/Navbar.jsx";
 import RateLimitedUI from "../Components/RateLimitedUI.jsx";
 import api from "../lib/axios.js";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import NoteCard from "../Components/NoteCard.jsx";
 import NotesNotFound from "../Components/NotesNotFound.jsx";
 import NoteSkeleton from "../Components/NoteSkeleton.jsx";
@@ -290,6 +290,8 @@ function HomePage() {
   const searchInputRef = useRef(null);
   const previousSortRef = useRef("newest");
   const liveMessageTimeoutRef = useRef(null);
+  const layoutMutationTimeoutRef = useRef(null);
+  const lastLayoutMutationRef = useRef(0);
   const queryClient = useQueryClient();
   const invalidateNotesCaches = useCallback(
     () =>
@@ -549,17 +551,20 @@ function HomePage() {
           : active?.id?.toString?.() ?? null;
       if (!activeId) return;
 
-      setActiveDragId(activeId);
+      // Batch state updates in a single frame
+      requestAnimationFrame(() => {
+        setActiveDragId(activeId);
 
-      if (
-        selectionMode &&
-        selectedNoteIds.includes(activeId) &&
-        selectedNoteIds.length > 0
-      ) {
-        setActiveDragNoteIds(selectedNoteIds);
-      } else {
-        setActiveDragNoteIds([activeId]);
-      }
+        if (
+          selectionMode &&
+          selectedNoteIds.includes(activeId) &&
+          selectedNoteIds.length > 0
+        ) {
+          setActiveDragNoteIds(selectedNoteIds);
+        } else {
+          setActiveDragNoteIds([activeId]);
+        }
+      });
     },
     [selectionMode, selectedNoteIds]
   );
@@ -611,23 +616,47 @@ function HomePage() {
         return;
       }
 
-      setCustomOrderOverride((prev) => {
-        const baseline = prev.length
-          ? mergeOrder(prev, allNoteIds)
-          : mergeOrder(layoutOrder, allNoteIds);
-        const oldIndex = baseline.indexOf(activeId);
-        const newIndex = baseline.indexOf(overId);
+      // Use requestAnimationFrame to batch DOM updates
+      requestAnimationFrame(() => {
+        setCustomOrderOverride((prev) => {
+          const baseline = prev.length
+            ? mergeOrder(prev, allNoteIds)
+            : mergeOrder(layoutOrder, allNoteIds);
+          const oldIndex = baseline.indexOf(activeId);
+          const newIndex = baseline.indexOf(overId);
 
-        if (oldIndex === -1 || newIndex === -1) {
-          return baseline;
-        }
+          if (oldIndex === -1 || newIndex === -1) {
+            return baseline;
+          }
 
-        const reordered = arrayMove(baseline, oldIndex, newIndex);
-        updateLayoutMutation.mutate({
-          noteIds: reordered,
-          contextId: activeNotebookId ?? "all",
+          const reordered = arrayMove(baseline, oldIndex, newIndex);
+
+          // Debounce mutations: Only allow one mutation every 500ms
+          const now = Date.now();
+          if (now - lastLayoutMutationRef.current < 500) {
+            // Clear existing timeout
+            if (layoutMutationTimeoutRef.current) {
+              clearTimeout(layoutMutationTimeoutRef.current);
+            }
+            // Schedule mutation for later
+            layoutMutationTimeoutRef.current = setTimeout(() => {
+              lastLayoutMutationRef.current = Date.now();
+              updateLayoutMutation.mutate({
+                noteIds: reordered,
+                contextId: activeNotebookId ?? "all",
+              });
+            }, 500);
+          } else {
+            // Execute immediately if enough time has passed
+            lastLayoutMutationRef.current = now;
+            updateLayoutMutation.mutate({
+              noteIds: reordered,
+              contextId: activeNotebookId ?? "all",
+            });
+          }
+
+          return reordered;
         });
-        return reordered;
       });
     },
     [

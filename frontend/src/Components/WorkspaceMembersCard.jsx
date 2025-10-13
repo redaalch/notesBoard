@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LoaderIcon, ShieldCheckIcon, UserPlusIcon } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import api from "../lib/axios";
 
 const ROLE_LABELS = {

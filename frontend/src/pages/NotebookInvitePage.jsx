@@ -7,7 +7,7 @@ import {
   LoaderIcon,
   XCircleIcon,
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import api from "../lib/axios.js";
 
 const STATUS_COPY = {

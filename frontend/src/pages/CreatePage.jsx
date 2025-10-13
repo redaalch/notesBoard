@@ -1,7 +1,7 @@
 import { ArrowLeftIcon, SparklesIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import api from "../lib/axios";
 import TagInput from "../Components/TagInput.jsx";
@@ -110,54 +110,62 @@ const CreatePage = () => {
     }
 
     setLoading(true);
-    try {
-      await api.post("/notes", {
-        title,
-        content,
-        tags,
-        pinned,
-        notebookId: selectedNotebookId || null,
-      });
 
-      toast.success("Note created successfully!");
-      const invalidateTasks = [
-        queryClient.invalidateQueries({ queryKey: ["notes"] }),
-        queryClient.invalidateQueries({ queryKey: ["tag-stats"] }),
-        queryClient.invalidateQueries({ queryKey: ["notebooks"] }),
-      ];
-      if (selectedNotebookId) {
-        invalidateTasks.push(
-          queryClient.invalidateQueries({
-            queryKey: ["note-layout", selectedNotebookId],
-          })
-        );
-        invalidateTasks.push(
-          queryClient.invalidateQueries({
-            queryKey: ["notes", selectedNotebookId],
-          })
-        );
-      }
-      await Promise.all(invalidateTasks);
-
-      const destination = selectedNotebookId
-        ? `/app?notebook=${encodeURIComponent(selectedNotebookId)}`
-        : "/app";
-      navigate(destination);
-    } catch (error) {
-      console.error("Error creating note", error);
-      if (error.response?.status === 429) {
-        toast.error("Slow down! You're creating notes too fast", {
-          duration: 4000,
-          icon: "💀",
+    // Use requestAnimationFrame to prevent blocking UI
+    requestAnimationFrame(async () => {
+      try {
+        await api.post("/notes", {
+          title,
+          content,
+          tags,
+          pinned,
+          notebookId: selectedNotebookId || null,
         });
-      } else if (error.response?.data?.message) {
-        toast.error(error.response.data.message);
-      } else {
-        toast.error("Failed to create note");
+
+        toast.success("Note created successfully!");
+
+        // Navigate first for perceived performance
+        const destination = selectedNotebookId
+          ? `/app?notebook=${encodeURIComponent(selectedNotebookId)}`
+          : "/app";
+        navigate(destination);
+
+        // Invalidate queries in background (non-blocking)
+        const invalidateTasks = [
+          queryClient.invalidateQueries({ queryKey: ["notes"] }),
+          queryClient.invalidateQueries({ queryKey: ["tag-stats"] }),
+          queryClient.invalidateQueries({ queryKey: ["notebooks"] }),
+        ];
+        if (selectedNotebookId) {
+          invalidateTasks.push(
+            queryClient.invalidateQueries({
+              queryKey: ["note-layout", selectedNotebookId],
+            })
+          );
+          invalidateTasks.push(
+            queryClient.invalidateQueries({
+              queryKey: ["notes", selectedNotebookId],
+            })
+          );
+        }
+        // Don't await - let it happen in background
+        Promise.all(invalidateTasks).catch(console.error);
+      } catch (error) {
+        console.error("Error creating note", error);
+        if (error.response?.status === 429) {
+          toast.error("Slow down! You're creating notes too fast", {
+            duration: 4000,
+            icon: "💀",
+          });
+        } else if (error.response?.data?.message) {
+          toast.error(error.response.data.message);
+        } else {
+          toast.error("Failed to create note");
+        }
+      } finally {
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   return (

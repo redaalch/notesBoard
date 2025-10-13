@@ -10,7 +10,7 @@ import {
   ShieldCheckIcon,
   UserIcon,
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import Navbar from "../Components/Navbar.jsx";
 import WorkspaceMembersCard from "../Components/WorkspaceMembersCard.jsx";
 import useAuth from "../hooks/useAuth.js";

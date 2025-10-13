@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./index.css";
 import App from "./App.jsx";
 import { BrowserRouter } from "react-router-dom";
-import { Toaster } from "react-hot-toast";
+import { Toaster } from "sonner";
 import { AuthProvider } from "./contexts/AuthContext.jsx";
 import { CommandPaletteProvider } from "./contexts/CommandPaletteContext.jsx";
 
@@ -33,7 +33,16 @@ createRoot(document.getElementById("root")).render(
           <CommandPaletteProvider>
             <App />
           </CommandPaletteProvider>
-          <Toaster />
+          <Toaster
+            position="top-center"
+            expand={true}
+            richColors
+            duration={4000}
+            closeButton
+            toastOptions={{
+              className: "sonner-toast",
+            }}
+          />
         </AuthProvider>
       </QueryClientProvider>
     </BrowserRouter>
