@@ -1807,46 +1807,54 @@ function HomePage() {
                                   </span>
                                 </span>
                               </button>
-                              <div className="dropdown dropdown-end absolute right-1 top-1">
+                              <div className="dropdown dropdown-end dropdown-top absolute right-1 top-1 z-20">
                                 <button
                                   type="button"
                                   tabIndex={0}
-                                  className="btn btn-ghost btn-xs btn-circle"
+                                  className="btn btn-ghost btn-xs btn-circle hover:bg-base-200/80"
+                                  onClick={(e) => e.stopPropagation()}
                                 >
-                                  <MoreVerticalIcon className="size-3.5" />
+                                  <MoreVerticalIcon className="size-4" />
                                 </button>
-                                <ul className="dropdown-content menu menu-xs rounded-box bg-base-100 p-2 shadow-lg">
+                                <ul className="dropdown-content z-30 mb-2 min-w-[13rem] space-y-0.5 rounded-xl border border-base-300/80 bg-base-100 p-1.5 shadow-xl">
                                   <li>
                                     <button
                                       type="button"
-                                      onClick={() =>
-                                        openShareNotebook(notebook)
-                                      }
+                                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors duration-150 hover:bg-base-200/80"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openShareNotebook(notebook);
+                                      }}
                                     >
-                                      <Share2Icon className="size-3.5" />
-                                      Share & members
+                                      <Share2Icon className="size-4 flex-shrink-0 text-base-content/70" />
+                                      <span>Share & members</span>
                                     </button>
                                   </li>
                                   <li>
                                     <button
                                       type="button"
-                                      onClick={() =>
-                                        openRenameNotebook(notebook)
-                                      }
+                                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors duration-150 hover:bg-base-200/80"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openRenameNotebook(notebook);
+                                      }}
                                     >
-                                      <PencilLineIcon className="size-3.5" />
-                                      Rename
+                                      <PencilLineIcon className="size-4 flex-shrink-0 text-base-content/70" />
+                                      <span>Rename</span>
                                     </button>
                                   </li>
+                                  <div className="my-1 h-px bg-base-300/50"></div>
                                   <li>
                                     <button
                                       type="button"
-                                      onClick={() =>
-                                        openDeleteNotebook(notebook)
-                                      }
+                                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-error transition-colors duration-150 hover:bg-error/10"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openDeleteNotebook(notebook);
+                                      }}
                                     >
-                                      <Trash2Icon className="size-3.5" />
-                                      Delete
+                                      <Trash2Icon className="size-4 flex-shrink-0" />
+                                      <span>Delete</span>
                                     </button>
                                   </li>
                                 </ul>

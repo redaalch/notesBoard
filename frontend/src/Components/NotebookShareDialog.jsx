@@ -335,30 +335,30 @@ function NotebookShareDialog({ notebook, open, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[96] flex items-center justify-center bg-black/40 px-4 py-10"
+      className="fixed inset-0 z-[96] flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-10 sm:px-6"
       role="dialog"
       aria-modal="true"
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-base-300/50 bg-base-100 p-6 shadow-2xl"
+        className="w-full max-w-4xl rounded-[32px] border border-base-300/50 bg-base-100/95 px-5 py-6 shadow-2xl backdrop-blur-sm sm:px-8"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-base-content">
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-2xl font-semibold text-base-content">
               Share “{notebookName}”
             </h2>
             <p className="text-sm text-base-content/70">
               Invite teammates or generate share links. Your role:
-              <span className="ml-1 font-medium">
+              <span className="ml-1 font-medium text-base-content">
                 {formatRoleLabel(actorRole) ?? "Viewer"}
               </span>
             </p>
           </div>
           <button
             type="button"
-            className="btn btn-ghost btn-sm border border-base-300/70"
+            className="btn btn-outline btn-sm"
             onClick={onClose}
           >
             <XIcon className="size-4" />
@@ -366,8 +366,8 @@ function NotebookShareDialog({ notebook, open, onClose }) {
           </button>
         </header>
 
-        <section className="mt-6 space-y-6">
-          <div className="rounded-xl border border-base-300/70 bg-base-100/80 p-4 shadow-sm">
+        <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+          <div className="rounded-2xl border border-base-300/60 bg-base-100/95 p-6 shadow-md">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-base font-semibold text-base-content">
@@ -383,15 +383,15 @@ function NotebookShareDialog({ notebook, open, onClose }) {
             </div>
 
             {isLoadingMembers ? (
-              <div className="mt-4 flex items-center gap-2 text-sm text-base-content/70">
+              <div className="mt-5 flex items-center gap-2 text-sm text-base-content/70">
                 <LoaderIcon className="size-4 animate-spin" /> Loading members…
               </div>
             ) : membersQuery.isError ? (
-              <div className="mt-4 alert alert-error text-sm">
+              <div className="mt-5 alert alert-error text-sm">
                 {membersErrorMessage ?? "Failed to load members"}
               </div>
             ) : members.length ? (
-              <ul className="mt-4 divide-y divide-base-300/60 rounded-xl border border-base-300/60 bg-base-200/40">
+              <ul className="mt-5 space-y-3">
                 {members.map((member, index) => {
                   const badge = formatStatusBadge(member.status);
                   const canEditMember =
@@ -418,107 +418,113 @@ function NotebookShareDialog({ notebook, open, onClose }) {
                   return (
                     <li
                       key={memberKey}
-                      className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                      className="rounded-2xl border border-base-300/60 bg-base-200/40 px-4 py-4"
                     >
-                      <div className="space-y-1 text-sm">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-semibold text-base-content">
-                            {member.name ?? member.email ?? "Unknown"}
-                          </span>
-                          <span className={`badge badge-xs ${badge.tone}`}>
-                            {badge.label}
-                          </span>
-                        </div>
-                        {member.email ? (
-                          <p className="text-xs text-base-content/60">
-                            {member.email}
-                          </p>
-                        ) : null}
-                        {member.invitedByName ? (
-                          <p className="text-[11px] text-base-content/50">
-                            Invited by {member.invitedByName}
-                          </p>
-                        ) : null}
-                        {member.invitedAt ? (
-                          <p className="text-[11px] text-base-content/50">
-                            Invited{" "}
-                            {formatRelativeTime(new Date(member.invitedAt))}
-                          </p>
-                        ) : null}
-                      </div>
-                      <div className="flex flex-col gap-2 sm:w-80">
-                        <div className="flex items-center gap-2">
-                          <ShieldIcon className="size-4 text-secondary" />
-                          {canEditMember ? (
-                            <select
-                              className="select select-bordered select-sm flex-1"
-                              value={member.role}
-                              onChange={(event) =>
-                                updateRoleMutation.mutate({
-                                  memberId: member.id,
-                                  role: event.target.value,
-                                })
-                              }
-                              disabled={updateRoleMutation.isLoading}
-                            >
-                              {[
-                                ...MEMBER_ROLE_OPTIONS,
-                                { value: "owner", label: "Owner" },
-                              ].map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <span className="badge badge-sm badge-outline">
-                              {formatRoleLabel(member.role)}
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="space-y-1 text-sm">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-semibold text-base-content">
+                              {member.name ?? member.email ?? "Unknown"}
                             </span>
-                          )}
+                            <span className={`badge badge-xs ${badge.tone}`}>
+                              {badge.label}
+                            </span>
+                          </div>
+                          {member.email ? (
+                            <p className="text-xs text-base-content/60">
+                              {member.email}
+                            </p>
+                          ) : null}
+                          {member.invitedByName ? (
+                            <p className="text-[11px] text-base-content/50">
+                              Invited by {member.invitedByName}
+                            </p>
+                          ) : null}
+                          {member.invitedAt ? (
+                            <p className="text-[11px] text-base-content/50">
+                              Invited{" "}
+                              {formatRelativeTime(new Date(member.invitedAt))}
+                            </p>
+                          ) : null}
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                          {canResend ? (
-                            <button
-                              type="button"
-                              className="btn btn-ghost btn-xs"
-                              onClick={() =>
-                                resendInviteMutation.mutate({
-                                  memberId: member.id,
-                                })
-                              }
-                              disabled={resendInviteMutation.isLoading}
-                            >
-                              <RefreshCwIcon className="size-3" /> Resend invite
-                            </button>
-                          ) : null}
-                          {canRevoke ? (
-                            <button
-                              type="button"
-                              className="btn btn-ghost btn-xs text-warning"
-                              onClick={() =>
-                                revokeInviteMutation.mutate({
-                                  memberId: member.id,
-                                })
-                              }
-                              disabled={revokeInviteMutation.isLoading}
-                            >
-                              <XIcon className="size-3" /> Revoke
-                            </button>
-                          ) : null}
-                          {canRemove ? (
-                            <button
-                              type="button"
-                              className="btn btn-ghost btn-xs text-error"
-                              onClick={() =>
-                                removeMemberMutation.mutate({
-                                  memberId: member.id,
-                                })
-                              }
-                              disabled={removeMemberMutation.isLoading}
-                            >
-                              <Trash2Icon className="size-3" /> Remove
-                            </button>
-                          ) : null}
+                        <div className="flex flex-col gap-2 lg:w-64">
+                          <div className="flex items-center gap-2">
+                            <ShieldIcon className="size-4 text-secondary" />
+                            {canEditMember ? (
+                              <select
+                                className="select select-bordered select-sm w-full"
+                                value={member.role}
+                                onChange={(event) =>
+                                  updateRoleMutation.mutate({
+                                    memberId: member.id,
+                                    role: event.target.value,
+                                  })
+                                }
+                                disabled={updateRoleMutation.isLoading}
+                              >
+                                {[
+                                  ...MEMBER_ROLE_OPTIONS,
+                                  { value: "owner", label: "Owner" },
+                                ].map((option) => (
+                                  <option
+                                    key={option.value}
+                                    value={option.value}
+                                  >
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className="badge badge-sm badge-outline">
+                                {formatRoleLabel(member.role)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {canResend ? (
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-xs"
+                                onClick={() =>
+                                  resendInviteMutation.mutate({
+                                    memberId: member.id,
+                                  })
+                                }
+                                disabled={resendInviteMutation.isLoading}
+                              >
+                                <RefreshCwIcon className="size-3" /> Resend
+                                invite
+                              </button>
+                            ) : null}
+                            {canRevoke ? (
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-xs text-warning"
+                                onClick={() =>
+                                  revokeInviteMutation.mutate({
+                                    memberId: member.id,
+                                  })
+                                }
+                                disabled={revokeInviteMutation.isLoading}
+                              >
+                                <XIcon className="size-3" /> Revoke
+                              </button>
+                            ) : null}
+                            {canRemove ? (
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-xs text-error"
+                                onClick={() =>
+                                  removeMemberMutation.mutate({
+                                    memberId: member.id,
+                                  })
+                                }
+                                disabled={removeMemberMutation.isLoading}
+                              >
+                                <Trash2Icon className="size-3" /> Remove
+                              </button>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                     </li>
@@ -533,7 +539,7 @@ function NotebookShareDialog({ notebook, open, onClose }) {
 
             {canManageMembers ? (
               <form
-                className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,14rem)_minmax(0,10rem)]"
+                className="mt-6 space-y-4"
                 onSubmit={(event) => {
                   event.preventDefault();
                   if (!inviteEmail.trim()) {
@@ -547,40 +553,57 @@ function NotebookShareDialog({ notebook, open, onClose }) {
                   });
                 }}
               >
-                <input
-                  type="email"
-                  className="input input-bordered"
-                  placeholder="teammate@example.com"
-                  value={inviteEmail}
-                  onChange={(event) => setInviteEmail(event.target.value)}
-                  required
-                />
-                <select
-                  className="select select-bordered"
-                  value={inviteRole}
-                  onChange={(event) => setInviteRole(event.target.value)}
-                >
-                  {MEMBER_ROLE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <div className="flex items-center gap-2">
-                  <select
-                    className="select select-bordered flex-1"
-                    value={inviteExpiry}
-                    onChange={(event) => setInviteExpiry(event.target.value)}
-                  >
-                    {INVITE_EXPIRY_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                <div>
+                  <label className="block text-sm font-medium text-base-content/80 mb-1.5">
+                    Email address
+                  </label>
+                  <input
+                    type="email"
+                    className="input input-bordered w-full"
+                    placeholder="teammate@example.com"
+                    value={inviteEmail}
+                    onChange={(event) => setInviteEmail(event.target.value)}
+                    required
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-base-content/80 mb-1.5">
+                      Role
+                    </label>
+                    <select
+                      className="select select-bordered w-full"
+                      value={inviteRole}
+                      onChange={(event) => setInviteRole(event.target.value)}
+                    >
+                      {MEMBER_ROLE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-base-content/80 mb-1.5">
+                      Expires in
+                    </label>
+                    <select
+                      className="select select-bordered w-full"
+                      value={inviteExpiry}
+                      onChange={(event) => setInviteExpiry(event.target.value)}
+                    >
+                      {INVITE_EXPIRY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex justify-end pt-2">
                   <button
                     type="submit"
-                    className="btn btn-primary"
+                    className="btn btn-primary min-w-[7rem]"
                     disabled={inviteMutation.isLoading}
                   >
                     {inviteMutation.isLoading ? (
@@ -601,7 +624,7 @@ function NotebookShareDialog({ notebook, open, onClose }) {
             )}
           </div>
 
-          <div className="rounded-xl border border-base-300/70 bg-base-100/80 p-4 shadow-sm">
+          <div className="rounded-2xl border border-base-300/60 bg-base-100/95 p-6 shadow-md">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-base font-semibold text-base-content">
@@ -615,16 +638,16 @@ function NotebookShareDialog({ notebook, open, onClose }) {
             </div>
 
             {isLoadingShareLinks ? (
-              <div className="mt-4 flex items-center gap-2 text-sm text-base-content/70">
+              <div className="mt-5 flex items-center gap-2 text-sm text-base-content/70">
                 <LoaderIcon className="size-4 animate-spin" /> Loading share
                 links…
               </div>
             ) : shareLinksQuery.isError ? (
-              <div className="mt-4 alert alert-error text-sm">
+              <div className="mt-5 alert alert-error text-sm">
                 {shareLinksErrorMessage ?? "Failed to load share links"}
               </div>
             ) : shareLinks.length ? (
-              <ul className="mt-4 space-y-3">
+              <ul className="mt-5 space-y-3">
                 {shareLinks.map((link) => {
                   const isRevoked = Boolean(link.revokedAt);
                   const expiresLabel = link.expiresAt
@@ -634,80 +657,106 @@ function NotebookShareDialog({ notebook, open, onClose }) {
                   return (
                     <li
                       key={link.id}
-                      className="flex flex-col gap-3 rounded-lg border border-base-300/60 bg-base-200/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                      className="rounded-xl border border-base-300/70 bg-gradient-to-br from-base-200/50 to-base-200/30 p-4 shadow-sm hover:shadow-md transition-shadow"
                     >
-                      <div className="space-y-1 text-sm">
-                        <div className="flex items-center gap-2">
-                          <UsersIcon className="size-4 text-secondary" />
-                          <span>{formatRoleLabel(link.role)} access</span>
-                          {isRevoked ? (
-                            <span className="badge badge-xs badge-error">
-                              Revoked
-                            </span>
+                      <div className="flex flex-col gap-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10">
+                              <UsersIcon className="size-4 text-primary" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className="text-sm font-semibold text-base-content">
+                                  {formatRoleLabel(link.role)} access
+                                </span>
+                                {isRevoked ? (
+                                  <span className="badge badge-xs badge-error">
+                                    Revoked
+                                  </span>
+                                ) : (
+                                  <span className="badge badge-xs badge-success">
+                                    Active
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-base-content/60">
+                                Created{" "}
+                                {formatRelativeTime(new Date(link.createdAt))}
+                                {link.createdByName
+                                  ? ` by ${link.createdByName}`
+                                  : ""}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-base-content/70">
+                          <div className="flex items-center gap-1.5">
+                            <ClockIcon className="size-3.5" />
+                            <span>Expires: {expiresLabel}</span>
+                          </div>
+                          {link.lastAccessedAt ? (
+                            <>
+                              <span className="text-base-content/30">•</span>
+                              <span>
+                                Last used{" "}
+                                {formatRelativeTime(
+                                  new Date(link.lastAccessedAt)
+                                )}
+                              </span>
+                            </>
                           ) : null}
                         </div>
-                        <p className="text-xs text-base-content/60">
-                          Created {formatRelativeTime(new Date(link.createdAt))}
-                          {link.createdByName
-                            ? ` by ${link.createdByName}`
-                            : ""}
-                        </p>
-                        <p className="text-xs text-base-content/60">
-                          Expires: {expiresLabel}
-                        </p>
-                        {link.lastAccessedAt ? (
-                          <p className="text-[11px] text-base-content/50">
-                            Last accessed{" "}
-                            {formatRelativeTime(new Date(link.lastAccessedAt))}
-                          </p>
-                        ) : null}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {!isRevoked ? (
-                          <button
-                            type="button"
-                            className="btn btn-outline btn-xs"
-                            onClick={() => handleCopyLink(url)}
-                          >
-                            <ClipboardIcon className="size-3.5" /> Copy link
-                          </button>
-                        ) : null}
-                        {link.expiresAt ? (
-                          <span className="badge badge-outline gap-1">
-                            <ClockIcon className="size-3" />
-                            {formatDate(new Date(link.expiresAt))}
-                          </span>
-                        ) : (
-                          <span className="badge badge-outline">No expiry</span>
-                        )}
-                        {canManageShareLinks ? (
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-xs text-error"
-                            onClick={() =>
-                              revokeShareLinkMutation.mutate({
-                                shareLinkId: link.id,
-                              })
-                            }
-                            disabled={revokeShareLinkMutation.isLoading}
-                          >
-                            <Trash2Icon className="size-3" /> Revoke
-                          </button>
-                        ) : null}
+
+                        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-base-300/50">
+                          {!isRevoked ? (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-primary gap-1.5"
+                              onClick={() => handleCopyLink(url)}
+                            >
+                              <ClipboardIcon className="size-3.5" />
+                              Copy link
+                            </button>
+                          ) : null}
+                          {link.expiresAt && !isRevoked ? (
+                            <div className="badge badge-outline gap-1.5">
+                              <ClockIcon className="size-3" />
+                              {formatDate(new Date(link.expiresAt))}
+                            </div>
+                          ) : null}
+                          <div className="flex-1"></div>
+                          {canManageShareLinks ? (
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm text-error hover:bg-error/10 gap-1.5"
+                              onClick={() =>
+                                revokeShareLinkMutation.mutate({
+                                  shareLinkId: link.id,
+                                })
+                              }
+                              disabled={revokeShareLinkMutation.isLoading}
+                            >
+                              <Trash2Icon className="size-3.5" />
+                              Revoke
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
                     </li>
                   );
                 })}
               </ul>
             ) : (
-              <p className="mt-4 text-sm text-base-content/60">
+              <p className="mt-5 text-sm text-base-content/60">
                 No share links have been created yet.
               </p>
             )}
 
             {canManageShareLinks ? (
               <form
-                className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)_auto]"
+                className="mt-6 space-y-4"
                 onSubmit={(event) => {
                   event.preventDefault();
                   createShareLinkMutation.mutate({
@@ -717,40 +766,54 @@ function NotebookShareDialog({ notebook, open, onClose }) {
                   });
                 }}
               >
-                <select
-                  className="select select-bordered"
-                  value={shareRole}
-                  onChange={(event) => setShareRole(event.target.value)}
-                >
-                  {SHARE_ROLE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="select select-bordered"
-                  value={shareExpiry}
-                  onChange={(event) => setShareExpiry(event.target.value)}
-                >
-                  {SHARE_EXPIRY_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="submit"
-                  className="btn btn-secondary"
-                  disabled={createShareLinkMutation.isLoading}
-                >
-                  {createShareLinkMutation.isLoading ? (
-                    <LoaderIcon className="size-4 animate-spin" />
-                  ) : (
-                    <LinkIcon className="size-4" />
-                  )}
-                  Create link
-                </button>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-base-content/80 mb-1.5">
+                      Role
+                    </label>
+                    <select
+                      className="select select-bordered w-full"
+                      value={shareRole}
+                      onChange={(event) => setShareRole(event.target.value)}
+                    >
+                      {SHARE_ROLE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-base-content/80 mb-1.5">
+                      Expires in
+                    </label>
+                    <select
+                      className="select select-bordered w-full"
+                      value={shareExpiry}
+                      onChange={(event) => setShareExpiry(event.target.value)}
+                    >
+                      {SHARE_EXPIRY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    className="btn btn-secondary min-w-[8rem]"
+                    disabled={createShareLinkMutation.isLoading}
+                  >
+                    {createShareLinkMutation.isLoading ? (
+                      <LoaderIcon className="size-4 animate-spin" />
+                    ) : (
+                      <LinkIcon className="size-4" />
+                    )}
+                    Create link
+                  </button>
+                </div>
               </form>
             ) : (
               <div className="mt-4 flex items-center gap-2 text-xs text-base-content/60">
