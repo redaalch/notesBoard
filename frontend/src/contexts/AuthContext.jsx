@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import api from "../lib/axios.js";
 
 import AuthContext from "./authContext.js";

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeftIcon, LoaderIcon, MailIcon } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import api from "../lib/axios.js";
 
 const ForgotPasswordPage = () => {

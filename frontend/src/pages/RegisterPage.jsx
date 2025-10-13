@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import { LoaderIcon, UserPlusIcon } from "lucide-react";
 import useAuth from "../hooks/useAuth.js";
 

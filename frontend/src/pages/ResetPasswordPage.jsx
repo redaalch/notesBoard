@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { CheckCircleIcon, LoaderIcon, LockIcon } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import api from "../lib/axios.js";
 
 const ResetPasswordPage = () => {
