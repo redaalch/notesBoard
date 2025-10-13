@@ -1667,7 +1667,7 @@ function HomePage() {
             />
 
             <section className="rounded-2xl border border-base-300/60 bg-base-100/80 p-4 shadow-sm backdrop-blur supports-[backdrop-filter:blur(0px)]:bg-base-100/70">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
                   <FolderIcon className="size-5 text-primary" />
                   <div>
@@ -1681,7 +1681,7 @@ function HomePage() {
                 </div>
                 <button
                   type="button"
-                  className="btn btn-primary btn-sm gap-2"
+                  className="btn btn-primary btn-sm gap-2 w-full sm:w-auto sm:self-center"
                   onClick={openCreateNotebook}
                 >
                   <FolderPlusIcon className="size-4" />
@@ -1713,7 +1713,7 @@ function HomePage() {
                   </div>
                 ) : (
                   <div
-                    className="flex flex-wrap gap-3 pb-1"
+                    className="flex flex-col gap-3 pb-1 sm:flex-row sm:flex-wrap"
                     role="tablist"
                     aria-label="Notebooks"
                   >
@@ -1723,9 +1723,9 @@ function HomePage() {
                           type="button"
                           role="tab"
                           aria-selected={activeNotebookId === "all"}
-                          className={`btn btn-sm h-auto min-h-[2.5rem] flex-shrink-0 rounded-xl px-4 ${
+                          className={`btn btn-sm h-auto min-h-[2.5rem] w-full flex-shrink-0 justify-between rounded-xl px-4 sm:w-auto sm:justify-start ${
                             activeNotebookId === "all"
-                              ? "btn-primary"
+                              ? "border-primary/60 bg-primary/15 text-primary shadow-primary/20 hover:bg-primary/20"
                               : "btn-outline"
                           } ${
                             isOver
@@ -1735,9 +1735,15 @@ function HomePage() {
                           onClick={() => handleSelectNotebook("all")}
                           ref={setNodeRef}
                         >
-                          <span className="flex items-center gap-2">
+                          <span className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
                             <span>All notes</span>
-                            <span className="badge badge-sm">
+                            <span
+                              className={`badge badge-sm ${
+                                activeNotebookId === "all"
+                                  ? "border-0 bg-primary/60 text-primary-content"
+                                  : ""
+                              }`}
+                            >
                               {totalNotebookCount}
                             </span>
                           </span>
@@ -1753,9 +1759,9 @@ function HomePage() {
                           type="button"
                           role="tab"
                           aria-selected={activeNotebookId === "uncategorized"}
-                          className={`btn btn-sm h-auto min-h-[2.5rem] flex-shrink-0 rounded-xl px-4 ${
+                          className={`btn btn-sm h-auto min-h-[2.5rem] w-full flex-shrink-0 justify-between rounded-xl px-4 sm:w-auto sm:justify-start ${
                             activeNotebookId === "uncategorized"
-                              ? "btn-primary"
+                              ? "border-primary/60 bg-primary/15 text-primary shadow-primary/20 hover:bg-primary/20"
                               : "btn-outline"
                           } ${
                             isOver
@@ -1765,9 +1771,15 @@ function HomePage() {
                           onClick={() => handleSelectNotebook("uncategorized")}
                           ref={setNodeRef}
                         >
-                          <span className="flex items-center gap-2">
+                          <span className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
                             <span>Uncategorized</span>
-                            <span className="badge badge-sm">
+                            <span
+                              className={`badge badge-sm ${
+                                activeNotebookId === "uncategorized"
+                                  ? "border-0 bg-primary/60 text-primary-content"
+                                  : ""
+                              }`}
+                            >
                               {uncategorizedNoteCount}
                             </span>
                           </span>
@@ -1790,13 +1802,15 @@ function HomePage() {
                           disabled={customizeMode}
                         >
                           {({ setNodeRef, isOver }) => (
-                            <div className="relative flex-shrink-0">
+                            <div className="relative w-full flex-shrink-0 sm:w-auto">
                               <button
                                 type="button"
                                 role="tab"
                                 aria-selected={isActive}
-                                className={`btn btn-sm h-auto min-h-[2.5rem] rounded-xl px-4 pr-10 ${
-                                  isActive ? "btn-primary" : "btn-outline"
+                                className={`btn btn-sm h-auto min-h-[2.5rem] w-full justify-between rounded-xl px-4 pr-10 sm:w-auto sm:justify-start ${
+                                  isActive
+                                    ? "border-primary/60 bg-primary/15 text-primary shadow-primary/20 hover:bg-primary/20"
+                                    : "btn-outline"
                                 } ${
                                   isOver
                                     ? "ring-2 ring-primary/60 ring-offset-2 ring-offset-base-100"
@@ -1807,7 +1821,7 @@ function HomePage() {
                                 }
                                 ref={setNodeRef}
                               >
-                                <span className="flex items-center gap-2">
+                                <span className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
                                   <span className="flex items-center gap-2">
                                     {hasColor ? (
                                       <span
@@ -1831,7 +1845,13 @@ function HomePage() {
                                       {notebook.name}
                                     </span>
                                   </span>
-                                  <span className="badge badge-sm">
+                                  <span
+                                    className={`badge badge-sm ${
+                                      isActive
+                                        ? "border-0 bg-primary/60 text-primary-content"
+                                        : ""
+                                    }`}
+                                  >
                                     {notebook.noteCount ?? 0}
                                   </span>
                                 </span>
