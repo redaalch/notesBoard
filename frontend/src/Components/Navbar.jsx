@@ -6,6 +6,7 @@ import {
   SlidersHorizontalIcon,
   CommandIcon,
   Wand2Icon,
+  XIcon,
 } from "lucide-react";
 import {
   useCallback,
@@ -14,6 +15,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth.js";
 import Logo from "./Logo.jsx";
@@ -141,6 +143,7 @@ const getPreferredTheme = () => {
 
 function Navbar({ onMobileFilterClick = () => {}, defaultNotebookId = null }) {
   const [theme, setTheme] = useState(getPreferredTheme);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const currentTheme = useMemo(
     () =>
       THEME_MAP.get(theme) ?? THEME_MAP.get(DEFAULT_THEME) ?? THEME_OPTIONS[0],
@@ -200,125 +203,17 @@ function Navbar({ onMobileFilterClick = () => {}, defaultNotebookId = null }) {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-gradient-to-b from-base-300/80 via-base-300/40 to-base-100/0 backdrop-blur">
+    <header className="sticky top-0 z-40 w-full glass-navbar">
       <div className="mx-auto w-full max-w-7xl px-4 py-3 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 rounded-2xl border border-base-content/10 bg-base-200/60 px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 shadow-lg shadow-primary/10 backdrop-blur-sm md:flex-nowrap">
           <div className="flex flex-shrink-0 items-center gap-1.5 sm:gap-2 md:gap-3">
-            <details className="dropdown lg:hidden">
-              <summary
-                className="btn btn-circle btn-ghost btn-sm list-none"
-                aria-label="Open quick menu"
-              >
-                <MenuIcon className="size-5" />
-              </summary>
-              <div className="dropdown-content z-40 mt-3 w-72 space-y-3 rounded-3xl border border-base-content/10 bg-gradient-to-br from-base-200/95 via-base-200/80 to-base-100/90 p-4 shadow-2xl shadow-primary/20 backdrop-blur">
-                <div className="rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/20 via-secondary/10 to-accent/10 p-4">
-                  <p className="text-xs uppercase tracking-[0.35em] text-primary/90">
-                    Quick actions
-                  </p>
-                  <p className="mt-1 text-sm text-base-content/70">
-                    Stay in flow with shortcuts made for you.
-                  </p>
-                </div>
-
-                <Link
-                  to="/create"
-                  state={createLinkState}
-                  className="group flex items-center gap-3 rounded-2xl border border-primary/30 bg-base-100/80 p-3 shadow-lg shadow-primary/20 transition hover:-translate-y-0.5 hover:border-primary hover:shadow-primary/40"
-                  aria-label="Create a new note"
-                >
-                  <span className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-primary via-secondary to-accent text-primary-content">
-                    <PlusCircleIcon className="size-4" />
-                  </span>
-                  <div className="flex flex-1 flex-col text-left">
-                    <span className="font-semibold text-base-content">
-                      New note
-                    </span>
-                    <span className="text-xs text-base-content/60">
-                      Capture something fresh in seconds.
-                    </span>
-                  </div>
-                  <ArrowUpRightIcon className="size-4 text-primary transition group-hover:translate-x-0.5" />
-                </Link>
-
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    onMobileFilterClick();
-                    // Close the dropdown by closing the details element
-                    const details = event.currentTarget.closest("details");
-                    if (details) {
-                      details.removeAttribute("open");
-                    }
-                  }}
-                  className="group flex items-center gap-3 rounded-2xl border border-secondary/30 bg-base-100/80 p-3 shadow-lg shadow-secondary/20 transition hover:-translate-y-0.5 hover:border-secondary hover:shadow-secondary/40 cursor-pointer"
-                  aria-label="Open filters and sorting"
-                >
-                  <span className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-secondary via-accent to-primary text-secondary-content">
-                    <SlidersHorizontalIcon className="size-4" />
-                  </span>
-                  <div className="flex flex-1 flex-col text-left">
-                    <span className="font-semibold text-base-content">
-                      Filters & Sort
-                    </span>
-                    <span className="text-xs text-base-content/60">
-                      Organize and find notes quickly.
-                    </span>
-                  </div>
-                </button>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs uppercase tracking-[0.35em] text-base-content/60">
-                      Themes
-                    </p>
-                    <span className="text-xs font-medium text-primary">
-                      {currentTheme?.label ?? "Select theme"}
-                    </span>
-                  </div>
-                  <div className="grid max-h-64 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
-                    {THEME_OPTIONS.map((option) => {
-                      const active = option.name === theme;
-                      return (
-                        <button
-                          key={option.name}
-                          type="button"
-                          onClick={(event) => {
-                            applyTheme(option.name);
-                            if (event?.currentTarget) {
-                              event.currentTarget.blur();
-                            }
-                          }}
-                          className={`group relative flex h-full flex-col justify-between gap-2 rounded-2xl border p-3 text-left shadow-sm transition ${
-                            active
-                              ? "border-primary bg-primary/10 shadow-primary/30"
-                              : "border-base-content/10 bg-base-100/80 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-primary/20"
-                          }`}
-                          aria-label={`Switch to ${option.label} theme`}
-                        >
-                          <span className="flex items-center gap-3">
-                            <span className="flex gap-1 rounded-full bg-base-300/40 p-1">
-                              {option.preview.map((tone) => (
-                                <span
-                                  key={`${option.name}-${tone}`}
-                                  className={`h-3.5 w-3.5 rounded-full ${tone}`}
-                                />
-                              ))}
-                            </span>
-                            <span className="text-sm font-semibold text-base-content">
-                              {option.label}
-                            </span>
-                          </span>
-                          <span className="text-xs text-base-content/60 leading-relaxed">
-                            {option.description}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </details>
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="btn btn-circle btn-ghost btn-sm lg:hidden"
+              aria-label="Open quick menu"
+            >
+              <MenuIcon className="size-5" />
+            </button>
 
             <Link
               to={user ? "/app" : "/"}
@@ -496,6 +391,152 @@ function Navbar({ onMobileFilterClick = () => {}, defaultNotebookId = null }) {
           </div>
         </div>
       </div>
+
+      {/* Mobile Slide-out Menu */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 lg:hidden"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+
+            {/* Slide-out Menu */}
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="fixed top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-base-100 shadow-2xl z-50 lg:hidden overflow-y-auto"
+            >
+              <div className="p-6 space-y-6">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-base-content">
+                    Quick Menu
+                  </h2>
+                  <button
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="btn btn-circle btn-ghost btn-sm"
+                    aria-label="Close menu"
+                  >
+                    <XIcon className="size-5" />
+                  </button>
+                </div>
+
+                {/* Quick Actions Header */}
+                <div className="rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/20 via-secondary/10 to-accent/10 p-4">
+                  <p className="text-xs uppercase tracking-[0.35em] text-primary/90">
+                    Quick actions
+                  </p>
+                  <p className="mt-1 text-sm text-base-content/70">
+                    Stay in flow with shortcuts made for you.
+                  </p>
+                </div>
+
+                {/* New Note Button */}
+                <Link
+                  to="/create"
+                  state={createLinkState}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="group flex items-center gap-3 rounded-2xl border border-primary/30 bg-base-100/80 p-3 shadow-lg shadow-primary/20 transition hover:-translate-y-0.5 hover:border-primary hover:shadow-primary/40"
+                  aria-label="Create a new note"
+                >
+                  <span className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-primary via-secondary to-accent text-primary-content">
+                    <PlusCircleIcon className="size-4" />
+                  </span>
+                  <div className="flex flex-1 flex-col text-left">
+                    <span className="font-semibold text-base-content">
+                      New note
+                    </span>
+                    <span className="text-xs text-base-content/60">
+                      Capture something fresh in seconds.
+                    </span>
+                  </div>
+                  <ArrowUpRightIcon className="size-4 text-primary transition group-hover:translate-x-0.5" />
+                </Link>
+
+                {/* Filters & Sort Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onMobileFilterClick();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="group flex items-center gap-3 rounded-2xl border border-secondary/30 bg-base-100/80 p-3 shadow-lg shadow-secondary/20 transition hover:-translate-y-0.5 hover:border-secondary hover:shadow-secondary/40 w-full"
+                  aria-label="Open filters and sorting"
+                >
+                  <span className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-secondary via-accent to-primary text-secondary-content">
+                    <SlidersHorizontalIcon className="size-4" />
+                  </span>
+                  <div className="flex flex-1 flex-col text-left">
+                    <span className="font-semibold text-base-content">
+                      Filters & Sort
+                    </span>
+                    <span className="text-xs text-base-content/60">
+                      Organize and find notes quickly.
+                    </span>
+                  </div>
+                </button>
+
+                {/* Themes Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs uppercase tracking-[0.35em] text-base-content/60">
+                      Themes
+                    </p>
+                    <span className="text-xs font-medium text-primary">
+                      {currentTheme?.label ?? "Select theme"}
+                    </span>
+                  </div>
+                  <div className="grid gap-2 max-h-96 overflow-y-auto pr-2">
+                    {THEME_OPTIONS.map((option) => {
+                      const active = option.name === theme;
+                      return (
+                        <button
+                          key={option.name}
+                          type="button"
+                          onClick={() => {
+                            applyTheme(option.name);
+                          }}
+                          className={`flex flex-col gap-2 rounded-2xl border p-3 text-left shadow-sm transition ${
+                            active
+                              ? "border-primary bg-primary/10 shadow-primary/30"
+                              : "border-base-content/10 bg-base-100/80 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-primary/20"
+                          }`}
+                          aria-label={`Switch to ${option.label} theme`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="flex gap-1 rounded-full bg-base-300/40 p-1">
+                              {option.preview.map((tone) => (
+                                <span
+                                  key={`${option.name}-${tone}`}
+                                  className={`h-3.5 w-3.5 rounded-full ${tone}`}
+                                />
+                              ))}
+                            </span>
+                            <span className="text-sm font-semibold text-base-content">
+                              {option.label}
+                            </span>
+                          </div>
+                          <span className="text-xs text-base-content/60 leading-relaxed">
+                            {option.description}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </header>
   );
 }
