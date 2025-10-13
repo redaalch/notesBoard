@@ -11,7 +11,7 @@ function Logo({ size = "2.75rem", className, showWordmark = true }) {
         src={logoUrl}
         alt="NotesBoard logo"
         style={{ width: size, height: size }}
-        className="rounded-2xl drop-shadow-lg"
+        className="drop-shadow-lg"
       />
       {showWordmark ? (
         <span className="leading-tight">
