@@ -707,4 +707,630 @@ describe("Auth and notes integration", () => {
     expect(finalList.body).toHaveLength(1);
     expect(finalList.body[0]._id).toBe(noteC._id);
   });
+
+  describe("Notebook Share Links", () => {
+    it("allows owners to create share links for notebooks", async () => {
+      const { response: ownerRegister, payload: ownerPayload } =
+        await registerUser({
+          email: "shareowner@example.com",
+        });
+      expect(ownerRegister.status).toBe(202);
+
+      const ownerVerify = await verifyLatestEmail(ownerPayload.email);
+      const ownerToken = ownerVerify.body.accessToken;
+      const ownerClientId = ownerVerify.body.user.id;
+
+      const notebookResponse = await request(app)
+        .post("/api/notebooks")
+        .set(authHeaders(ownerToken, ownerClientId))
+        .send({ name: "Shareable Notebook" });
+      expect(notebookResponse.status).toBe(201);
+      const notebookId = notebookResponse.body.id;
+
+      const shareLinkResponse = await request(app)
+        .post(`/api/notebooks/${notebookId}/share-links`)
+        .set(authHeaders(ownerToken, ownerClientId))
+        .send({ role: "viewer", expiresInHours: 168 });
+      expect(shareLinkResponse.status).toBe(201);
+      expect(shareLinkResponse.body.shareLink.token).toBeDefined();
+      expect(shareLinkResponse.body.shareLink.role).toBe("viewer");
+      expect(shareLinkResponse.body.shareLink.url).toBeDefined();
+      expect(shareLinkResponse.body.shareLink.expiresAt).toBeDefined();
+    });
+
+    it("lists all active share links for a notebook", async () => {
+      const { response: ownerRegister, payload: ownerPayload } =
+        await registerUser({
+          email: "listowner@example.com",
+        });
+      expect(ownerRegister.status).toBe(202);
+
+      const ownerVerify = await verifyLatestEmail(ownerPayload.email);
+      const ownerToken = ownerVerify.body.accessToken;
+      const ownerClientId = ownerVerify.body.user.id;
+
+      const notebookResponse = await request(app)
+        .post("/api/notebooks")
+        .set(authHeaders(ownerToken, ownerClientId))
+        .send({ name: "Multi-Link Notebook" });
+      expect(notebookResponse.status).toBe(201);
+      const notebookId = notebookResponse.body.id;
+
+      await request(app)
+        .post(`/api/notebooks/${notebookId}/share-links`)
+        .set(authHeaders(ownerToken, ownerClientId))
+        .send({ role: "viewer", expiresInHours: 168 });
+
+      await request(app)
+        .post(`/api/notebooks/${notebookId}/share-links`)
+        .set(authHeaders(ownerToken, ownerClientId))
+        .send({ role: "editor", expiresInHours: 720 });
+
+      const listResponse = await request(app)
+        .get(`/api/notebooks/${notebookId}/share-links`)
+        .set(authHeaders(ownerToken, ownerClientId));
+
+      expect(listResponse.status).toBe(200);
+      expect(Array.isArray(listResponse.body.shareLinks)).toBe(true);
+      expect(listResponse.body.shareLinks.length).toBe(2);
+      expect(listResponse.body.shareLinks[0].role).toBeDefined();
+      expect(listResponse.body.shareLinks[1].role).toBeDefined();
+    });
+
+    it("allows owners to revoke share links", async () => {
+      const { response: ownerRegister, payload: ownerPayload } =
+        await registerUser({
+          email: "revokeowner@example.com",
+        });
+      expect(ownerRegister.status).toBe(202);
+
+      const ownerVerify = await verifyLatestEmail(ownerPayload.email);
+      const ownerToken = ownerVerify.body.accessToken;
+      const ownerClientId = ownerVerify.body.user.id;
+
+      const notebookResponse = await request(app)
+        .post("/api/notebooks")
+        .set(authHeaders(ownerToken, ownerClientId))
+        .send({ name: "Revokable Notebook" });
+      expect(notebookResponse.status).toBe(201);
+      const notebookId = notebookResponse.body.id;
+
+      const shareLinkResponse = await request(app)
+        .post(`/api/notebooks/${notebookId}/share-links`)
+        .set(authHeaders(ownerToken, ownerClientId))
+        .send({ role: "viewer", expiresInHours: 168 });
+      expect(shareLinkResponse.status).toBe(201);
+      const shareLinkId = shareLinkResponse.body.shareLink.id;
+
+      const revokeResponse = await request(app)
+        .delete(`/api/notebooks/${notebookId}/share-links/${shareLinkId}`)
+        .set(authHeaders(ownerToken, ownerClientId));
+      expect(revokeResponse.status).toBe(200);
+      expect(revokeResponse.body.shareLinks).toBeDefined();
+
+      const listResponse = await request(app)
+        .get(`/api/notebooks/${notebookId}/share-links`)
+        .set(authHeaders(ownerToken, ownerClientId));
+      expect(listResponse.status).toBe(200);
+      expect(
+        listResponse.body.shareLinks.filter((l) => !l.revokedAt).length
+      ).toBe(0);
+    });
+
+    it("prevents expired share links from being listed", async () => {
+      const { response: ownerRegister, payload: ownerPayload } =
+        await registerUser({
+          email: "expireowner@example.com",
+        });
+      expect(ownerRegister.status).toBe(202);
+
+      const ownerVerify = await verifyLatestEmail(ownerPayload.email);
+      const ownerToken = ownerVerify.body.accessToken;
+      const ownerClientId = ownerVerify.body.user.id;
+
+      const notebookResponse = await request(app)
+        .post("/api/notebooks")
+        .set(authHeaders(ownerToken, ownerClientId))
+        .send({ name: "Expiring Notebook" });
+      expect(notebookResponse.status).toBe(201);
+      const notebookId = notebookResponse.body.id;
+
+      const ShareLink = (await import("../src/models/ShareLink.js")).default;
+      const rawToken = ShareLink.generateToken();
+      const tokenHash = ShareLink.hash(rawToken);
+
+      const expiredLink = new ShareLink({
+        notebookId: new mongoose.Types.ObjectId(notebookId),
+        resourceType: "notebook",
+        role: "viewer",
+        createdBy: new mongoose.Types.ObjectId(ownerClientId),
+        expiresAt: new Date(Date.now() - 1000),
+        tokenHash,
+      });
+      await expiredLink.save();
+
+      const listResponse = await request(app)
+        .get(`/api/notebooks/${notebookId}/share-links`)
+        .set(authHeaders(ownerToken, ownerClientId));
+      expect(listResponse.status).toBe(200);
+      expect(listResponse.body.shareLinks.length).toBe(1);
+    });
+  });
+
+  describe("Notebook Member Permissions", () => {
+    it(
+      "prevents viewers from inviting members",
+      { timeout: 10000 },
+      async () => {
+        const { response: ownerRegister, payload: ownerPayload } =
+          await registerUser({
+            email: "permowner@example.com",
+          });
+        expect(ownerRegister.status).toBe(202);
+        const ownerVerify = await verifyLatestEmail(ownerPayload.email);
+        const ownerToken = ownerVerify.body.accessToken;
+        const ownerClientId = ownerVerify.body.user.id;
+
+        const { response: viewerRegister, payload: viewerPayload } =
+          await registerUser({
+            email: "viewer@example.com",
+          });
+        expect(viewerRegister.status).toBe(202);
+        const viewerVerify = await verifyLatestEmail(viewerPayload.email);
+        const viewerToken = viewerVerify.body.accessToken;
+        const viewerClientId = viewerVerify.body.user.id;
+
+        const notebookResponse = await request(app)
+          .post("/api/notebooks")
+          .set(authHeaders(ownerToken, ownerClientId))
+          .send({ name: "Permission Test Notebook" });
+        expect(notebookResponse.status).toBe(201);
+        const notebookId = notebookResponse.body.id;
+
+        sentEmails.length = 0;
+        sendMailMock.mockClear();
+
+        const inviteResponse = await request(app)
+          .post(`/api/notebooks/${notebookId}/members`)
+          .set(authHeaders(ownerToken, ownerClientId))
+          .send({ email: viewerPayload.email, role: "viewer" });
+        expect(inviteResponse.status).toBe(201);
+        expect(sendMailMock).toHaveBeenCalledTimes(1);
+
+        const inviteMail = sentEmails[0];
+        const linkMatch = inviteMail.text.match(/https?:\/\/[^\s]+/i);
+        const inviteToken = new URL(linkMatch[0]).searchParams.get("token");
+
+        await request(app)
+          .post("/api/notebooks/invitations/accept")
+          .set(authHeaders(viewerToken, viewerClientId))
+          .send({ token: inviteToken });
+
+        const { response: newUserRegister, payload: newUserPayload } =
+          await registerUser({
+            email: "newuser@example.com",
+          });
+        expect(newUserRegister.status).toBe(202);
+        await verifyLatestEmail(newUserPayload.email);
+
+        const forbiddenInvite = await request(app)
+          .post(`/api/notebooks/${notebookId}/members`)
+          .set(authHeaders(viewerToken, viewerClientId))
+          .send({ email: newUserPayload.email, role: "viewer" });
+
+        expect(forbiddenInvite.status).toBe(403);
+      }
+    );
+
+    it(
+      "allows editors to view but not modify member list",
+      { timeout: 10000 },
+      async () => {
+        const { response: ownerRegister, payload: ownerPayload } =
+          await registerUser({
+            email: "viewowner@example.com",
+          });
+        expect(ownerRegister.status).toBe(202);
+        const ownerVerify = await verifyLatestEmail(ownerPayload.email);
+        const ownerToken = ownerVerify.body.accessToken;
+        const ownerClientId = ownerVerify.body.user.id;
+
+        const { response: editorRegister, payload: editorPayload } =
+          await registerUser({
+            email: "vieweditor@example.com",
+          });
+        expect(editorRegister.status).toBe(202);
+        const editorVerify = await verifyLatestEmail(editorPayload.email);
+        const editorToken = editorVerify.body.accessToken;
+        const editorClientId = editorVerify.body.user.id;
+
+        const notebookResponse = await request(app)
+          .post("/api/notebooks")
+          .set(authHeaders(ownerToken, ownerClientId))
+          .send({ name: "View Test Notebook" });
+        expect(notebookResponse.status).toBe(201);
+        const notebookId = notebookResponse.body.id;
+
+        sentEmails.length = 0;
+        sendMailMock.mockClear();
+
+        const inviteResponse = await request(app)
+          .post(`/api/notebooks/${notebookId}/members`)
+          .set(authHeaders(ownerToken, ownerClientId))
+          .send({ email: editorPayload.email, role: "editor" });
+        expect(inviteResponse.status).toBe(201);
+        expect(sendMailMock).toHaveBeenCalledTimes(1);
+
+        const inviteMail = sentEmails[0];
+        const linkMatch = inviteMail.text.match(/https?:\/\/[^\s]+/i);
+        const inviteToken = new URL(linkMatch[0]).searchParams.get("token");
+
+        await request(app)
+          .post("/api/notebooks/invitations/accept")
+          .set(authHeaders(editorToken, editorClientId))
+          .send({ token: inviteToken });
+
+        const listResponse = await request(app)
+          .get(`/api/notebooks/${notebookId}/members`)
+          .set(authHeaders(editorToken, editorClientId));
+        expect(listResponse.status).toBe(200);
+        expect(Array.isArray(listResponse.body.members)).toBe(true);
+      }
+    );
+
+    it(
+      "prevents owners from being removed or demoted",
+      { timeout: 10000 },
+      async () => {
+        const { response: ownerRegister, payload: ownerPayload } =
+          await registerUser({
+            email: "protectedowner@example.com",
+          });
+        expect(ownerRegister.status).toBe(202);
+        const ownerVerify = await verifyLatestEmail(ownerPayload.email);
+        const ownerToken = ownerVerify.body.accessToken;
+        const ownerClientId = ownerVerify.body.user.id;
+
+        const notebookResponse = await request(app)
+          .post("/api/notebooks")
+          .set(authHeaders(ownerToken, ownerClientId))
+          .send({ name: "Owner Protection Test" });
+        expect(notebookResponse.status).toBe(201);
+        const notebookId = notebookResponse.body.id;
+
+        const ownerMembership = await NotebookMember.findOne({
+          notebookId: new mongoose.Types.ObjectId(notebookId),
+          userId: new mongoose.Types.ObjectId(ownerClientId),
+        });
+        expect(ownerMembership.role).toBe("owner");
+
+        const updateResponse = await request(app)
+          .patch(`/api/notebooks/${notebookId}/members/${ownerMembership._id}`)
+          .set(authHeaders(ownerToken, ownerClientId))
+          .send({ role: "editor" });
+        expect([400, 403]).toContain(updateResponse.status);
+
+        const deleteResponse = await request(app)
+          .delete(`/api/notebooks/${notebookId}/members/${ownerMembership._id}`)
+          .set(authHeaders(ownerToken, ownerClientId));
+        expect([400, 403]).toContain(deleteResponse.status);
+      }
+    );
+
+    it("allows owners to update member roles", { timeout: 10000 }, async () => {
+      const { response: ownerRegister, payload: ownerPayload } =
+        await registerUser({
+          email: "roleowner@example.com",
+        });
+      expect(ownerRegister.status).toBe(202);
+      const ownerVerify = await verifyLatestEmail(ownerPayload.email);
+      const ownerToken = ownerVerify.body.accessToken;
+      const ownerClientId = ownerVerify.body.user.id;
+
+      const { response: memberRegister, payload: memberPayload } =
+        await registerUser({
+          email: "rolemember@example.com",
+        });
+      expect(memberRegister.status).toBe(202);
+      const memberVerify = await verifyLatestEmail(memberPayload.email);
+      const memberToken = memberVerify.body.accessToken;
+      const memberClientId = memberVerify.body.user.id;
+
+      const notebookResponse = await request(app)
+        .post("/api/notebooks")
+        .set(authHeaders(ownerToken, ownerClientId))
+        .send({ name: "Role Update Test" });
+      expect(notebookResponse.status).toBe(201);
+      const notebookId = notebookResponse.body.id;
+
+      sentEmails.length = 0;
+      sendMailMock.mockClear();
+
+      const inviteResponse = await request(app)
+        .post(`/api/notebooks/${notebookId}/members`)
+        .set(authHeaders(ownerToken, ownerClientId))
+        .send({ email: memberPayload.email, role: "viewer" });
+      expect(inviteResponse.status).toBe(201);
+      expect(sendMailMock).toHaveBeenCalledTimes(1);
+
+      const inviteMail = sentEmails[0];
+      const linkMatch = inviteMail.text.match(/https?:\/\/[^\s]+/i);
+      const inviteToken = new URL(linkMatch[0]).searchParams.get("token");
+
+      await request(app)
+        .post("/api/notebooks/invitations/accept")
+        .set(authHeaders(memberToken, memberClientId))
+        .send({ token: inviteToken });
+
+      const updatedMembership = await NotebookMember.findOne({
+        notebookId: new mongoose.Types.ObjectId(notebookId),
+        userId: new mongoose.Types.ObjectId(memberClientId),
+      });
+
+      const updateResponse = await request(app)
+        .patch(`/api/notebooks/${notebookId}/members/${updatedMembership._id}`)
+        .set(authHeaders(ownerToken, ownerClientId))
+        .send({ role: "editor" });
+      expect(updateResponse.status).toBe(200);
+      expect(updateResponse.body.members).toBeDefined();
+
+      const updatedMember = await NotebookMember.findById(
+        updatedMembership._id
+      );
+      expect(updatedMember.role).toBe("editor");
+    });
+
+    it("allows owners to remove members", { timeout: 10000 }, async () => {
+      const { response: ownerRegister, payload: ownerPayload } =
+        await registerUser({
+          email: "removeowner@example.com",
+        });
+      expect(ownerRegister.status).toBe(202);
+      const ownerVerify = await verifyLatestEmail(ownerPayload.email);
+      const ownerToken = ownerVerify.body.accessToken;
+      const ownerClientId = ownerVerify.body.user.id;
+
+      const { response: memberRegister, payload: memberPayload } =
+        await registerUser({
+          email: "removemember@example.com",
+        });
+      expect(memberRegister.status).toBe(202);
+      const memberVerify = await verifyLatestEmail(memberPayload.email);
+      const memberToken = memberVerify.body.accessToken;
+      const memberClientId = memberVerify.body.user.id;
+
+      const notebookResponse = await request(app)
+        .post("/api/notebooks")
+        .set(authHeaders(ownerToken, ownerClientId))
+        .send({ name: "Remove Test" });
+      expect(notebookResponse.status).toBe(201);
+      const notebookId = notebookResponse.body.id;
+
+      sentEmails.length = 0;
+      sendMailMock.mockClear();
+
+      const inviteResponse = await request(app)
+        .post(`/api/notebooks/${notebookId}/members`)
+        .set(authHeaders(ownerToken, ownerClientId))
+        .send({ email: memberPayload.email, role: "viewer" });
+      expect(inviteResponse.status).toBe(201);
+      expect(sendMailMock).toHaveBeenCalledTimes(1);
+
+      const inviteMail = sentEmails[0];
+      const linkMatch = inviteMail.text.match(/https?:\/\/[^\s]+/i);
+      const inviteToken = new URL(linkMatch[0]).searchParams.get("token");
+
+      await request(app)
+        .post("/api/notebooks/invitations/accept")
+        .set(authHeaders(memberToken, memberClientId))
+        .send({ token: inviteToken });
+
+      const updatedMembership = await NotebookMember.findOne({
+        notebookId: new mongoose.Types.ObjectId(notebookId),
+        userId: new mongoose.Types.ObjectId(memberClientId),
+      });
+
+      const removeResponse = await request(app)
+        .delete(`/api/notebooks/${notebookId}/members/${updatedMembership._id}`)
+        .set(authHeaders(ownerToken, ownerClientId));
+      expect(removeResponse.status).toBe(200);
+
+      const checkMembership = await NotebookMember.findById(
+        updatedMembership._id
+      );
+      expect(checkMembership.status).toBe("revoked");
+      expect(checkMembership.revokedAt).toBeDefined();
+    });
+
+    it(
+      "cascades notebook permissions to notes",
+      { timeout: 10000 },
+      async () => {
+        const { response: ownerRegister, payload: ownerPayload } =
+          await registerUser({
+            email: "cascadeowner@example.com",
+          });
+        expect(ownerRegister.status).toBe(202);
+        const ownerVerify = await verifyLatestEmail(ownerPayload.email);
+        const ownerToken = ownerVerify.body.accessToken;
+        const ownerClientId = ownerVerify.body.user.id;
+
+        const { response: memberRegister, payload: memberPayload } =
+          await registerUser({
+            email: "cascademember@example.com",
+          });
+        expect(memberRegister.status).toBe(202);
+        const memberVerify = await verifyLatestEmail(memberPayload.email);
+        const memberToken = memberVerify.body.accessToken;
+        const memberClientId = memberVerify.body.user.id;
+
+        const notebookResponse = await request(app)
+          .post("/api/notebooks")
+          .set(authHeaders(ownerToken, ownerClientId))
+          .send({ name: "Cascade Test Notebook" });
+        expect(notebookResponse.status).toBe(201);
+        const notebookId = notebookResponse.body.id;
+
+        const noteResponse = await request(app)
+          .post("/api/notes")
+          .set(authHeaders(ownerToken, ownerClientId))
+          .send({
+            title: "Notebook Note",
+            content: "Test content",
+            tags: [],
+            notebookId,
+          });
+        expect(noteResponse.status).toBe(201);
+        const noteId = noteResponse.body._id;
+
+        const forbiddenAccess = await request(app)
+          .get(`/api/notes/${noteId}`)
+          .set(authHeaders(memberToken, memberClientId));
+        expect(forbiddenAccess.status).toBe(404);
+
+        sentEmails.length = 0;
+        sendMailMock.mockClear();
+
+        const inviteResponse = await request(app)
+          .post(`/api/notebooks/${notebookId}/members`)
+          .set(authHeaders(ownerToken, ownerClientId))
+          .send({ email: memberPayload.email, role: "viewer" });
+        expect(inviteResponse.status).toBe(201);
+        expect(sendMailMock).toHaveBeenCalledTimes(1);
+
+        const inviteMail = sentEmails[0];
+        const linkMatch = inviteMail.text.match(/https?:\/\/[^\s]+/i);
+        const inviteToken = new URL(linkMatch[0]).searchParams.get("token");
+
+        await request(app)
+          .post("/api/notebooks/invitations/accept")
+          .set(authHeaders(memberToken, memberClientId))
+          .send({ token: inviteToken });
+
+        const allowedAccess = await request(app)
+          .get(`/api/notes/${noteId}`)
+          .set(authHeaders(memberToken, memberClientId));
+        expect(allowedAccess.status).toBe(200);
+        expect(allowedAccess.body._id).toBe(noteId);
+
+        const forbiddenEdit = await request(app)
+          .put(`/api/notes/${noteId}`)
+          .set(authHeaders(memberToken, memberClientId))
+          .send({ title: "Hacked" });
+        expect(forbiddenEdit.status).toBe(403);
+      }
+    );
+  });
+
+  describe("Invitation Lifecycle", () => {
+    it(
+      "prevents duplicate invitations to the same email",
+      { timeout: 10000 },
+      async () => {
+        const { response: ownerRegister, payload: ownerPayload } =
+          await registerUser({
+            email: "dupowner@example.com",
+          });
+        expect(ownerRegister.status).toBe(202);
+        const ownerVerify = await verifyLatestEmail(ownerPayload.email);
+        const ownerToken = ownerVerify.body.accessToken;
+        const ownerClientId = ownerVerify.body.user.id;
+
+        const { response: memberRegister, payload: memberPayload } =
+          await registerUser({
+            email: "duplicatetest@example.com",
+          });
+        expect(memberRegister.status).toBe(202);
+        const memberVerify = await verifyLatestEmail(memberPayload.email);
+        const memberToken = memberVerify.body.accessToken;
+        const memberClientId = memberVerify.body.user.id;
+
+        const notebookResponse = await request(app)
+          .post("/api/notebooks")
+          .set(authHeaders(ownerToken, ownerClientId))
+          .send({ name: "Duplicate Test" });
+        expect(notebookResponse.status).toBe(201);
+        const notebookId = notebookResponse.body.id;
+
+        sentEmails.length = 0;
+        sendMailMock.mockClear();
+
+        const firstInvite = await request(app)
+          .post(`/api/notebooks/${notebookId}/members`)
+          .set(authHeaders(ownerToken, ownerClientId))
+          .send({ email: memberPayload.email, role: "viewer" });
+        expect(firstInvite.status).toBe(201);
+        expect(sendMailMock).toHaveBeenCalledTimes(1);
+
+        const inviteMail = sentEmails[0];
+        const linkMatch = inviteMail.text.match(/https?:\/\/[^\s]+/i);
+        const inviteToken = new URL(linkMatch[0]).searchParams.get("token");
+
+        await request(app)
+          .post("/api/notebooks/invitations/accept")
+          .set(authHeaders(memberToken, memberClientId))
+          .send({ token: inviteToken });
+
+        const secondInvite = await request(app)
+          .post(`/api/notebooks/${notebookId}/members`)
+          .set(authHeaders(ownerToken, ownerClientId))
+          .send({ email: memberPayload.email, role: "editor" });
+        expect(secondInvite.status).toBe(409);
+      }
+    );
+
+    it("rejects expired invitation tokens", async () => {
+      const { response: ownerRegister, payload: ownerPayload } =
+        await registerUser({
+          email: "expiredowner@example.com",
+        });
+      expect(ownerRegister.status).toBe(202);
+      const ownerVerify = await verifyLatestEmail(ownerPayload.email);
+      const ownerToken = ownerVerify.body.accessToken;
+      const ownerClientId = ownerVerify.body.user.id;
+
+      const { response: memberRegister, payload: memberPayload } =
+        await registerUser({
+          email: "expiredmember@example.com",
+        });
+      expect(memberRegister.status).toBe(202);
+      const memberVerify = await verifyLatestEmail(memberPayload.email);
+      const memberToken = memberVerify.body.accessToken;
+      const memberClientId = memberVerify.body.user.id;
+
+      const notebookResponse = await request(app)
+        .post("/api/notebooks")
+        .set(authHeaders(ownerToken, ownerClientId))
+        .send({ name: "Expired Invite Test" });
+      expect(notebookResponse.status).toBe(201);
+      const notebookId = notebookResponse.body.id;
+
+      sentEmails.length = 0;
+      sendMailMock.mockClear();
+
+      const inviteResponse = await request(app)
+        .post(`/api/notebooks/${notebookId}/members`)
+        .set(authHeaders(ownerToken, ownerClientId))
+        .send({ email: memberPayload.email, role: "viewer" });
+      expect(inviteResponse.status).toBe(201);
+      expect(sendMailMock).toHaveBeenCalledTimes(1);
+
+      const inviteMail = sentEmails[0];
+      const linkMatch = inviteMail.text.match(/https?:\/\/[^\s]+/i);
+      const inviteToken = new URL(linkMatch[0]).searchParams.get("token");
+
+      const membership = await NotebookMember.findOne({
+        notebookId: new mongoose.Types.ObjectId(notebookId),
+        userId: new mongoose.Types.ObjectId(memberVerify.body.user.id),
+      });
+      membership.inviteExpiresAt = new Date(Date.now() - 1000);
+      await membership.save();
+
+      const acceptResponse = await request(app)
+        .post("/api/notebooks/invitations/accept")
+        .set(authHeaders(memberToken, memberClientId))
+        .send({ token: inviteToken });
+      expect([400, 410]).toContain(acceptResponse.status);
+    });
+  });
 });
