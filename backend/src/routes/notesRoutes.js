@@ -38,9 +38,20 @@ router.get("/layout", getNoteLayout);
 router.put(
   "/layout",
   validate([
-    body("layout")
-      .isIn(["grid", "list", "masonry"])
-      .withMessage("Layout must be grid, list, or masonry"),
+    body("noteIds").isArray().withMessage("noteIds must be an array"),
+    body("noteIds.*")
+      .isMongoId()
+      .optional()
+      .withMessage("Each noteId must be a valid MongoDB ID"),
+    body("notebookId")
+      .optional()
+      .custom((value) => {
+        if (value === "uncategorized" || value === "all") return true;
+        return validationRules.objectId("notebookId").custom(() => true);
+      })
+      .withMessage(
+        "notebookId must be a valid MongoDB ID or 'uncategorized' or 'all'"
+      ),
   ]),
   updateNoteLayout
 );
@@ -110,13 +121,27 @@ router.get("/:id", validate([validationRules.objectId("id")]), getNoteById);
 router.post(
   "/",
   validate([
-    body("title").notEmpty().withMessage("Title is required"),
-    validationRules.noteTitle(),
-    validationRules.noteContent(),
+    body("title")
+      .notEmpty()
+      .withMessage("Title is required")
+      .isString()
+      .trim()
+      .isLength({ max: 200 })
+      .withMessage("Title must not exceed 200 characters"),
+    body("content")
+      .notEmpty()
+      .withMessage("Content is required")
+      .isString()
+      .isLength({ max: 50000 })
+      .withMessage("Content must not exceed 50000 characters"),
     validationRules.noteTags(),
+    body("pinned").optional().isBoolean().withMessage("Pinned must be boolean"),
     body("notebookId")
       .optional()
-      .isMongoId()
+      .custom((value) => {
+        if (!value || value === null) return true;
+        return /^[0-9a-fA-F]{24}$/.test(value);
+      })
       .withMessage("Invalid notebook ID"),
     body("workspaceId")
       .optional()
