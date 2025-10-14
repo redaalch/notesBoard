@@ -38,6 +38,9 @@ const authHeaders = (token, clientId) => ({
   "X-Test-Client-Id": clientId ?? token.slice(-16),
 });
 
+const toStringId = (value) =>
+  typeof value === "string" ? value : value?.toString?.() ?? null;
+
 beforeAll(async () => {
   process.env.NODE_ENV = "test";
   process.env.JWT_ACCESS_SECRET = "test-access-secret";
@@ -308,6 +311,202 @@ describe("Auth and notes integration", () => {
     expect(newNotebookNotes.body[0].notebookId.toString()).toBe(
       createdNotebookId
     );
+  });
+
+  it("prevents other users from accessing notebook templates they do not own", async () => {
+    const { response: ownerRegister, payload: ownerPayload } =
+      await registerUser({
+        email: "template-owner@example.com",
+      });
+    expect(ownerRegister.status).toBe(202);
+
+    const ownerVerify = await verifyLatestEmail(ownerPayload.email);
+    const ownerToken = ownerVerify.body.accessToken;
+    const ownerClientId = ownerVerify.body.user.id;
+
+    const ownerWorkspace = await Workspace.create({
+      name: "Owner Workspace",
+      slug: `owner-workspace-${new mongoose.Types.ObjectId().toString()}`,
+      ownerId: new mongoose.Types.ObjectId(ownerClientId),
+      members: [],
+    });
+    const ownerBoard = await Board.create({
+      workspaceId: ownerWorkspace._id,
+      name: "Owner Board",
+      slug: `owner-board-${new mongoose.Types.ObjectId().toString()}`,
+      createdBy: new mongoose.Types.ObjectId(ownerClientId),
+    });
+
+    const notebookResponse = await request(app)
+      .post("/api/notebooks")
+      .set(authHeaders(ownerToken, ownerClientId))
+      .send({
+        name: "Owner Notebook",
+      });
+    expect(notebookResponse.status).toBe(201);
+    const notebookId = notebookResponse.body.id;
+
+    const createNote = async (title) => {
+      const noteRes = await request(app)
+        .post("/api/notes")
+        .set(authHeaders(ownerToken, ownerClientId))
+        .send({
+          title,
+          content: `Content for ${title}`,
+          notebookId,
+          boardId: ownerBoard._id.toString(),
+        });
+      expect(noteRes.status).toBe(201);
+      return noteRes.body._id;
+    };
+
+    await createNote("Owner Note A");
+    await createNote("Owner Note B");
+
+    const exportResponse = await request(app)
+      .post(`/api/notebooks/${notebookId}/templates`)
+      .set(authHeaders(ownerToken, ownerClientId))
+      .send({
+        name: "Private Template",
+      });
+    expect(exportResponse.status).toBe(201);
+    const templateId = exportResponse.body.id;
+
+    const { response: otherRegister, payload: otherPayload } =
+      await registerUser({
+        email: "template-other@example.com",
+      });
+    expect(otherRegister.status).toBe(202);
+
+    const otherVerify = await verifyLatestEmail(otherPayload.email);
+    const otherToken = otherVerify.body.accessToken;
+    const otherClientId = otherVerify.body.user.id;
+
+    const listResponse = await request(app)
+      .get("/api/templates")
+      .set(authHeaders(otherToken, otherClientId));
+    expect(listResponse.status).toBe(200);
+    expect(Array.isArray(listResponse.body)).toBe(true);
+    expect(listResponse.body).toHaveLength(0);
+
+    const detailResponse = await request(app)
+      .get(`/api/templates/${templateId}`)
+      .set(authHeaders(otherToken, otherClientId));
+    expect(detailResponse.status).toBe(404);
+
+    const instantiateResponse = await request(app)
+      .post(`/api/templates/${templateId}/instantiate`)
+      .set(authHeaders(otherToken, otherClientId))
+      .send({});
+    expect(instantiateResponse.status).toBe(404);
+  });
+
+  it("instantiates notebook templates with workspace and board mappings", async () => {
+    const { response: ownerRegister, payload: ownerPayload } =
+      await registerUser({
+        email: "mapping-owner@example.com",
+      });
+    expect(ownerRegister.status).toBe(202);
+
+    const ownerVerify = await verifyLatestEmail(ownerPayload.email);
+    const ownerToken = ownerVerify.body.accessToken;
+    const ownerClientId = ownerVerify.body.user.id;
+
+    const sourceWorkspace = await Workspace.create({
+      name: "Source Workspace",
+      slug: `source-workspace-${new mongoose.Types.ObjectId().toString()}`,
+      ownerId: new mongoose.Types.ObjectId(ownerClientId),
+      members: [],
+    });
+
+    const sourceBoard = await Board.create({
+      workspaceId: sourceWorkspace._id,
+      name: "Source Board",
+      slug: `source-board-${new mongoose.Types.ObjectId().toString()}`,
+      createdBy: new mongoose.Types.ObjectId(ownerClientId),
+    });
+
+    const notebookResponse = await request(app)
+      .post("/api/notebooks")
+      .set(authHeaders(ownerToken, ownerClientId))
+      .send({
+        name: "Template With Boards",
+      });
+    expect(notebookResponse.status).toBe(201);
+    const notebookId = notebookResponse.body.id;
+
+    const createNote = async (title, content) => {
+      const noteRes = await request(app)
+        .post("/api/notes")
+        .set(authHeaders(ownerToken, ownerClientId))
+        .send({
+          title,
+          content,
+          notebookId,
+          boardId: sourceBoard._id.toString(),
+        });
+      expect(noteRes.status).toBe(201);
+      return noteRes.body._id;
+    };
+
+    await createNote("Planning", "Plan the rollout");
+    await createNote("Messaging", "Draft announcements");
+
+    const exportResponse = await request(app)
+      .post(`/api/notebooks/${notebookId}/templates`)
+      .set(authHeaders(ownerToken, ownerClientId))
+      .send({
+        name: "Mapped Template",
+      });
+    expect(exportResponse.status).toBe(201);
+    const templateId = exportResponse.body.id;
+
+    const targetWorkspace = await Workspace.create({
+      name: "Target Workspace",
+      slug: `target-workspace-${new mongoose.Types.ObjectId().toString()}`,
+      ownerId: new mongoose.Types.ObjectId(ownerClientId),
+      members: [],
+    });
+
+    const targetBoard = await Board.create({
+      workspaceId: targetWorkspace._id,
+      name: "Target Board",
+      slug: `target-board-${new mongoose.Types.ObjectId().toString()}`,
+      createdBy: new mongoose.Types.ObjectId(ownerClientId),
+    });
+
+    const instantiateResponse = await request(app)
+      .post(`/api/templates/${templateId}/instantiate`)
+      .set(authHeaders(ownerToken, ownerClientId))
+      .send({
+        name: "Mapped Notebook",
+        workspaceId: targetWorkspace._id.toString(),
+        boardMappings: {
+          [sourceBoard._id.toString()]: targetBoard._id.toString(),
+        },
+      });
+    expect(instantiateResponse.status).toBe(201);
+    const createdNotebookId = instantiateResponse.body.notebookId;
+    expect(createdNotebookId).toBeTruthy();
+    expect(createdNotebookId).not.toBe(notebookId);
+
+    const createdNotebook = await Notebook.findById(createdNotebookId).lean();
+    expect(createdNotebook).toBeTruthy();
+    expect(toStringId(createdNotebook.workspaceId)).toBe(
+      targetWorkspace._id.toString()
+    );
+
+    const notesResponse = await request(app)
+      .get("/api/notes")
+      .query({ notebookId: createdNotebookId })
+      .set(authHeaders(ownerToken, ownerClientId));
+    expect(notesResponse.status).toBe(200);
+    expect(Array.isArray(notesResponse.body)).toBe(true);
+    expect(notesResponse.body).toHaveLength(2);
+    notesResponse.body.forEach((note) => {
+      expect(toStringId(note.boardId)).toBe(targetBoard._id.toString());
+      expect(toStringId(note.workspaceId)).toBe(targetWorkspace._id.toString());
+    });
   });
 
   it("allows invited notebook members to accept invitations", async () => {
