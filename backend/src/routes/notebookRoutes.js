@@ -10,6 +10,7 @@ import {
   deleteNotebook,
   moveNotesToNotebook,
 } from "../controllers/notebooksController.js";
+import { exportNotebookTemplate } from "../controllers/notebookTemplatesController.js";
 import {
   listNotebookMembers,
   inviteNotebookMember,
@@ -42,6 +43,35 @@ router.post(
     validationRules.notebookDescription(),
   ]),
   createNotebook
+);
+
+router.post(
+  "/:id/templates",
+  validate([
+    validationRules.objectId("id"),
+    body("name")
+      .optional()
+      .isString()
+      .trim()
+      .isLength({ max: 160 })
+      .withMessage("Name must be 160 characters or fewer"),
+    body("description")
+      .optional()
+      .isString()
+      .isLength({ max: 500 })
+      .withMessage("Description must be 500 characters or fewer"),
+    body("tags")
+      .optional()
+      .isArray({ max: 8 })
+      .withMessage("Tags must be an array with at most 8 entries"),
+    body("tags.*")
+      .optional()
+      .isString()
+      .trim()
+      .isLength({ min: 1, max: 32 })
+      .withMessage("Each tag must be 1-32 characters"),
+  ]),
+  exportNotebookTemplate
 );
 
 // Accept notebook invitation

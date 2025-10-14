@@ -64,6 +64,8 @@ import NoteSkeleton from "../Components/NoteSkeleton.jsx";
 import NotesStats from "../Components/NotesStats.jsx";
 import { countWords, formatTagLabel, normalizeTag } from "../lib/Utils.js";
 import TemplateGalleryModal from "../Components/TemplateGalleryModal.jsx";
+import NotebookTemplateGalleryModal from "../Components/NotebookTemplateGalleryModal.jsx";
+import SaveNotebookTemplateDialog from "../Components/SaveNotebookTemplateDialog.jsx";
 import BulkActionsBar from "../Components/BulkActionsBar.jsx";
 import TagInput from "../Components/TagInput.jsx";
 import ConfirmDialog from "../Components/ConfirmDialog.jsx";
@@ -284,6 +286,17 @@ function HomePage() {
   const [activeDragNoteIds, setActiveDragNoteIds] = useState([]);
   const [a11yMessage, setA11yMessage] = useState("");
   const [shareNotebookState, setShareNotebookState] = useState(null);
+  const [notebookTemplateModalOpen, setNotebookTemplateModalOpen] =
+    useState(false);
+  const [selectedNotebookTemplateId, setSelectedNotebookTemplateId] =
+    useState(null);
+  const [saveTemplateState, setSaveTemplateState] = useState({
+    open: false,
+    notebook: null,
+  });
+  const [notebookTemplateImporting, setNotebookTemplateImporting] =
+    useState(false);
+  const [saveTemplateSubmitting, setSaveTemplateSubmitting] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const filterPanelRef = useRef(null);
   const hasInitializedFilters = useRef(false);
@@ -389,6 +402,63 @@ function HomePage() {
     });
     return map;
   }, [effectiveCustomOrder]);
+
+  const {
+    data: notebookTemplates = [],
+    isLoading: notebookTemplatesLoading,
+    isFetching: notebookTemplatesFetching,
+    refetch: refetchNotebookTemplates,
+  } = useQuery({
+    queryKey: ["notebook-templates"],
+    queryFn: async () => {
+      const response = await api.get("/templates");
+      return Array.isArray(response.data) ? response.data : [];
+    },
+    staleTime: 60_000,
+  });
+
+  const {
+    data: notebookTemplateDetail,
+    isFetching: notebookTemplateDetailLoading,
+  } = useQuery({
+    queryKey: ["notebook-template-detail", selectedNotebookTemplateId],
+    queryFn: async () => {
+      const response = await api.get(
+        `/templates/${selectedNotebookTemplateId}`
+      );
+      return response.data;
+    },
+    enabled: notebookTemplateModalOpen && Boolean(selectedNotebookTemplateId),
+  });
+
+  useEffect(() => {
+    if (!notebookTemplateModalOpen) {
+      setSelectedNotebookTemplateId(null);
+      return;
+    }
+
+    if (!Array.isArray(notebookTemplates) || notebookTemplates.length === 0) {
+      setSelectedNotebookTemplateId(null);
+      return;
+    }
+
+    const exists = notebookTemplates.some(
+      (template) => template.id === selectedNotebookTemplateId
+    );
+
+    if (!exists) {
+      setSelectedNotebookTemplateId(notebookTemplates[0]?.id ?? null);
+    }
+  }, [
+    notebookTemplateModalOpen,
+    notebookTemplates,
+    selectedNotebookTemplateId,
+  ]);
+
+  useEffect(() => {
+    if (!notebookTemplateModalOpen) return;
+    refetchNotebookTemplates();
+  }, [notebookTemplateModalOpen, refetchNotebookTemplates]);
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
@@ -1290,6 +1360,93 @@ function HomePage() {
     });
   };
 
+  const openNotebookTemplateGallery = useCallback(() => {
+    setNotebookTemplateModalOpen(true);
+  }, []);
+
+  const closeNotebookTemplateGallery = useCallback(() => {
+    setNotebookTemplateModalOpen(false);
+  }, []);
+
+  const handleNotebookTemplateSelect = useCallback((templateId) => {
+    setSelectedNotebookTemplateId(templateId);
+  }, []);
+
+  const handleNotebookTemplateImport = useCallback(
+    async (templateId) => {
+      if (!templateId) return;
+      setNotebookTemplateImporting(true);
+      try {
+        const response = await api.post(
+          `/templates/${templateId}/instantiate`,
+          {}
+        );
+        const createdNotebookId = response.data?.notebookId;
+        const createdNotebookName = response.data?.name;
+        toast.success(
+          createdNotebookName
+            ? `Created "${createdNotebookName}" from template`
+            : "Notebook created from template"
+        );
+        closeNotebookTemplateGallery();
+        if (createdNotebookId) {
+          setActiveNotebookId(createdNotebookId);
+        }
+        await queryClient.invalidateQueries({ queryKey: ["notebooks"] });
+      } catch (error) {
+        const message =
+          error.response?.data?.message ?? "Failed to use notebook template";
+        toast.error(message);
+      } finally {
+        setNotebookTemplateImporting(false);
+      }
+    },
+    [closeNotebookTemplateGallery, queryClient]
+  );
+
+  const openSaveNotebookTemplate = useCallback((notebook) => {
+    if (!notebook) return;
+    setSaveTemplateState({ open: true, notebook });
+  }, []);
+
+  const closeSaveNotebookTemplate = useCallback(() => {
+    setSaveTemplateState({ open: false, notebook: null });
+  }, []);
+
+  const handleSaveNotebookTemplate = async ({ name, description, tags }) => {
+    const notebook = saveTemplateState.notebook;
+    if (!notebook) return;
+
+    setSaveTemplateSubmitting(true);
+    try {
+      const response = await api.post(`/notebooks/${notebook.id}/templates`, {
+        name,
+        description,
+        tags,
+      });
+
+      toast.success("Notebook saved as template");
+      setSaveTemplateState({ open: false, notebook: null });
+      await queryClient.invalidateQueries({
+        queryKey: ["notebook-templates"],
+      });
+
+      if (notebookTemplateModalOpen) {
+        await refetchNotebookTemplates();
+      }
+
+      if (response.data?.id) {
+        setSelectedNotebookTemplateId(response.data.id);
+      }
+    } catch (error) {
+      const message =
+        error.response?.data?.message ?? "Failed to save notebook template";
+      toast.error(message);
+    } finally {
+      setSaveTemplateSubmitting(false);
+    }
+  };
+
   const handleSelectNotebook = useCallback(
     (nextId) => {
       const normalized =
@@ -1620,6 +1777,12 @@ function HomePage() {
         action: () => setTemplateModalOpen(true),
       },
       {
+        id: "home:open-notebook-templates",
+        label: "Browse notebook templates",
+        section: "Notebooks",
+        action: openNotebookTemplateGallery,
+      },
+      {
         id: "home:toggle-filters",
         label: drawerOpen ? "Close filters drawer" : "Open filters drawer",
         section: "Notes",
@@ -1627,7 +1790,12 @@ function HomePage() {
       },
     ]);
     return cleanup;
-  }, [drawerOpen, registerCommands, selectionMode]);
+  }, [
+    drawerOpen,
+    openNotebookTemplateGallery,
+    registerCommands,
+    selectionMode,
+  ]);
 
   return (
     <div className="drawer">
@@ -1679,14 +1847,24 @@ function HomePage() {
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm gap-2 w-full sm:w-auto sm:self-center"
-                  onClick={openCreateNotebook}
-                >
-                  <FolderPlusIcon className="size-4" />
-                  New notebook
-                </button>
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:self-center">
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm gap-2 w-full sm:w-auto"
+                    onClick={openCreateNotebook}
+                  >
+                    <FolderPlusIcon className="size-4" />
+                    New notebook
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm gap-2 w-full sm:w-auto"
+                    onClick={openNotebookTemplateGallery}
+                  >
+                    <SparklesIcon className="size-4" />
+                    Browse templates
+                  </button>
+                </div>
               </div>
 
               <div className="mt-4">
@@ -1890,6 +2068,19 @@ function HomePage() {
                                     >
                                       <PencilLineIcon className="size-4 flex-shrink-0 text-base-content/70" />
                                       <span>Rename</span>
+                                    </button>
+                                  </li>
+                                  <li>
+                                    <button
+                                      type="button"
+                                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors duration-150 hover:bg-base-200/80"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openSaveNotebookTemplate(notebook);
+                                      }}
+                                    >
+                                      <SparklesIcon className="size-4 flex-shrink-0 text-base-content/70" />
+                                      <span>Save as template</span>
                                     </button>
                                   </li>
                                   <div className="my-1 h-px bg-base-300/50"></div>
@@ -2797,6 +2988,28 @@ function HomePage() {
           </div>
         </div>
       )}
+
+      <NotebookTemplateGalleryModal
+        open={notebookTemplateModalOpen}
+        templates={notebookTemplates}
+        isLoading={notebookTemplatesLoading || notebookTemplatesFetching}
+        selectedTemplateId={selectedNotebookTemplateId}
+        onSelectTemplate={handleNotebookTemplateSelect}
+        detail={notebookTemplateDetail}
+        detailLoading={notebookTemplateDetailLoading}
+        onImport={handleNotebookTemplateImport}
+        importing={notebookTemplateImporting}
+        onClose={closeNotebookTemplateGallery}
+        onRefresh={refetchNotebookTemplates}
+      />
+
+      <SaveNotebookTemplateDialog
+        open={saveTemplateState.open}
+        notebook={saveTemplateState.notebook}
+        submitting={saveTemplateSubmitting}
+        onClose={closeSaveNotebookTemplate}
+        onSubmit={handleSaveNotebookTemplate}
+      />
 
       <TemplateGalleryModal
         open={templateModalOpen}

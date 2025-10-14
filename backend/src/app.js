@@ -11,6 +11,7 @@ import authRoutes from "./routes/authRoutes.js";
 import boardRoutes from "./routes/boardRoutes.js";
 import workspaceRoutes from "./routes/workspaceRoutes.js";
 import notebookRoutes from "./routes/notebookRoutes.js";
+import notebookTemplateRoutes from "./routes/notebookTemplateRoutes.js";
 import rateLimiter from "./middleware/rateLimiter.js";
 import requestLogger from "./middleware/requestLogger.js";
 import errorHandler from "./middleware/errorHandler.js";
@@ -109,6 +110,7 @@ app.use("/api/notes", notesRoutes);
 app.use("/api/boards", boardRoutes);
 app.use("/api/workspaces", workspaceRoutes);
 app.use("/api/notebooks", notebookRoutes);
+app.use("/api/templates", notebookTemplateRoutes);
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(dist));
