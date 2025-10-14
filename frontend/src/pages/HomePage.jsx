@@ -786,13 +786,48 @@ function HomePage() {
       };
     },
     staleTime: 300_000,
-    enabled: selectionMode || moveModalOpen || templateModalOpen,
+    enabled:
+      selectionMode ||
+      moveModalOpen ||
+      templateModalOpen ||
+      notebookTemplateModalOpen,
   });
 
   const boardOptions = useMemo(() => {
     return boardsQuery.data?.boards ?? [];
   }, [boardsQuery.data]);
   const defaultBoardId = boardsQuery.data?.defaultBoardId ?? null;
+
+  const workspacesQuery = useQuery({
+    queryKey: ["workspaces"],
+    queryFn: async () => {
+      const response = await api.get("/workspaces");
+      return Array.isArray(response.data) ? response.data : [];
+    },
+    enabled: notebookTemplateModalOpen,
+    staleTime: 120_000,
+  });
+
+  const templateBoardOptions = useMemo(
+    () =>
+      boardOptions.map((board) => ({
+        id: board.id,
+        name: board.name,
+        workspaceName: board.workspaceName ?? "",
+      })),
+    [boardOptions]
+  );
+
+  const templateWorkspaceOptions = useMemo(
+    () =>
+      Array.isArray(workspacesQuery.data)
+        ? workspacesQuery.data.map((workspace) => ({
+            id: workspace.id,
+            name: workspace.name,
+          }))
+        : [],
+    [workspacesQuery.data]
+  );
   useEffect(() => {
     if (hasInitializedFilters.current) return;
     if (typeof window === "undefined") return;
@@ -1373,13 +1408,14 @@ function HomePage() {
   }, []);
 
   const handleNotebookTemplateImport = useCallback(
-    async (templateId) => {
+    async (templateId, options = {}) => {
       if (!templateId) return;
       setNotebookTemplateImporting(true);
       try {
+        const payload = options && typeof options === "object" ? options : {};
         const response = await api.post(
           `/templates/${templateId}/instantiate`,
-          {}
+          payload
         );
         const createdNotebookId = response.data?.notebookId;
         const createdNotebookName = response.data?.name;
@@ -1393,6 +1429,7 @@ function HomePage() {
           setActiveNotebookId(createdNotebookId);
         }
         await queryClient.invalidateQueries({ queryKey: ["notebooks"] });
+        await queryClient.invalidateQueries({ queryKey: ["notes"] });
       } catch (error) {
         const message =
           error.response?.data?.message ?? "Failed to use notebook template";
@@ -2997,6 +3034,8 @@ function HomePage() {
         onSelectTemplate={handleNotebookTemplateSelect}
         detail={notebookTemplateDetail}
         detailLoading={notebookTemplateDetailLoading}
+        workspaceOptions={templateWorkspaceOptions}
+        boardOptions={templateBoardOptions}
         onImport={handleNotebookTemplateImport}
         importing={notebookTemplateImporting}
         onClose={closeNotebookTemplateGallery}
