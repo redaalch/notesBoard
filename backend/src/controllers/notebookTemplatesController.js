@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import Notebook from "../models/Notebook.js";
 import Note from "../models/Note.js";
+import Board from "../models/Board.js";
+import Workspace from "../models/Workspace.js";
 import NotebookTemplate from "../models/NotebookTemplate.js";
 import logger from "../utils/logger.js";
 import {
@@ -253,6 +255,94 @@ export const getNotebookTemplate = async (req, res) => {
       return res.status(404).json({ message: "Template not found" });
     }
 
+    const boardCounts = new Map();
+    const workspaceCounts = new Map();
+    const boardIds = new Set();
+    const workspaceIds = new Set();
+
+    (template.notes ?? []).forEach((note) => {
+      const boardId = note?.boardId ? String(note.boardId) : null;
+      if (boardId) {
+        boardCounts.set(boardId, (boardCounts.get(boardId) ?? 0) + 1);
+        if (mongoose.Types.ObjectId.isValid(boardId)) {
+          boardIds.add(boardId);
+        }
+      }
+
+      const workspaceId = note?.workspaceId ? String(note.workspaceId) : null;
+      if (workspaceId) {
+        workspaceCounts.set(
+          workspaceId,
+          (workspaceCounts.get(workspaceId) ?? 0) + 1
+        );
+        if (mongoose.Types.ObjectId.isValid(workspaceId)) {
+          workspaceIds.add(workspaceId);
+        }
+      }
+    });
+
+    const boardDocs = boardIds.size
+      ? await Board.find({
+          _id: {
+            $in: Array.from(boardIds).map(
+              (id) => new mongoose.Types.ObjectId(id)
+            ),
+          },
+        })
+          .select({ name: 1, workspaceId: 1 })
+          .lean()
+      : [];
+
+    const workspaceDocs = workspaceIds.size
+      ? await Workspace.find({
+          _id: {
+            $in: Array.from(workspaceIds).map(
+              (id) => new mongoose.Types.ObjectId(id)
+            ),
+          },
+        })
+          .select({ name: 1 })
+          .lean()
+      : [];
+
+    const workspaceMetaById = new Map(
+      workspaceDocs.map((entry) => [entry._id.toString(), entry])
+    );
+    const boardMetaById = new Map(
+      boardDocs.map((entry) => [entry._id.toString(), entry])
+    );
+
+    const workspaceSummaries = Array.from(workspaceCounts.entries()).map(
+      ([workspaceId, count]) => {
+        const workspaceMeta = workspaceMetaById.get(workspaceId) ?? null;
+        return {
+          id: workspaceId,
+          name: workspaceMeta?.name ?? null,
+          noteCount: count,
+        };
+      }
+    );
+
+    const boardSummaries = Array.from(boardCounts.entries()).map(
+      ([boardId, count]) => {
+        const boardMeta = boardMetaById.get(boardId) ?? null;
+        const metaWorkspaceId = boardMeta?.workspaceId
+          ? boardMeta.workspaceId.toString()
+          : null;
+        const workspaceMeta = metaWorkspaceId
+          ? workspaceMetaById.get(metaWorkspaceId) ?? null
+          : null;
+
+        return {
+          id: boardId,
+          name: boardMeta?.name ?? null,
+          workspaceId: metaWorkspaceId,
+          workspaceName: workspaceMeta?.name ?? null,
+          noteCount: count,
+        };
+      }
+    );
+
     return res.status(200).json({
       id: template._id.toString(),
       name: template.name,
@@ -274,6 +364,8 @@ export const getNotebookTemplate = async (req, res) => {
         boardId: note.boardId ?? null,
         workspaceId: note.workspaceId ?? null,
       })),
+      workspaces: workspaceSummaries,
+      boards: boardSummaries,
     });
   } catch (error) {
     logger.error("Failed to fetch notebook template", {

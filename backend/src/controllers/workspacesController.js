@@ -4,6 +4,55 @@ import User from "../models/User.js";
 import logger from "../utils/logger.js";
 import { normalizeEmail, isValidObjectId } from "../utils/validators.js";
 
+export const listUserWorkspaces = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
+    const ownerObjectId = new mongoose.Types.ObjectId(userId);
+
+    const workspaces = await Workspace.find({
+      $or: [{ ownerId: ownerObjectId }, { "members.userId": ownerObjectId }],
+    })
+      .select({ name: 1, ownerId: 1, members: 1, updatedAt: 1 })
+      .sort({ name: 1 })
+      .lean();
+
+    const payload = workspaces.map((workspace) => {
+      const workspaceId = workspace._id.toString();
+      let role = "viewer";
+
+      if (String(workspace.ownerId) === String(userId)) {
+        role = "owner";
+      } else {
+        const membership = (workspace.members ?? []).find(
+          (member) => String(member.userId) === String(userId)
+        );
+        role = membership?.role ?? "viewer";
+      }
+
+      return {
+        id: workspaceId,
+        name: workspace.name ?? "Workspace",
+        role,
+        memberCount: 1 + (workspace.members?.length ?? 0),
+        updatedAt: workspace.updatedAt ?? null,
+      };
+    });
+
+    return res.status(200).json(payload);
+  } catch (error) {
+    logger.error("Failed to list user workspaces", { error: error?.message });
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 const MANAGE_ROLES = new Set(["owner", "admin"]);
 const INVITE_ROLES = WORKSPACE_ROLES.filter((role) => role !== "owner");
 
@@ -201,4 +250,8 @@ export const addWorkspaceMember = async (req, res) => {
   }
 };
 
-export default { listWorkspaceMembers, addWorkspaceMember };
+export default {
+  listUserWorkspaces,
+  listWorkspaceMembers,
+  addWorkspaceMember,
+};
