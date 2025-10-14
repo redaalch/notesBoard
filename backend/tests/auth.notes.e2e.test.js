@@ -18,6 +18,7 @@ import Workspace from "../src/models/Workspace.js";
 import CollabDocument from "../src/models/CollabDocument.js";
 import Notebook from "../src/models/Notebook.js";
 import NotebookMember from "../src/models/NotebookMember.js";
+import NotebookTemplate from "../src/models/NotebookTemplate.js";
 
 const sentEmails = [];
 const sendMailMock = vi.fn(async (options) => {
@@ -64,6 +65,7 @@ afterEach(async () => {
   await CollabDocument.deleteMany({});
   await Notebook.deleteMany({});
   await NotebookMember.deleteMany({});
+  await NotebookTemplate.deleteMany({});
   await User.deleteMany({});
 });
 
@@ -220,6 +222,92 @@ describe("Auth and notes integration", () => {
       (entry) => entry.id === notebookId
     );
     expect(createdNotebook?.noteCount).toBe(1);
+  });
+
+  it("exports notebook templates and instantiates new notebooks", async () => {
+    const { response: registerResponse, payload } = await registerUser({
+      email: "templates@example.com",
+    });
+    expect(registerResponse.status).toBe(202);
+
+    const verifyResponse = await verifyLatestEmail(payload.email);
+    const accessToken = verifyResponse.body.accessToken;
+    const clientId = verifyResponse.body.user.id;
+
+    const notebookResponse = await request(app)
+      .post("/api/notebooks")
+      .set(authHeaders(accessToken, clientId))
+      .send({
+        name: "Release Notes",
+        color: "#0ea5e9",
+      });
+    expect(notebookResponse.status).toBe(201);
+    const notebookId = notebookResponse.body.id;
+
+    const createNote = async (title, content) => {
+      const noteRes = await request(app)
+        .post("/api/notes")
+        .set(authHeaders(accessToken, clientId))
+        .send({ title, content, notebookId });
+      expect(noteRes.status).toBe(201);
+      return noteRes.body._id;
+    };
+
+    await createNote("Changelog", "1. Added exported templates");
+    await createNote("Launch Email", "Draft copy for launch");
+
+    const exportResponse = await request(app)
+      .post(`/api/notebooks/${notebookId}/templates`)
+      .set(authHeaders(accessToken, clientId))
+      .send({
+        name: "Release Template",
+        description: "Reusable release prep notes",
+        tags: ["release", "ops"],
+      });
+    expect(exportResponse.status).toBe(201);
+    const templateId = exportResponse.body.id;
+    expect(typeof templateId).toBe("string");
+
+    const listResponse = await request(app)
+      .get("/api/templates")
+      .set(authHeaders(accessToken, clientId));
+    expect(listResponse.status).toBe(200);
+    expect(Array.isArray(listResponse.body)).toBe(true);
+    expect(listResponse.body).toHaveLength(1);
+    expect(listResponse.body[0].name).toBe("Release Template");
+
+    const detailResponse = await request(app)
+      .get(`/api/templates/${templateId}`)
+      .set(authHeaders(accessToken, clientId));
+    expect(detailResponse.status).toBe(200);
+    expect(detailResponse.body?.notes).toHaveLength(2);
+    expect(detailResponse.body.notes[0].title).toBe("Changelog");
+
+    const instantiateResponse = await request(app)
+      .post(`/api/templates/${templateId}/instantiate`)
+      .set(authHeaders(accessToken, clientId))
+      .send({ name: "Release Prep Notebook" });
+    expect(instantiateResponse.status).toBe(201);
+    const createdNotebookId = instantiateResponse.body.notebookId;
+    expect(createdNotebookId).toBeTruthy();
+    expect(createdNotebookId).not.toBe(notebookId);
+
+    const notebooksList = await request(app)
+      .get("/api/notebooks")
+      .set(authHeaders(accessToken, clientId));
+    expect(notebooksList.status).toBe(200);
+    expect(notebooksList.body.notebooks).toHaveLength(2);
+
+    const newNotebookNotes = await request(app)
+      .get("/api/notes")
+      .query({ notebookId: createdNotebookId })
+      .set(authHeaders(accessToken, clientId));
+    expect(newNotebookNotes.status).toBe(200);
+    expect(Array.isArray(newNotebookNotes.body)).toBe(true);
+    expect(newNotebookNotes.body).toHaveLength(2);
+    expect(newNotebookNotes.body[0].notebookId.toString()).toBe(
+      createdNotebookId
+    );
   });
 
   it("allows invited notebook members to accept invitations", async () => {
