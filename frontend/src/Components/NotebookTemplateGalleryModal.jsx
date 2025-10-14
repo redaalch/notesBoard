@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowRightIcon,
+  Building2Icon,
   FileTextIcon,
+  KanbanSquareIcon,
   RefreshCwIcon,
   SearchIcon,
   SparklesIcon,
@@ -25,12 +27,20 @@ function NotebookTemplateGalleryModal({
   importing,
   onClose,
   onRefresh,
+  workspaceOptions = [],
+  boardOptions = [],
 }) {
   const [query, setQuery] = useState("");
+  const [targetWorkspaceId, setTargetWorkspaceId] = useState("");
+  const [workspaceMapping, setWorkspaceMapping] = useState({});
+  const [boardMapping, setBoardMapping] = useState({});
 
   useEffect(() => {
     if (!open) {
       setQuery("");
+      setTargetWorkspaceId("");
+      setWorkspaceMapping({});
+      setBoardMapping({});
     }
   }, [open]);
 
@@ -51,6 +61,127 @@ function NotebookTemplateGalleryModal({
     });
   }, [templates, query]);
 
+  const normalizedWorkspaceOptions = useMemo(() => {
+    const optionMap = new Map();
+    if (Array.isArray(workspaceOptions)) {
+      workspaceOptions.forEach((option) => {
+        if (!option || !option.id) return;
+        const label =
+          typeof option.name === "string" && option.name.trim().length
+            ? option.name.trim()
+            : "Workspace";
+        optionMap.set(option.id, { id: option.id, label });
+      });
+    }
+    const base = [{ id: "", label: "Personal (no workspace)" }];
+    const rest = Array.from(optionMap.values()).sort((a, b) =>
+      a.label.localeCompare(b.label)
+    );
+    return [...base, ...rest];
+  }, [workspaceOptions]);
+
+  const normalizedBoardOptions = useMemo(() => {
+    const optionMap = new Map();
+    if (Array.isArray(boardOptions)) {
+      boardOptions.forEach((option) => {
+        if (!option || !option.id) return;
+        const boardName =
+          typeof option.name === "string" && option.name.trim().length
+            ? option.name.trim()
+            : "Untitled board";
+        const label = option.workspaceName
+          ? `${boardName} - ${option.workspaceName}`
+          : boardName;
+        optionMap.set(option.id, { id: option.id, label });
+      });
+    }
+    return [{ id: "", label: "Create new board" }, ...optionMap.values()];
+  }, [boardOptions]);
+
+  const templateWorkspaceRefs = useMemo(() => {
+    if (!detail) return [];
+    if (Array.isArray(detail.workspaces) && detail.workspaces.length) {
+      return detail.workspaces;
+    }
+    const counts = new Map();
+    (detail.notes ?? []).forEach((note) => {
+      const workspaceId = note?.workspaceId ? String(note.workspaceId) : null;
+      if (!workspaceId) return;
+      counts.set(workspaceId, (counts.get(workspaceId) ?? 0) + 1);
+    });
+    return Array.from(counts.entries()).map(([workspaceId, noteCount]) => ({
+      id: workspaceId,
+      name: null,
+      noteCount,
+    }));
+  }, [detail]);
+
+  const handleWorkspaceMappingChange = useCallback((sourceId, value) => {
+    setWorkspaceMapping((previous) => ({ ...previous, [sourceId]: value }));
+  }, []);
+
+  const handleBoardMappingChange = useCallback((sourceId, value) => {
+    setBoardMapping((previous) => ({ ...previous, [sourceId]: value }));
+  }, []);
+
+  const handleImportClick = useCallback(() => {
+    if (!selectedTemplateId || importing || detailLoading) return;
+
+    const workspaceMappingsPayload = Object.fromEntries(
+      Object.entries(workspaceMapping).filter(
+        ([, target]) => typeof target === "string" && target.trim().length
+      )
+    );
+
+    const boardMappingsPayload = Object.fromEntries(
+      Object.entries(boardMapping).filter(
+        ([, target]) => typeof target === "string" && target.trim().length
+      )
+    );
+
+    onImport?.(selectedTemplateId, {
+      workspaceId: targetWorkspaceId || undefined,
+      workspaceMappings: Object.keys(workspaceMappingsPayload).length
+        ? workspaceMappingsPayload
+        : undefined,
+      boardMappings: Object.keys(boardMappingsPayload).length
+        ? boardMappingsPayload
+        : undefined,
+    });
+  }, [
+    boardMapping,
+    detailLoading,
+    importing,
+    onImport,
+    selectedTemplateId,
+    targetWorkspaceId,
+    workspaceMapping,
+  ]);
+
+  const templateBoardRefs = useMemo(() => {
+    if (!detail) return [];
+    if (Array.isArray(detail.boards) && detail.boards.length) {
+      return detail.boards;
+    }
+    const counts = new Map();
+    (detail.notes ?? []).forEach((note) => {
+      const boardId = note?.boardId ? String(note.boardId) : null;
+      if (!boardId) return;
+      counts.set(boardId, (counts.get(boardId) ?? 0) + 1);
+    });
+    return Array.from(counts.entries()).map(([boardId, noteCount]) => ({
+      id: boardId,
+      name: null,
+      noteCount,
+      workspaceName: null,
+    }));
+  }, [detail]);
+
+  const showWorkspaceSection =
+    normalizedWorkspaceOptions.length > 1 || templateWorkspaceRefs.length > 0;
+  const showWorkspaceMappings = templateWorkspaceRefs.length > 0;
+  const showBoardSection = templateBoardRefs.length > 0;
+
   useEffect(() => {
     if (!open) return;
     if (!filteredTemplates.length) {
@@ -64,6 +195,24 @@ function NotebookTemplateGalleryModal({
       onSelectTemplate?.(filteredTemplates[0]?.id ?? null);
     }
   }, [open, filteredTemplates, selectedTemplateId, onSelectTemplate]);
+
+  useEffect(() => {
+    if (!detail?.id) return;
+    setWorkspaceMapping((previous) => {
+      const next = {};
+      templateWorkspaceRefs.forEach((entry) => {
+        next[entry.id] = previous[entry.id] ?? "";
+      });
+      return next;
+    });
+    setBoardMapping((previous) => {
+      const next = {};
+      templateBoardRefs.forEach((entry) => {
+        next[entry.id] = previous[entry.id] ?? "";
+      });
+      return next;
+    });
+  }, [detail?.id, templateWorkspaceRefs, templateBoardRefs]);
 
   if (!open) return null;
 
@@ -174,8 +323,8 @@ function NotebookTemplateGalleryModal({
             )}
           </aside>
 
-          <div className="flex min-h-[18rem] flex-col justify-between bg-base-100/80 p-6">
-            <div className="flex-1 overflow-y-auto">
+          <div className="flex min-h-[18rem] max-h-[70vh] flex-col justify-between bg-base-100/80 p-6">
+            <div className="flex-1 overflow-y-auto pr-1">
               {detailLoading ? (
                 <div className="space-y-4">
                   <div className="h-8 w-2/3 animate-pulse rounded bg-base-200" />
@@ -240,6 +389,140 @@ function NotebookTemplateGalleryModal({
                       </p>
                     )}
                   </div>
+                  {showWorkspaceSection ? (
+                    <section className="space-y-3 rounded-2xl border border-base-content/10 bg-base-100/90 p-4 shadow-sm">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-base-content">
+                        <Building2Icon className="size-4 text-primary" />
+                        <span>Workspace placement</span>
+                      </div>
+                      <p className="text-xs text-base-content/60">
+                        Choose where the imported notebook should live. Leave
+                        personal to keep it private.
+                      </p>
+                      <select
+                        className="select select-bordered select-sm w-full"
+                        value={targetWorkspaceId}
+                        onChange={(event) =>
+                          setTargetWorkspaceId(event.target.value)
+                        }
+                      >
+                        {normalizedWorkspaceOptions.map((option) => (
+                          <option
+                            key={option.id || "personal"}
+                            value={option.id ?? ""}
+                          >
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      {showWorkspaceMappings ? (
+                        <div className="space-y-3 border-t border-dashed border-base-content/10 pt-3">
+                          <p className="text-xs font-semibold text-base-content/70">
+                            Map template workspaces
+                          </p>
+                          {templateWorkspaceRefs.map((workspaceRef, index) => {
+                            const label =
+                              typeof workspaceRef.name === "string" &&
+                              workspaceRef.name.trim().length
+                                ? workspaceRef.name.trim()
+                                : `Template workspace ${index + 1}`;
+                            const noteCount = workspaceRef.noteCount ?? 0;
+                            return (
+                              <div key={workspaceRef.id} className="space-y-1">
+                                <div className="text-sm font-medium text-base-content">
+                                  {label}
+                                </div>
+                                <p className="text-xs text-base-content/60">
+                                  {noteCount} note{noteCount === 1 ? "" : "s"}{" "}
+                                  in template
+                                </p>
+                                <select
+                                  className="select select-bordered select-xs w-full"
+                                  value={
+                                    workspaceMapping[workspaceRef.id] ?? ""
+                                  }
+                                  onChange={(event) =>
+                                    handleWorkspaceMappingChange(
+                                      workspaceRef.id,
+                                      event.target.value
+                                    )
+                                  }
+                                >
+                                  {normalizedWorkspaceOptions.map((option) => (
+                                    <option
+                                      key={`${workspaceRef.id}-${
+                                        option.id || "personal"
+                                      }`}
+                                      value={option.id ?? ""}
+                                    >
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </section>
+                  ) : null}
+                  {showBoardSection ? (
+                    <section className="space-y-3 rounded-2xl border border-base-content/10 bg-base-100/90 p-4 shadow-sm">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-base-content">
+                        <KanbanSquareIcon className="size-4 text-primary" />
+                        <span>Map template boards</span>
+                      </div>
+                      <p className="text-xs text-base-content/60">
+                        Match template boards with existing boards or create new
+                        ones for the imported notebook.
+                      </p>
+                      <div className="space-y-3">
+                        {templateBoardRefs.map((boardRef, index) => {
+                          const label =
+                            typeof boardRef.name === "string" &&
+                            boardRef.name.trim().length
+                              ? boardRef.name.trim()
+                              : `Template board ${index + 1}`;
+                          const noteCount = boardRef.noteCount ?? 0;
+                          const workspaceName =
+                            typeof boardRef.workspaceName === "string" &&
+                            boardRef.workspaceName.trim().length
+                              ? boardRef.workspaceName.trim()
+                              : null;
+                          return (
+                            <div key={boardRef.id} className="space-y-1">
+                              <div className="text-sm font-medium text-base-content">
+                                {label}
+                              </div>
+                              <p className="text-xs text-base-content/60">
+                                {noteCount} note{noteCount === 1 ? "" : "s"}
+                                {workspaceName ? ` from ${workspaceName}` : ""}
+                              </p>
+                              <select
+                                className="select select-bordered select-xs w-full"
+                                value={boardMapping[boardRef.id] ?? ""}
+                                onChange={(event) =>
+                                  handleBoardMappingChange(
+                                    boardRef.id,
+                                    event.target.value
+                                  )
+                                }
+                              >
+                                {normalizedBoardOptions.map((option) => (
+                                  <option
+                                    key={`${boardRef.id}-${option.id || "new"}`}
+                                    value={option.id ?? ""}
+                                  >
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  ) : null}
                 </div>
               ) : (
                 <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-sm text-base-content/60">
@@ -260,11 +543,8 @@ function NotebookTemplateGalleryModal({
                 <button
                   type="button"
                   className="btn btn-primary"
-                  disabled={!selectedTemplateId || importing}
-                  onClick={() => {
-                    if (!selectedTemplateId || importing) return;
-                    onImport?.(selectedTemplateId);
-                  }}
+                  disabled={!selectedTemplateId || importing || detailLoading}
+                  onClick={handleImportClick}
                 >
                   {importing && (
                     <span className="loading loading-spinner loading-xs" />
