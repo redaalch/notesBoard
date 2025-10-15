@@ -519,9 +519,40 @@ export const instantiateNotebookTemplate = async (req, res) => {
   }
 };
 
+export const deleteNotebookTemplate = async (req, res) => {
+  try {
+    const ownerId = req.user?.id;
+    if (!ownerId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const templateObjectId = normalizeObjectId(req.params?.id);
+    if (!templateObjectId) {
+      return res.status(400).json({ message: "Invalid template id" });
+    }
+
+    const deleted = await NotebookTemplate.findOneAndDelete({
+      _id: templateObjectId,
+      owner: new mongoose.Types.ObjectId(ownerId),
+    });
+
+    if (!deleted) {
+      return res.status(404).json({ message: "Template not found" });
+    }
+
+    return res.status(204).send();
+  } catch (error) {
+    logger.error("Failed to delete notebook template", {
+      message: error?.message,
+    });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
+  }
+};
+
 export default {
   exportNotebookTemplate,
   listNotebookTemplates,
   getNotebookTemplate,
   instantiateNotebookTemplate,
+  deleteNotebookTemplate,
 };

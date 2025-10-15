@@ -313,6 +313,56 @@ describe("Auth and notes integration", () => {
     );
   });
 
+  it("allows users to delete their notebook templates", async () => {
+    const { response: registerResponse, payload } = await registerUser({
+      email: "template-delete@example.com",
+    });
+    expect(registerResponse.status).toBe(202);
+
+    const verifyResponse = await verifyLatestEmail(payload.email);
+    const accessToken = verifyResponse.body.accessToken;
+    const clientId = verifyResponse.body.user.id;
+
+    const notebookResponse = await request(app)
+      .post("/api/notebooks")
+      .set(authHeaders(accessToken, clientId))
+      .send({
+        name: "Delete Template Notebook",
+      });
+    expect(notebookResponse.status).toBe(201);
+    const notebookId = notebookResponse.body.id;
+
+    const noteResponse = await request(app)
+      .post("/api/notes")
+      .set(authHeaders(accessToken, clientId))
+      .send({ title: "Sample", content: "content", notebookId });
+    expect(noteResponse.status).toBe(201);
+
+    const exportResponse = await request(app)
+      .post(`/api/notebooks/${notebookId}/templates`)
+      .set(authHeaders(accessToken, clientId))
+      .send({ name: "Temp Template" });
+    expect(exportResponse.status).toBe(201);
+    const templateId = exportResponse.body.id;
+
+    const listResponse = await request(app)
+      .get("/api/templates")
+      .set(authHeaders(accessToken, clientId));
+    expect(listResponse.status).toBe(200);
+    expect(listResponse.body).toHaveLength(1);
+
+    const deleteResponse = await request(app)
+      .delete(`/api/templates/${templateId}`)
+      .set(authHeaders(accessToken, clientId));
+    expect(deleteResponse.status).toBe(204);
+
+    const listAfterDelete = await request(app)
+      .get("/api/templates")
+      .set(authHeaders(accessToken, clientId));
+    expect(listAfterDelete.status).toBe(200);
+    expect(listAfterDelete.body).toHaveLength(0);
+  });
+
   it("prevents other users from accessing notebook templates they do not own", async () => {
     const { response: ownerRegister, payload: ownerPayload } =
       await registerUser({

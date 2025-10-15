@@ -7,6 +7,7 @@ import {
   getNotebookTemplate,
   instantiateNotebookTemplate,
   listNotebookTemplates,
+  deleteNotebookTemplate,
 } from "../controllers/notebookTemplatesController.js";
 
 const router = express.Router();
@@ -53,6 +54,12 @@ router.post(
       .withMessage("boardMappings must be an object"),
   ]),
   instantiateNotebookTemplate
+);
+
+router.delete(
+  "/:id",
+  validate([validationRules.objectId("id")]),
+  deleteNotebookTemplate
 );
 
 export default router;

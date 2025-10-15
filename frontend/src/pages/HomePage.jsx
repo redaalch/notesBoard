@@ -296,6 +296,7 @@ function HomePage() {
   });
   const [notebookTemplateImporting, setNotebookTemplateImporting] =
     useState(false);
+  const [deletingTemplateId, setDeletingTemplateId] = useState(null);
   const [saveTemplateSubmitting, setSaveTemplateSubmitting] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const filterPanelRef = useRef(null);
@@ -1439,6 +1440,34 @@ function HomePage() {
       }
     },
     [closeNotebookTemplateGallery, queryClient]
+  );
+
+  const handleDeleteNotebookTemplate = useCallback(
+    async (templateId) => {
+      if (!templateId) return;
+      setDeletingTemplateId(templateId);
+      try {
+        await api.delete(`/templates/${templateId}`);
+        toast.success("Template deleted");
+        setSelectedNotebookTemplateId((previous) =>
+          previous === templateId ? null : previous
+        );
+        queryClient.removeQueries({
+          queryKey: ["notebook-template-detail", templateId],
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ["notebook-templates"],
+        });
+        await refetchNotebookTemplates();
+      } catch (error) {
+        const message =
+          error.response?.data?.message ?? "Failed to delete template";
+        toast.error(message);
+      } finally {
+        setDeletingTemplateId(null);
+      }
+    },
+    [queryClient, refetchNotebookTemplates]
   );
 
   const openSaveNotebookTemplate = useCallback((notebook) => {
@@ -3036,6 +3065,8 @@ function HomePage() {
         detailLoading={notebookTemplateDetailLoading}
         workspaceOptions={templateWorkspaceOptions}
         boardOptions={templateBoardOptions}
+        onDeleteTemplate={handleDeleteNotebookTemplate}
+        deletingTemplateId={deletingTemplateId}
         onImport={handleNotebookTemplateImport}
         importing={notebookTemplateImporting}
         onClose={closeNotebookTemplateGallery}
