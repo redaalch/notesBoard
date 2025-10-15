@@ -9,7 +9,6 @@ import {
   analyzeSnapshots,
 } from "./analyticsService.js";
 import {
-  DEFAULT_RANGE,
   RANGE_TO_DAYS,
   addUtcDays,
   buildNotebookMatch,
@@ -24,6 +23,42 @@ import {
 } from "./notebookAnalyticsSnapshotService.js";
 
 const TAG_LIMIT = 20;
+
+const resolveRangeWindow = (range) => {
+  const { key: rangeKey, days } = normalizeRange(range);
+  const endInclusive = startOfUtcDay(new Date());
+  const endExclusive = addUtcDays(endInclusive, 1);
+  const startDate = addUtcDays(endInclusive, -(days - 1));
+
+  return {
+    rangeKey,
+    days,
+    startDate,
+    endInclusive,
+    endExclusive,
+  };
+};
+
+const buildRangeMeta = ({ rangeKey, days, startDate, endInclusive }) => ({
+  key: rangeKey,
+  days,
+  start: startDate.toISOString(),
+  end: endInclusive.toISOString(),
+});
+
+const buildSnapshotMeta = (snapshotAnalysis, expectedDays) => {
+  const missingDays = snapshotAnalysis.missingDates.length;
+  const denominator = expectedDays ?? snapshotAnalysis.dayCounts?.size ?? 0;
+  const coverageRatio =
+    denominator === 0 ? 0 : (denominator - missingDays) / denominator;
+
+  return {
+    total: snapshotAnalysis.snapshotCount,
+    missingDays,
+    expectedDays: denominator,
+    coverageRatio: Number(coverageRatio.toFixed(4)),
+  };
+};
 
 const buildDailySeriesLive = async ({
   notebookId,
@@ -257,10 +292,8 @@ export const getNotebookAnalyticsOverview = async ({
   memo,
 }) => {
   const cacheTtl = resolveCacheTtl();
-  const { key: rangeKey, days } = normalizeRange(range);
-  const endDate = startOfUtcDay(new Date());
-  const endExclusive = addUtcDays(endDate, 1);
-  const startDate = addUtcDays(endDate, -(days - 1));
+  const window = resolveRangeWindow(range);
+  const { rangeKey, startDate, endExclusive } = window;
 
   if (cacheTtl) {
     const cached = cacheService.get(cacheKey(notebookId, rangeKey));
@@ -301,36 +334,32 @@ export const getNotebookAnalyticsOverview = async ({
     resolveNoteCollaborators(notebookId, viewerContext),
   ]);
 
+  const liveFallbackApplied =
+    snapshotAnalysis.snapshotCount === 0 ||
+    snapshotAnalysis.missingDates.length > 0;
+  const snapshotMeta = buildSnapshotMeta(snapshotAnalysis, dailySeries.length);
+  snapshotMeta.liveFallbackApplied = liveFallbackApplied;
+
   const response = {
     notebookId: notebookId.toString(),
-    range: {
-      key: rangeKey,
-      days,
-      start: startDate.toISOString(),
-      end: addUtcDays(endExclusive, -1).toISOString(),
-    },
+    range: buildRangeMeta(window),
     metrics: {
       notesCreated: {
         total: totalNotes,
         daily: dailySeries,
         weekly: weeklySeries,
       },
-      lastActivity: lastActivity
-        ? lastActivity.toISOString?.() ?? lastActivity
-        : null,
       topTags,
       collaborators: {
         notebookRoles,
         noteCollaborators: noteRoles,
       },
+      lastActivity: lastActivity ? new Date(lastActivity).toISOString() : null,
     },
     meta: {
       generatedAt: new Date().toISOString(),
       cache: { hit: false, ttlSeconds: cacheTtl },
-      snapshots: {
-        total: snapshotAnalysis.snapshotCount,
-        missingDays: snapshotAnalysis.missingDates.length,
-      },
+      snapshots: snapshotMeta,
     },
   };
 
@@ -341,9 +370,236 @@ export const getNotebookAnalyticsOverview = async ({
   return response;
 };
 
+export const getNotebookActivityAnalytics = async ({
+  notebookId,
+  range,
+  viewerContext,
+  memo,
+}) => {
+  const window = resolveRangeWindow(range);
+  const { startDate, endExclusive } = window;
+
+  const { dailySeries, totalNotes, snapshotAnalysis } = await ensureDailySeries(
+    {
+      notebookId,
+      startDate,
+      endExclusive,
+      viewerContext,
+      memo,
+    }
+  );
+
+  const labels = dailySeries.map((entry) => entry.date);
+  const series = [
+    {
+      label: "notesCreated",
+      data: dailySeries.map((entry) => entry.count),
+    },
+  ];
+
+  const liveFallbackApplied =
+    snapshotAnalysis.snapshotCount === 0 ||
+    snapshotAnalysis.missingDates.length > 0;
+  const snapshotMeta = buildSnapshotMeta(snapshotAnalysis, dailySeries.length);
+  snapshotMeta.liveFallbackApplied = liveFallbackApplied;
+
+  return {
+    labels,
+    series,
+    meta: {
+      range: buildRangeMeta(window),
+      totals: {
+        notesCreated: totalNotes,
+      },
+      snapshots: snapshotMeta,
+    },
+  };
+};
+
+export const getNotebookTagAnalytics = async ({
+  notebookId,
+  range,
+  viewerContext,
+  memo,
+}) => {
+  const window = resolveRangeWindow(range);
+  const { startDate, endExclusive } = window;
+
+  const { dailySeries, snapshotAnalysis } = await ensureDailySeries({
+    notebookId,
+    startDate,
+    endExclusive,
+    viewerContext,
+    memo,
+  });
+
+  const topTags = await computeTopTags({
+    snapshotAnalysis,
+    notebookId,
+    startDate,
+    endExclusive,
+    viewerContext,
+    memo,
+  });
+
+  const labels = topTags.map(({ tag }) => tag);
+  const series = [
+    {
+      label: "tags",
+      data: topTags.map(({ count }) => count),
+    },
+  ];
+
+  const liveFallbackApplied =
+    snapshotAnalysis.snapshotCount === 0 ||
+    snapshotAnalysis.missingDates.length > 0;
+  const snapshotMeta = buildSnapshotMeta(snapshotAnalysis, dailySeries.length);
+  snapshotMeta.liveFallbackApplied = liveFallbackApplied;
+
+  return {
+    labels,
+    series,
+    meta: {
+      range: buildRangeMeta(window),
+      snapshots: snapshotMeta,
+      totals: {
+        tagCategories: topTags.length,
+      },
+    },
+  };
+};
+
+export const getNotebookCollaboratorAnalytics = async ({
+  notebookId,
+  ownerId,
+  viewerContext,
+  range,
+}) => {
+  const window = resolveRangeWindow(range);
+
+  const [notebookRoles = {}, noteCollaborators = {}] = await Promise.all([
+    resolveNotebookCollaborators(notebookId, ownerId),
+    resolveNoteCollaborators(notebookId, viewerContext),
+  ]);
+
+  const labels = Array.from(
+    new Set([...Object.keys(notebookRoles), ...Object.keys(noteCollaborators)])
+  ).sort();
+
+  const mapCounts = (counts) =>
+    labels.map((role) => Math.max(0, counts?.[role] ?? 0));
+
+  const series = [
+    { label: "notebookRoles", data: mapCounts(notebookRoles) },
+    { label: "noteCollaborators", data: mapCounts(noteCollaborators) },
+  ];
+
+  const totalNotebookMembers = Object.values(notebookRoles).reduce(
+    (acc, value) => acc + value,
+    0
+  );
+  const totalNoteCollaborations = Object.values(noteCollaborators).reduce(
+    (acc, value) => acc + value,
+    0
+  );
+
+  return {
+    labels,
+    series,
+    meta: {
+      range: buildRangeMeta(window),
+      totals: {
+        notebookMembers: totalNotebookMembers,
+        noteCollaborations: totalNoteCollaborations,
+      },
+    },
+  };
+};
+
+export const getNotebookSnapshotAnalytics = async ({
+  notebookId,
+  range,
+  memo,
+}) => {
+  const window = resolveRangeWindow(range);
+  const { startDate, endExclusive } = window;
+
+  const snapshots = await fetchSnapshotsInRange({
+    notebookId,
+    startDate,
+    endExclusive,
+    memo,
+  });
+
+  const snapshotMap = new Map(
+    snapshots.map((snapshot) => [formatDateKey(snapshot.date), snapshot])
+  );
+
+  const snapshotAnalysis = analyzeSnapshots(snapshots, startDate, endExclusive);
+
+  const labels = [];
+  const notesSeries = [];
+  const editsSeries = [];
+  const uniqueEditorsSeries = [];
+
+  let cursor = new Date(startDate);
+  while (cursor < endExclusive) {
+    const key = formatDateKey(cursor);
+    labels.push(key);
+    const snapshot = snapshotMap.get(key);
+    notesSeries.push(snapshot?.notesCreated ?? 0);
+    editsSeries.push(snapshot?.editsCount ?? 0);
+    uniqueEditorsSeries.push(snapshot?.uniqueEditors ?? 0);
+    cursor = addUtcDays(cursor, 1);
+  }
+
+  const snapshotMeta = buildSnapshotMeta(snapshotAnalysis, labels.length);
+  snapshotMeta.liveFallbackApplied = snapshotAnalysis.missingDates.length > 0;
+
+  const toIsoString = (value) => {
+    if (!value) return null;
+    if (typeof value.toISOString === "function") {
+      return value.toISOString();
+    }
+    const coerced = new Date(value);
+    return Number.isNaN(coerced.getTime()) ? null : coerced.toISOString();
+  };
+
+  const details = snapshots.map((snapshot) => ({
+    date: formatDateKey(snapshot.date),
+    notesCreated: snapshot.notesCreated ?? 0,
+    editsCount: snapshot.editsCount ?? 0,
+    uniqueEditors: snapshot.uniqueEditors ?? 0,
+    topTags: Array.isArray(snapshot.topTags)
+      ? snapshot.topTags.map(({ tag, count }) => ({ tag, count }))
+      : [],
+    collaboratorTotals: snapshot.collaboratorTotals ?? {},
+    generatedAt: toIsoString(snapshot.generatedAt),
+  }));
+
+  return {
+    labels,
+    series: [
+      { label: "notesCreated", data: notesSeries },
+      { label: "editsCount", data: editsSeries },
+      { label: "uniqueEditors", data: uniqueEditorsSeries },
+    ],
+    meta: {
+      range: buildRangeMeta(window),
+      snapshots: snapshotMeta,
+      missingDates: snapshotAnalysis.missingDates,
+      details,
+    },
+  };
+};
+
 export const analyticsRanges = Object.keys(RANGE_TO_DAYS);
 
 export default {
   getNotebookAnalyticsOverview,
+  getNotebookActivityAnalytics,
+  getNotebookTagAnalytics,
+  getNotebookCollaboratorAnalytics,
+  getNotebookSnapshotAnalytics,
   analyticsRanges,
 };
