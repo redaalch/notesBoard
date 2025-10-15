@@ -25,7 +25,14 @@ import {
   createNotebookShareLink,
   revokeNotebookShareLink,
 } from "../controllers/notebookShareLinksController.js";
-import { getNotebookAnalytics } from "../controllers/notebookAnalyticsController.js";
+import {
+  getNotebookAnalytics,
+  getNotebookAnalyticsActivity,
+  getNotebookAnalyticsTags,
+  getNotebookAnalyticsCollaborators,
+  getNotebookAnalyticsSnapshots,
+} from "../controllers/notebookAnalyticsController.js";
+import ensureNotebookAnalyticsContext from "../middleware/analyticsContext.js";
 
 const router = express.Router();
 
@@ -170,8 +177,49 @@ router.delete(
 );
 
 router.get(
+  "/:id/analytics/activity",
+  validate([
+    validationRules.objectId("id"),
+    validationRules.analyticsRange(),
+  ]),
+  ensureNotebookAnalyticsContext,
+  getNotebookAnalyticsActivity
+);
+
+router.get(
+  "/:id/analytics/tags",
+  validate([
+    validationRules.objectId("id"),
+    validationRules.analyticsRange(),
+  ]),
+  ensureNotebookAnalyticsContext,
+  getNotebookAnalyticsTags
+);
+
+router.get(
+  "/:id/analytics/collaborators",
+  validate([
+    validationRules.objectId("id"),
+    validationRules.analyticsRange(),
+  ]),
+  ensureNotebookAnalyticsContext,
+  getNotebookAnalyticsCollaborators
+);
+
+router.get(
+  "/:id/analytics/snapshots",
+  validate([
+    validationRules.objectId("id"),
+    validationRules.analyticsRange(),
+  ]),
+  ensureNotebookAnalyticsContext,
+  getNotebookAnalyticsSnapshots
+);
+
+router.get(
   "/:id/analytics",
   validate([validationRules.objectId("id"), validationRules.analyticsRange()]),
+  ensureNotebookAnalyticsContext,
   getNotebookAnalytics
 );
 
