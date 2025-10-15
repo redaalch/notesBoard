@@ -58,7 +58,7 @@ const start = async () => {
     // Start collaboration server
     await startCollabServer({ server: httpServer });
 
-  scheduleNotebookSnapshotJob();
+    scheduleNotebookSnapshotJob();
 
     // Setup graceful shutdown handlers
     process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
