@@ -178,40 +178,28 @@ router.delete(
 
 router.get(
   "/:id/analytics/activity",
-  validate([
-    validationRules.objectId("id"),
-    validationRules.analyticsRange(),
-  ]),
+  validate([validationRules.objectId("id"), validationRules.analyticsRange()]),
   ensureNotebookAnalyticsContext,
   getNotebookAnalyticsActivity
 );
 
 router.get(
   "/:id/analytics/tags",
-  validate([
-    validationRules.objectId("id"),
-    validationRules.analyticsRange(),
-  ]),
+  validate([validationRules.objectId("id"), validationRules.analyticsRange()]),
   ensureNotebookAnalyticsContext,
   getNotebookAnalyticsTags
 );
 
 router.get(
   "/:id/analytics/collaborators",
-  validate([
-    validationRules.objectId("id"),
-    validationRules.analyticsRange(),
-  ]),
+  validate([validationRules.objectId("id"), validationRules.analyticsRange()]),
   ensureNotebookAnalyticsContext,
   getNotebookAnalyticsCollaborators
 );
 
 router.get(
   "/:id/analytics/snapshots",
-  validate([
-    validationRules.objectId("id"),
-    validationRules.analyticsRange(),
-  ]),
+  validate([validationRules.objectId("id"), validationRules.analyticsRange()]),
   ensureNotebookAnalyticsContext,
   getNotebookAnalyticsSnapshots
 );
