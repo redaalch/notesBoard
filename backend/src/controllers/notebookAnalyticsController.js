@@ -1,17 +1,31 @@
 import { getNotebookAnalyticsOverview } from "../services/notebookAnalyticsService.js";
-import { ensureNotebookAccess } from "../utils/access.js";
+import { resolveNotebookMembership } from "../utils/access.js";
 
 export const getNotebookAnalytics = async (req, res, next) => {
   try {
     const { id: notebookId } = req.params;
     const { range } = req.query;
 
-    const context = await ensureNotebookAccess(notebookId, req.user?.id);
+    const membership = await resolveNotebookMembership(
+      notebookId,
+      req.user?.id
+    );
+    if (!membership) {
+      const error = new Error("Notebook access denied");
+      error.status = 403;
+      throw error;
+    }
+
+    if (!req.analyticsMemo) {
+      req.analyticsMemo = new Map();
+    }
 
     const analytics = await getNotebookAnalyticsOverview({
       notebookId,
       range,
-      ownerId: context.notebook?.owner,
+      ownerId: membership.notebook?.owner,
+      viewerContext: membership.viewerContext,
+      memo: req.analyticsMemo,
     });
 
     return res.json(analytics);
