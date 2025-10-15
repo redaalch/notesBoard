@@ -6,6 +6,10 @@ import app from "./app.js";
 import { dbManager } from "./config/database.js";
 import logger from "./utils/logger.js";
 import { startCollabServer } from "./collab/server.js";
+import {
+  scheduleNotebookSnapshotJob,
+  stopNotebookSnapshotJob,
+} from "./tasks/analyticsSnapshotScheduler.js";
 
 const PORT = process.env.PORT || 5001;
 
@@ -16,6 +20,7 @@ const gracefulShutdown = async (signal) => {
   logger.info(`${signal} received, starting graceful shutdown...`);
 
   try {
+    stopNotebookSnapshotJob();
     // Close database connection
     await dbManager.disconnect();
     logger.info("Database connection closed");
@@ -52,6 +57,8 @@ const start = async () => {
 
     // Start collaboration server
     await startCollabServer({ server: httpServer });
+
+  scheduleNotebookSnapshotJob();
 
     // Setup graceful shutdown handlers
     process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
