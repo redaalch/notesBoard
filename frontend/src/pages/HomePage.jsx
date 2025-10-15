@@ -19,6 +19,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   AlertTriangleIcon,
+  BarChart3Icon,
   BookmarkIcon,
   BrainIcon,
   BriefcaseBusinessIcon,
@@ -71,8 +72,11 @@ import TagInput from "../Components/TagInput.jsx";
 import ConfirmDialog from "../Components/ConfirmDialog.jsx";
 import { useCommandPalette } from "../contexts/CommandPaletteContext.jsx";
 import NotebookShareDialog from "../Components/NotebookShareDialog.jsx";
+import NotebookAnalyticsDialog from "../Components/NotebookAnalyticsDialog.jsx";
 
 const FILTER_STORAGE_KEY = "notesboard-filters-v1";
+const NOTEBOOK_ANALYTICS_ENABLED =
+  (import.meta.env.VITE_ENABLE_NOTEBOOK_ANALYTICS ?? "false") === "true";
 
 const mergeOrder = (primary = [], fallback = []) => {
   const fallbackStrings = new Set(
@@ -286,6 +290,7 @@ function HomePage() {
   const [activeDragNoteIds, setActiveDragNoteIds] = useState([]);
   const [a11yMessage, setA11yMessage] = useState("");
   const [shareNotebookState, setShareNotebookState] = useState(null);
+  const [analyticsNotebook, setAnalyticsNotebook] = useState(null);
   const [notebookTemplateModalOpen, setNotebookTemplateModalOpen] =
     useState(false);
   const [selectedNotebookTemplateId, setSelectedNotebookTemplateId] =
@@ -1557,6 +1562,10 @@ function HomePage() {
     setShareNotebookState(null);
   };
 
+  const closeNotebookAnalytics = useCallback(() => {
+    setAnalyticsNotebook(null);
+  }, []);
+
   const closeNotebookForm = () => {
     setNotebookFormState(null);
     setNotebookNameInput("");
@@ -2123,6 +2132,21 @@ function HomePage() {
                                       <span>Share & members</span>
                                     </button>
                                   </li>
+                                  {NOTEBOOK_ANALYTICS_ENABLED ? (
+                                    <li>
+                                      <button
+                                        type="button"
+                                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors duration-150 hover:bg-base-200/80"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setAnalyticsNotebook(notebook);
+                                        }}
+                                      >
+                                        <BarChart3Icon className="size-4 flex-shrink-0 text-base-content/70" />
+                                        <span>View analytics</span>
+                                      </button>
+                                    </li>
+                                  ) : null}
                                   <li>
                                     <button
                                       type="button"
@@ -3054,6 +3078,14 @@ function HomePage() {
           </div>
         </div>
       )}
+
+      {NOTEBOOK_ANALYTICS_ENABLED && analyticsNotebook ? (
+        <NotebookAnalyticsDialog
+          notebook={analyticsNotebook}
+          open
+          onClose={closeNotebookAnalytics}
+        />
+      ) : null}
 
       <NotebookTemplateGalleryModal
         open={notebookTemplateModalOpen}
