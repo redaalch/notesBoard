@@ -7,6 +7,7 @@ import {
   RefreshCwIcon,
   SearchIcon,
   SparklesIcon,
+  Trash2Icon,
 } from "lucide-react";
 
 const truncate = (value, limit = 160) => {
@@ -25,6 +26,8 @@ function NotebookTemplateGalleryModal({
   detailLoading,
   onImport,
   importing,
+  onDeleteTemplate,
+  deletingTemplateId,
   onClose,
   onRefresh,
   workspaceOptions = [],
@@ -181,6 +184,9 @@ function NotebookTemplateGalleryModal({
     normalizedWorkspaceOptions.length > 1 || templateWorkspaceRefs.length > 0;
   const showWorkspaceMappings = templateWorkspaceRefs.length > 0;
   const showBoardSection = templateBoardRefs.length > 0;
+  const deleting =
+    deletingTemplateId && selectedTemplateId === deletingTemplateId;
+  const deleteInProgress = Boolean(deletingTemplateId);
 
   useEffect(() => {
     if (!open) return;
@@ -213,6 +219,15 @@ function NotebookTemplateGalleryModal({
       return next;
     });
   }, [detail?.id, templateWorkspaceRefs, templateBoardRefs]);
+
+  const handleDeleteClick = useCallback(() => {
+    if (!selectedTemplateId || deleteInProgress) return;
+    const confirmed = window.confirm(
+      "Delete this template permanently? This action cannot be undone."
+    );
+    if (!confirmed) return;
+    onDeleteTemplate?.(selectedTemplateId);
+  }, [deleteInProgress, onDeleteTemplate, selectedTemplateId]);
 
   if (!open) return null;
 
@@ -537,13 +552,33 @@ function NotebookTemplateGalleryModal({
                 Close
               </button>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm text-error"
+                  disabled={
+                    !selectedTemplateId || deleteInProgress || importing
+                  }
+                  onClick={handleDeleteClick}
+                >
+                  {deleting ? (
+                    <span className="loading loading-spinner loading-xs" />
+                  ) : (
+                    <Trash2Icon className="size-4" />
+                  )}
+                  Delete template
+                </button>
                 <span className="text-xs text-base-content/60">
                   Templates remain private to your account.
                 </span>
                 <button
                   type="button"
                   className="btn btn-primary"
-                  disabled={!selectedTemplateId || importing || detailLoading}
+                  disabled={
+                    !selectedTemplateId ||
+                    importing ||
+                    detailLoading ||
+                    deleteInProgress
+                  }
                   onClick={handleImportClick}
                 >
                   {importing && (
