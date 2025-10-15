@@ -1,6 +1,7 @@
 {
   "name": "notesboard",
   "version": "1.0.0",
+  "type": "module",
   "engines": {
     "node": "20.x",
     "npm": "10.x"

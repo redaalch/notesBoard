@@ -31,6 +31,8 @@ export const validate = (validations) => {
 /**
  * Common validation rules
  */
+const ANALYTICS_RANGE_VALUES = ["7d", "30d", "90d", "365d"];
+
 export const validationRules = {
   // ID validations
   objectId: (field = "id") =>
@@ -136,4 +138,15 @@ export const validationRules = {
         return true;
       }),
   ],
+
+  analyticsRange: () =>
+    query("range")
+      .optional()
+      .isString()
+      .trim()
+      .toLowerCase()
+      .isIn(ANALYTICS_RANGE_VALUES)
+      .withMessage(
+        `range must be one of: ${ANALYTICS_RANGE_VALUES.join(", ")}`
+      ),
 };
