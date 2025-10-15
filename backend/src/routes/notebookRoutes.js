@@ -25,6 +25,7 @@ import {
   createNotebookShareLink,
   revokeNotebookShareLink,
 } from "../controllers/notebookShareLinksController.js";
+import { getNotebookAnalytics } from "../controllers/notebookAnalyticsController.js";
 
 const router = express.Router();
 
@@ -166,6 +167,12 @@ router.delete(
     validationRules.objectId("shareLinkId"),
   ]),
   revokeNotebookShareLink
+);
+
+router.get(
+  "/:id/analytics",
+  validate([validationRules.objectId("id"), validationRules.analyticsRange()]),
+  getNotebookAnalytics
 );
 
 // Update notebook
