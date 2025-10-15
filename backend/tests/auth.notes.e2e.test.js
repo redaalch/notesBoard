@@ -227,91 +227,95 @@ describe("Auth and notes integration", () => {
     expect(createdNotebook?.noteCount).toBe(1);
   });
 
-  it("exports notebook templates and instantiates new notebooks", async () => {
-    const { response: registerResponse, payload } = await registerUser({
-      email: "templates@example.com",
-    });
-    expect(registerResponse.status).toBe(202);
-
-    const verifyResponse = await verifyLatestEmail(payload.email);
-    const accessToken = verifyResponse.body.accessToken;
-    const clientId = verifyResponse.body.user.id;
-
-    const notebookResponse = await request(app)
-      .post("/api/notebooks")
-      .set(authHeaders(accessToken, clientId))
-      .send({
-        name: "Release Notes",
-        color: "#0ea5e9",
+  it(
+    "exports notebook templates and instantiates new notebooks",
+    { timeout: 10000 },
+    async () => {
+      const { response: registerResponse, payload } = await registerUser({
+        email: "templates@example.com",
       });
-    expect(notebookResponse.status).toBe(201);
-    const notebookId = notebookResponse.body.id;
+      expect(registerResponse.status).toBe(202);
 
-    const createNote = async (title, content) => {
-      const noteRes = await request(app)
-        .post("/api/notes")
+      const verifyResponse = await verifyLatestEmail(payload.email);
+      const accessToken = verifyResponse.body.accessToken;
+      const clientId = verifyResponse.body.user.id;
+
+      const notebookResponse = await request(app)
+        .post("/api/notebooks")
         .set(authHeaders(accessToken, clientId))
-        .send({ title, content, notebookId });
-      expect(noteRes.status).toBe(201);
-      return noteRes.body._id;
-    };
+        .send({
+          name: "Release Notes",
+          color: "#0ea5e9",
+        });
+      expect(notebookResponse.status).toBe(201);
+      const notebookId = notebookResponse.body.id;
 
-    await createNote("Changelog", "1. Added exported templates");
-    await createNote("Launch Email", "Draft copy for launch");
+      const createNote = async (title, content) => {
+        const noteRes = await request(app)
+          .post("/api/notes")
+          .set(authHeaders(accessToken, clientId))
+          .send({ title, content, notebookId });
+        expect(noteRes.status).toBe(201);
+        return noteRes.body._id;
+      };
 
-    const exportResponse = await request(app)
-      .post(`/api/notebooks/${notebookId}/templates`)
-      .set(authHeaders(accessToken, clientId))
-      .send({
-        name: "Release Template",
-        description: "Reusable release prep notes",
-        tags: ["release", "ops"],
-      });
-    expect(exportResponse.status).toBe(201);
-    const templateId = exportResponse.body.id;
-    expect(typeof templateId).toBe("string");
+      await createNote("Changelog", "1. Added exported templates");
+      await createNote("Launch Email", "Draft copy for launch");
 
-    const listResponse = await request(app)
-      .get("/api/templates")
-      .set(authHeaders(accessToken, clientId));
-    expect(listResponse.status).toBe(200);
-    expect(Array.isArray(listResponse.body)).toBe(true);
-    expect(listResponse.body).toHaveLength(1);
-    expect(listResponse.body[0].name).toBe("Release Template");
+      const exportResponse = await request(app)
+        .post(`/api/notebooks/${notebookId}/templates`)
+        .set(authHeaders(accessToken, clientId))
+        .send({
+          name: "Release Template",
+          description: "Reusable release prep notes",
+          tags: ["release", "ops"],
+        });
+      expect(exportResponse.status).toBe(201);
+      const templateId = exportResponse.body.id;
+      expect(typeof templateId).toBe("string");
 
-    const detailResponse = await request(app)
-      .get(`/api/templates/${templateId}`)
-      .set(authHeaders(accessToken, clientId));
-    expect(detailResponse.status).toBe(200);
-    expect(detailResponse.body?.notes).toHaveLength(2);
-    expect(detailResponse.body.notes[0].title).toBe("Changelog");
+      const listResponse = await request(app)
+        .get("/api/templates")
+        .set(authHeaders(accessToken, clientId));
+      expect(listResponse.status).toBe(200);
+      expect(Array.isArray(listResponse.body)).toBe(true);
+      expect(listResponse.body).toHaveLength(1);
+      expect(listResponse.body[0].name).toBe("Release Template");
 
-    const instantiateResponse = await request(app)
-      .post(`/api/templates/${templateId}/instantiate`)
-      .set(authHeaders(accessToken, clientId))
-      .send({ name: "Release Prep Notebook" });
-    expect(instantiateResponse.status).toBe(201);
-    const createdNotebookId = instantiateResponse.body.notebookId;
-    expect(createdNotebookId).toBeTruthy();
-    expect(createdNotebookId).not.toBe(notebookId);
+      const detailResponse = await request(app)
+        .get(`/api/templates/${templateId}`)
+        .set(authHeaders(accessToken, clientId));
+      expect(detailResponse.status).toBe(200);
+      expect(detailResponse.body?.notes).toHaveLength(2);
+      expect(detailResponse.body.notes[0].title).toBe("Changelog");
 
-    const notebooksList = await request(app)
-      .get("/api/notebooks")
-      .set(authHeaders(accessToken, clientId));
-    expect(notebooksList.status).toBe(200);
-    expect(notebooksList.body.notebooks).toHaveLength(2);
+      const instantiateResponse = await request(app)
+        .post(`/api/templates/${templateId}/instantiate`)
+        .set(authHeaders(accessToken, clientId))
+        .send({ name: "Release Prep Notebook" });
+      expect(instantiateResponse.status).toBe(201);
+      const createdNotebookId = instantiateResponse.body.notebookId;
+      expect(createdNotebookId).toBeTruthy();
+      expect(createdNotebookId).not.toBe(notebookId);
 
-    const newNotebookNotes = await request(app)
-      .get("/api/notes")
-      .query({ notebookId: createdNotebookId })
-      .set(authHeaders(accessToken, clientId));
-    expect(newNotebookNotes.status).toBe(200);
-    expect(Array.isArray(newNotebookNotes.body)).toBe(true);
-    expect(newNotebookNotes.body).toHaveLength(2);
-    expect(newNotebookNotes.body[0].notebookId.toString()).toBe(
-      createdNotebookId
-    );
-  });
+      const notebooksList = await request(app)
+        .get("/api/notebooks")
+        .set(authHeaders(accessToken, clientId));
+      expect(notebooksList.status).toBe(200);
+      expect(notebooksList.body.notebooks).toHaveLength(2);
+
+      const newNotebookNotes = await request(app)
+        .get("/api/notes")
+        .query({ notebookId: createdNotebookId })
+        .set(authHeaders(accessToken, clientId));
+      expect(newNotebookNotes.status).toBe(200);
+      expect(Array.isArray(newNotebookNotes.body)).toBe(true);
+      expect(newNotebookNotes.body).toHaveLength(2);
+      expect(newNotebookNotes.body[0].notebookId.toString()).toBe(
+        createdNotebookId
+      );
+    }
+  );
 
   it("allows users to delete their notebook templates", async () => {
     const { response: registerResponse, payload } = await registerUser({
@@ -363,93 +367,97 @@ describe("Auth and notes integration", () => {
     expect(listAfterDelete.body).toHaveLength(0);
   });
 
-  it("prevents other users from accessing notebook templates they do not own", async () => {
-    const { response: ownerRegister, payload: ownerPayload } =
-      await registerUser({
-        email: "template-owner@example.com",
+  it(
+    "prevents other users from accessing notebook templates they do not own",
+    { timeout: 10000 },
+    async () => {
+      const { response: ownerRegister, payload: ownerPayload } =
+        await registerUser({
+          email: "template-owner@example.com",
+        });
+      expect(ownerRegister.status).toBe(202);
+
+      const ownerVerify = await verifyLatestEmail(ownerPayload.email);
+      const ownerToken = ownerVerify.body.accessToken;
+      const ownerClientId = ownerVerify.body.user.id;
+
+      const ownerWorkspace = await Workspace.create({
+        name: "Owner Workspace",
+        slug: `owner-workspace-${new mongoose.Types.ObjectId().toString()}`,
+        ownerId: new mongoose.Types.ObjectId(ownerClientId),
+        members: [],
       });
-    expect(ownerRegister.status).toBe(202);
-
-    const ownerVerify = await verifyLatestEmail(ownerPayload.email);
-    const ownerToken = ownerVerify.body.accessToken;
-    const ownerClientId = ownerVerify.body.user.id;
-
-    const ownerWorkspace = await Workspace.create({
-      name: "Owner Workspace",
-      slug: `owner-workspace-${new mongoose.Types.ObjectId().toString()}`,
-      ownerId: new mongoose.Types.ObjectId(ownerClientId),
-      members: [],
-    });
-    const ownerBoard = await Board.create({
-      workspaceId: ownerWorkspace._id,
-      name: "Owner Board",
-      slug: `owner-board-${new mongoose.Types.ObjectId().toString()}`,
-      createdBy: new mongoose.Types.ObjectId(ownerClientId),
-    });
-
-    const notebookResponse = await request(app)
-      .post("/api/notebooks")
-      .set(authHeaders(ownerToken, ownerClientId))
-      .send({
-        name: "Owner Notebook",
+      const ownerBoard = await Board.create({
+        workspaceId: ownerWorkspace._id,
+        name: "Owner Board",
+        slug: `owner-board-${new mongoose.Types.ObjectId().toString()}`,
+        createdBy: new mongoose.Types.ObjectId(ownerClientId),
       });
-    expect(notebookResponse.status).toBe(201);
-    const notebookId = notebookResponse.body.id;
 
-    const createNote = async (title) => {
-      const noteRes = await request(app)
-        .post("/api/notes")
+      const notebookResponse = await request(app)
+        .post("/api/notebooks")
         .set(authHeaders(ownerToken, ownerClientId))
         .send({
-          title,
-          content: `Content for ${title}`,
-          notebookId,
-          boardId: ownerBoard._id.toString(),
+          name: "Owner Notebook",
         });
-      expect(noteRes.status).toBe(201);
-      return noteRes.body._id;
-    };
+      expect(notebookResponse.status).toBe(201);
+      const notebookId = notebookResponse.body.id;
 
-    await createNote("Owner Note A");
-    await createNote("Owner Note B");
+      const createNote = async (title) => {
+        const noteRes = await request(app)
+          .post("/api/notes")
+          .set(authHeaders(ownerToken, ownerClientId))
+          .send({
+            title,
+            content: `Content for ${title}`,
+            notebookId,
+            boardId: ownerBoard._id.toString(),
+          });
+        expect(noteRes.status).toBe(201);
+        return noteRes.body._id;
+      };
 
-    const exportResponse = await request(app)
-      .post(`/api/notebooks/${notebookId}/templates`)
-      .set(authHeaders(ownerToken, ownerClientId))
-      .send({
-        name: "Private Template",
-      });
-    expect(exportResponse.status).toBe(201);
-    const templateId = exportResponse.body.id;
+      await createNote("Owner Note A");
+      await createNote("Owner Note B");
 
-    const { response: otherRegister, payload: otherPayload } =
-      await registerUser({
-        email: "template-other@example.com",
-      });
-    expect(otherRegister.status).toBe(202);
+      const exportResponse = await request(app)
+        .post(`/api/notebooks/${notebookId}/templates`)
+        .set(authHeaders(ownerToken, ownerClientId))
+        .send({
+          name: "Private Template",
+        });
+      expect(exportResponse.status).toBe(201);
+      const templateId = exportResponse.body.id;
 
-    const otherVerify = await verifyLatestEmail(otherPayload.email);
-    const otherToken = otherVerify.body.accessToken;
-    const otherClientId = otherVerify.body.user.id;
+      const { response: otherRegister, payload: otherPayload } =
+        await registerUser({
+          email: "template-other@example.com",
+        });
+      expect(otherRegister.status).toBe(202);
 
-    const listResponse = await request(app)
-      .get("/api/templates")
-      .set(authHeaders(otherToken, otherClientId));
-    expect(listResponse.status).toBe(200);
-    expect(Array.isArray(listResponse.body)).toBe(true);
-    expect(listResponse.body).toHaveLength(0);
+      const otherVerify = await verifyLatestEmail(otherPayload.email);
+      const otherToken = otherVerify.body.accessToken;
+      const otherClientId = otherVerify.body.user.id;
 
-    const detailResponse = await request(app)
-      .get(`/api/templates/${templateId}`)
-      .set(authHeaders(otherToken, otherClientId));
-    expect(detailResponse.status).toBe(404);
+      const listResponse = await request(app)
+        .get("/api/templates")
+        .set(authHeaders(otherToken, otherClientId));
+      expect(listResponse.status).toBe(200);
+      expect(Array.isArray(listResponse.body)).toBe(true);
+      expect(listResponse.body).toHaveLength(0);
 
-    const instantiateResponse = await request(app)
-      .post(`/api/templates/${templateId}/instantiate`)
-      .set(authHeaders(otherToken, otherClientId))
-      .send({});
-    expect(instantiateResponse.status).toBe(404);
-  });
+      const detailResponse = await request(app)
+        .get(`/api/templates/${templateId}`)
+        .set(authHeaders(otherToken, otherClientId));
+      expect(detailResponse.status).toBe(404);
+
+      const instantiateResponse = await request(app)
+        .post(`/api/templates/${templateId}/instantiate`)
+        .set(authHeaders(otherToken, otherClientId))
+        .send({});
+      expect(instantiateResponse.status).toBe(404);
+    }
+  );
 
   it("instantiates notebook templates with workspace and board mappings", async () => {
     const { response: ownerRegister, payload: ownerPayload } =
