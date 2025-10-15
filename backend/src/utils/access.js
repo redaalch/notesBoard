@@ -116,6 +116,31 @@ export const getNotebookMembership = async (notebookId, userId) => {
   return { notebook, membership: record };
 };
 
+export const resolveNotebookMembership = async (notebookId, userId) => {
+  const context = await getNotebookMembership(notebookId, userId);
+  if (!context) {
+    return null;
+  }
+
+  const workspaceId = context.notebook?.workspaceId
+    ? context.notebook.workspaceId.toString()
+    : null;
+  const isOwner = String(context.notebook.owner) === String(userId);
+  const membershipRole = context.membership?.role ?? (isOwner ? "owner" : null);
+
+  const viewerContext = {
+    notebookId: context.notebook._id.toString(),
+    workspaceId,
+    allowedWorkspaceIds: workspaceId ? [workspaceId] : [],
+    membershipRole,
+  };
+
+  return {
+    ...context,
+    viewerContext,
+  };
+};
+
 export const ensureNotebookAccess = async (notebookId, userId) => {
   const context = await getNotebookMembership(notebookId, userId);
   if (!context) {
