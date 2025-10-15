@@ -1,117 +1,131 @@
-import mongoose from "mongoose";
-
 import Note from "../models/Note.js";
 import NoteHistory from "../models/NoteHistory.js";
-import NotebookMember from "../models/NotebookMember.js";
-import NoteCollaborator from "../models/NoteCollaborator.js";
 import cacheService from "./cacheService.js";
+import {
+  resolveCacheTtl,
+  clone,
+  withMemo,
+  fetchSnapshotsInRange,
+  analyzeSnapshots,
+} from "./analyticsService.js";
+import {
+  DEFAULT_RANGE,
+  RANGE_TO_DAYS,
+  addUtcDays,
+  buildNotebookMatch,
+  formatDateKey,
+  isoWeekKey,
+  normalizeRange,
+  startOfUtcDay,
+} from "./notebookAnalyticsShared.js";
+import {
+  resolveNotebookCollaborators,
+  resolveNoteCollaborators,
+} from "./notebookAnalyticsSnapshotService.js";
 
-const { ObjectId } = mongoose.Types;
+const TAG_LIMIT = 20;
 
-const RANGE_TO_DAYS = {
-  "7d": 7,
-  "30d": 30,
-  "90d": 90,
-  "365d": 365,
-};
+const buildDailySeriesLive = async ({
+  notebookId,
+  startDate,
+  endExclusive,
+  viewerContext,
+  memo,
+}) =>
+  withMemo(
+    memo,
+    `live-series:${notebookId}:${startDate.toISOString()}:${endExclusive.toISOString()}`,
+    async () => {
+      const match = buildNotebookMatch({ notebookId, viewerContext });
+      match.createdAt = { $gte: startDate, $lt: endExclusive };
 
-const DEFAULT_RANGE = "30d";
-
-const resolveCacheTtl = () => {
-  const parsed = Number.parseInt(
-    process.env.NOTEBOOK_ANALYTICS_CACHE_TTL ?? "90",
-    10
-  );
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-};
-
-const clone = (value) => {
-  if (value === undefined || value === null) return value;
-  if (typeof structuredClone === "function") {
-    return structuredClone(value);
-  }
-  return JSON.parse(JSON.stringify(value));
-};
-
-const toObjectId = (value) =>
-  value instanceof ObjectId ? value : new ObjectId(String(value));
-
-const normalizeRange = (range) => {
-  const key = typeof range === "string" ? range.toLowerCase() : DEFAULT_RANGE;
-  const days = RANGE_TO_DAYS[key] ?? RANGE_TO_DAYS[DEFAULT_RANGE];
-  return { key: RANGE_TO_DAYS[key] ? key : DEFAULT_RANGE, days };
-};
-
-const startOfUtcDay = (date) => {
-  const utc = new Date(date);
-  utc.setUTCHours(0, 0, 0, 0);
-  return utc;
-};
-
-const formatDateKey = (date) => {
-  const utc = new Date(date);
-  utc.setUTCHours(0, 0, 0, 0);
-  return utc.toISOString().slice(0, 10);
-};
-
-const addUtcDays = (date, days) => {
-  const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
-};
-
-const isoWeekKey = (dateLike) => {
-  const date = new Date(dateLike);
-  const target = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
-  );
-  const day = target.getUTCDay() || 7;
-  target.setUTCDate(target.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
-  const weekNumber = Math.ceil(((target - yearStart) / 86400000 + 1) / 7);
-  return `${target.getUTCFullYear()}-W${String(weekNumber).padStart(2, "0")}`;
-};
-
-const buildDailySeries = async (notebookId, startDate, endExclusive) => {
-  const pipeline = [
-    {
-      $match: {
-        notebookId: toObjectId(notebookId),
-        createdAt: { $gte: startDate, $lt: endExclusive },
-      },
-    },
-    {
-      $group: {
-        _id: {
-          $dateToString: {
-            format: "%Y-%m-%d",
-            date: "$createdAt",
+      const pipeline = [
+        { $match: match },
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: "%Y-%m-%d",
+                date: "$createdAt",
+              },
+            },
+            count: { $sum: 1 },
           },
         },
-        count: { $sum: 1 },
-      },
-    },
-    { $sort: { _id: 1 } },
-  ];
+        { $sort: { _id: 1 } },
+      ];
 
-  const raw = await Note.aggregate(pipeline);
-
-  const dayMap = new Map();
-  const cursor = new Date(startDate);
-  const lastDay = addUtcDays(endExclusive, -1);
-
-  while (cursor <= lastDay) {
-    dayMap.set(formatDateKey(cursor), 0);
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-
-  raw.forEach((entry) => {
-    if (dayMap.has(entry._id)) {
-      dayMap.set(entry._id, entry.count);
+      const raw = await Note.aggregate(pipeline);
+      return raw.reduce((map, entry) => {
+        map.set(entry._id, entry.count);
+        return map;
+      }, new Map());
     }
+  );
+
+const ensureDailySeries = async ({
+  notebookId,
+  startDate,
+  endExclusive,
+  viewerContext,
+  memo,
+}) => {
+  const snapshots = await fetchSnapshotsInRange({
+    notebookId,
+    startDate,
+    endExclusive,
+    memo,
   });
 
-  return Array.from(dayMap.entries()).map(([date, count]) => ({ date, count }));
+  const snapshotAnalysis = analyzeSnapshots(snapshots, startDate, endExclusive);
+
+  const needsLiveFallback =
+    !snapshotAnalysis.snapshotCount || snapshotAnalysis.missingDates.length > 0;
+
+  let liveCounts = null;
+  if (needsLiveFallback) {
+    liveCounts = await buildDailySeriesLive({
+      notebookId,
+      startDate,
+      endExclusive,
+      viewerContext,
+      memo,
+    });
+
+    snapshotAnalysis.dayCounts.forEach((count, dateKey) => {
+      if (count > 0) return;
+      const liveValue = liveCounts.get(dateKey) ?? 0;
+      snapshotAnalysis.dayCounts.set(dateKey, liveValue);
+    });
+
+    if (!snapshotAnalysis.snapshotCount) {
+      snapshotAnalysis.notesTotal = Array.from(
+        snapshotAnalysis.dayCounts.values()
+      ).reduce((acc, value) => acc + value, 0);
+    } else {
+      snapshotAnalysis.notesTotal += Array.from(
+        snapshotAnalysis.missingDates
+      ).reduce((acc, dateKey) => acc + (liveCounts.get(dateKey) ?? 0), 0);
+    }
+  }
+
+  const dailySeries = [];
+  let cursor = new Date(startDate);
+  let totalNotes = 0;
+  while (cursor < endExclusive) {
+    const key = formatDateKey(cursor);
+    const count = snapshotAnalysis.dayCounts.get(key) ?? 0;
+    dailySeries.push({ date: key, count });
+    totalNotes += count;
+    cursor = addUtcDays(cursor, 1);
+  }
+
+  return {
+    dailySeries,
+    totalNotes,
+    snapshotAnalysis,
+    liveCounts,
+  };
 };
 
 const buildWeeklySeries = (dailySeries) => {
@@ -131,136 +145,105 @@ const buildWeeklySeries = (dailySeries) => {
   }));
 };
 
-const resolveLastActivity = async (notebookId) => {
-  const pipeline = [
-    { $match: { notebookId: toObjectId(notebookId) } },
-    {
-      $lookup: {
-        from: NoteHistory.collection.name,
-        localField: "_id",
-        foreignField: "noteId",
-        as: "history",
+const resolveLastActivity = async (notebookId, viewerContext, memo) =>
+  withMemo(memo, `last-activity:${notebookId}`, async () => {
+    const match = buildNotebookMatch({ notebookId, viewerContext });
+
+    const pipeline = [
+      { $match: match },
+      {
+        $lookup: {
+          from: NoteHistory.collection.name,
+          localField: "_id",
+          foreignField: "noteId",
+          as: "history",
+        },
       },
-    },
-    { $unwind: "$history" },
-    {
-      $group: {
-        _id: null,
-        lastActivity: { $max: "$history.updatedAt" },
+      { $unwind: "$history" },
+      {
+        $group: {
+          _id: null,
+          lastActivity: { $max: "$history.updatedAt" },
+        },
       },
-    },
-    { $project: { _id: 0, lastActivity: 1 } },
-  ];
+      { $project: { _id: 0, lastActivity: 1 } },
+    ];
 
-  const [result] = await Note.aggregate(pipeline, { allowDiskUse: true });
-  if (result?.lastActivity) {
-    return result.lastActivity;
-  }
-
-  const fallback = await Note.findOne({
-    notebookId: toObjectId(notebookId),
-  })
-    .sort({ updatedAt: -1 })
-    .select({ updatedAt: 1 })
-    .lean();
-
-  return fallback?.updatedAt ?? null;
-};
-
-const resolveTagLeaderboard = async (notebookId, startDate) => {
-  const pipeline = [
-    {
-      $match: {
-        notebookId: toObjectId(notebookId),
-        createdAt: { $gte: startDate },
-        tags: { $exists: true, $ne: [] },
-      },
-    },
-    { $unwind: "$tags" },
-    {
-      $group: {
-        _id: "$tags",
-        count: { $sum: 1 },
-      },
-    },
-    { $sort: { count: -1, _id: 1 } },
-    { $limit: 20 },
-  ];
-
-  const leaderboard = await Note.aggregate(pipeline);
-  return leaderboard.map((entry) => ({ tag: entry._id, count: entry.count }));
-};
-
-const resolveNotebookCollaborators = async (notebookId, ownerId) => {
-  const notebookObjectId = toObjectId(notebookId);
-  const activeMembers = await NotebookMember.aggregate([
-    {
-      $match: {
-        notebookId: notebookObjectId,
-        status: "active",
-      },
-    },
-    {
-      $group: {
-        _id: "$role",
-        count: { $sum: 1 },
-      },
-    },
-  ]);
-
-  const roleCounts = activeMembers.reduce((acc, entry) => {
-    acc[entry._id] = entry.count;
-    return acc;
-  }, {});
-
-  if (ownerId) {
-    const ownerObjectId = toObjectId(ownerId);
-    const ownerAlreadyTracked = await NotebookMember.exists({
-      notebookId: notebookObjectId,
-      userId: ownerObjectId,
-      status: "active",
-    });
-    if (!ownerAlreadyTracked) {
-      roleCounts.owner = (roleCounts.owner ?? 0) + 1;
+    const [result] = await Note.aggregate(pipeline, { allowDiskUse: true });
+    if (result?.lastActivity) {
+      return result.lastActivity;
     }
+
+    const fallback = await Note.findOne(match)
+      .sort({ updatedAt: -1 })
+      .select({ updatedAt: 1 })
+      .lean();
+
+    return fallback?.updatedAt ?? null;
+  });
+
+const resolveTagLeaderboard = async ({
+  notebookId,
+  startDate,
+  endExclusive,
+  viewerContext,
+  memo,
+}) =>
+  withMemo(
+    memo,
+    `tags:${notebookId}:${startDate.toISOString()}:${endExclusive.toISOString()}`,
+    async () => {
+      const match = buildNotebookMatch({ notebookId, viewerContext });
+      match.createdAt = { $gte: startDate, $lt: endExclusive };
+      match.tags = { $exists: true, $ne: [] };
+
+      const pipeline = [
+        { $match: match },
+        { $unwind: "$tags" },
+        {
+          $group: {
+            _id: "$tags",
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { count: -1, _id: 1 } },
+        { $limit: TAG_LIMIT },
+      ];
+
+      const leaderboard = await Note.aggregate(pipeline);
+      return leaderboard.map((entry) => ({
+        tag: entry._id,
+        count: entry.count,
+      }));
+    }
+  );
+
+const computeTopTags = async ({
+  snapshotAnalysis,
+  notebookId,
+  startDate,
+  endExclusive,
+  viewerContext,
+  memo,
+}) => {
+  if (
+    snapshotAnalysis.snapshotCount &&
+    snapshotAnalysis.missingDates.length === 0
+  ) {
+    const entries = Array.from(snapshotAnalysis.tagTotals.entries())
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
+      .slice(0, TAG_LIMIT);
+    return entries;
   }
 
-  if (ownerId && roleCounts.owner === undefined) {
-    roleCounts.owner = (roleCounts.owner ?? 0) + 1;
-  }
-
-  return roleCounts;
-};
-
-const resolveNoteCollaborators = async (notebookId) => {
-  const pipeline = [
-    {
-      $lookup: {
-        from: Note.collection.name,
-        localField: "noteId",
-        foreignField: "_id",
-        as: "note",
-      },
-    },
-    { $unwind: "$note" },
-    {
-      $match: {
-        "note.notebookId": toObjectId(notebookId),
-      },
-    },
-    {
-      $group: {
-        _id: "$role",
-        count: { $sum: 1 },
-      },
-    },
-  ];
-
-  const collaborators = await NoteCollaborator.aggregate(pipeline);
-  return collaborators.reduce((acc, entry) => {
-    acc[entry._id] = entry.count;
-    return acc;
-  }, {});
+  return resolveTagLeaderboard({
+    notebookId,
+    startDate,
+    endExclusive,
+    viewerContext,
+    memo,
+  });
 };
 
 const cacheKey = (notebookId, rangeKey) =>
@@ -270,6 +253,8 @@ export const getNotebookAnalyticsOverview = async ({
   notebookId,
   range,
   ownerId,
+  viewerContext,
+  memo,
 }) => {
   const cacheTtl = resolveCacheTtl();
   const { key: rangeKey, days } = normalizeRange(range);
@@ -290,17 +275,31 @@ export const getNotebookAnalyticsOverview = async ({
     }
   }
 
-  const [dailySeries, lastActivity, topTags, notebookRoles, noteRoles] =
-    await Promise.all([
-      buildDailySeries(notebookId, startDate, endExclusive),
-      resolveLastActivity(notebookId),
-      resolveTagLeaderboard(notebookId, startDate),
-      resolveNotebookCollaborators(notebookId, ownerId),
-      resolveNoteCollaborators(notebookId),
-    ]);
+  const { dailySeries, totalNotes, snapshotAnalysis } = await ensureDailySeries(
+    {
+      notebookId,
+      startDate,
+      endExclusive,
+      viewerContext,
+      memo,
+    }
+  );
 
   const weeklySeries = buildWeeklySeries(dailySeries);
-  const totalNotes = dailySeries.reduce((acc, day) => acc + day.count, 0);
+
+  const [lastActivity, topTags, notebookRoles, noteRoles] = await Promise.all([
+    resolveLastActivity(notebookId, viewerContext, memo),
+    computeTopTags({
+      snapshotAnalysis,
+      notebookId,
+      startDate,
+      endExclusive,
+      viewerContext,
+      memo,
+    }),
+    resolveNotebookCollaborators(notebookId, ownerId),
+    resolveNoteCollaborators(notebookId, viewerContext),
+  ]);
 
   const response = {
     notebookId: notebookId.toString(),
@@ -328,6 +327,10 @@ export const getNotebookAnalyticsOverview = async ({
     meta: {
       generatedAt: new Date().toISOString(),
       cache: { hit: false, ttlSeconds: cacheTtl },
+      snapshots: {
+        total: snapshotAnalysis.snapshotCount,
+        missingDays: snapshotAnalysis.missingDates.length,
+      },
     },
   };
 
