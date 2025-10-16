@@ -1,15 +1,19 @@
 import mongoose from "mongoose";
+import {
+  NOTEBOOK_ANALYTICS_DEFAULT_RANGE,
+  NOTEBOOK_ANALYTICS_RANGE_METADATA,
+} from "../../../shared/analyticsTypes.js";
 
 const { ObjectId } = mongoose.Types;
 
-export const RANGE_TO_DAYS = {
-  "7d": 7,
-  "30d": 30,
-  "90d": 90,
-  "365d": 365,
-};
+export const RANGE_TO_DAYS = Object.entries(
+  NOTEBOOK_ANALYTICS_RANGE_METADATA
+).reduce((map, [key, meta]) => {
+  map[key] = meta.days;
+  return map;
+}, {});
 
-export const DEFAULT_RANGE = "30d";
+export const DEFAULT_RANGE = NOTEBOOK_ANALYTICS_DEFAULT_RANGE ?? "30d";
 
 export const toObjectId = (value) =>
   value instanceof ObjectId ? value : new ObjectId(String(value));
