@@ -29,6 +29,7 @@ const logAt = (level) => (message, meta) => {
 };
 
 const logger = {
+  debug: logAt("debug"),
   info: logAt("info"),
   warn: logAt("warn"),
   error: logAt("error"),
