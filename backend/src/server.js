@@ -10,6 +10,10 @@ import {
   scheduleNotebookSnapshotJob,
   stopNotebookSnapshotJob,
 } from "./tasks/analyticsSnapshotScheduler.js";
+import {
+  initializeNotebookIndexingWorker,
+  stopNotebookIndexingWorker,
+} from "./tasks/notebookIndexingWorker.js";
 
 const PORT = process.env.PORT || 5001;
 
@@ -21,6 +25,7 @@ const gracefulShutdown = async (signal) => {
 
   try {
     stopNotebookSnapshotJob();
+    await stopNotebookIndexingWorker();
     // Close database connection
     await dbManager.disconnect();
     logger.info("Database connection closed");
@@ -59,6 +64,7 @@ const start = async () => {
     await startCollabServer({ server: httpServer });
 
     scheduleNotebookSnapshotJob();
+    initializeNotebookIndexingWorker();
 
     // Setup graceful shutdown handlers
     process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
