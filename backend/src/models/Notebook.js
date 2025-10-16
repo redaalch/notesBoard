@@ -30,6 +30,26 @@ const notebookSchema = new mongoose.Schema(
       trim: true,
       maxlength: 500,
     },
+    isPublic: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    publicSlug: {
+      type: String,
+      default: null,
+      maxlength: 64,
+      unique: true,
+      sparse: true,
+    },
+    publishedAt: {
+      type: Date,
+      default: null,
+    },
+    publicMetadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
     color: {
       type: String,
       default: null,
@@ -51,11 +71,27 @@ const notebookSchema = new mongoose.Schema(
       ],
       default: [],
     },
+    offlineRevision: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    offlineSnapshotHash: {
+      type: String,
+      default: null,
+      maxlength: 128,
+    },
+    offlineSnapshotUpdatedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
 
 notebookSchema.index({ owner: 1, name: 1 }, { unique: true });
+notebookSchema.index({ isPublic: 1, publicSlug: 1 });
+notebookSchema.index({ owner: 1, offlineRevision: -1 });
 
 const Notebook = mongoose.model("Notebook", notebookSchema);
 
