@@ -47,10 +47,7 @@ const notebookPublicationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-notebookPublicationSchema.index(
-  { publicSlug: 1 },
-  { unique: true }
-);
+notebookPublicationSchema.index({ publicSlug: 1 }, { unique: true });
 notebookPublicationSchema.index({ ownerId: 1, updatedAt: -1 });
 
 const NotebookPublication = mongoose.model(
