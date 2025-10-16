@@ -10,6 +10,8 @@
     "bootstrap-owner": "node src/scripts/bootstrapOwner.js",
     "backfill-notebook-members": "node src/scripts/backfillNotebookMembers.js",
     "analytics-snapshots": "node src/scripts/generateNotebookAnalyticsSnapshots.js",
+    "seed-analytics-fixtures": "node src/scripts/seedNotebookAnalyticsFixtures.js",
+    "test:analytics": "vitest run tests/notebook.analytics.*.test.js",
     "collab": "node src/collab/server.js"
   },
   "keywords": [],
