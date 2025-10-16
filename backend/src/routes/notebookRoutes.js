@@ -2,13 +2,17 @@ import express from "express";
 import auth from "../middleware/auth.js";
 import rateLimiter from "../middleware/rateLimiter.js";
 import { validate, validationRules } from "../middleware/validation.js";
-import { body } from "express-validator";
+import { body, query } from "express-validator";
 import {
   listNotebooks,
   createNotebook,
   updateNotebook,
   deleteNotebook,
   moveNotesToNotebook,
+  getNotebookRecommendations,
+  getSmartNotebook,
+  getNotebookHistory,
+  undoNotebookHistoryEvent,
 } from "../controllers/notebooksController.js";
 import { exportNotebookTemplate } from "../controllers/notebookTemplatesController.js";
 import {
@@ -39,6 +43,33 @@ const router = express.Router();
 // Authentication and rate limiting for all routes
 router.use(auth);
 router.use(rateLimiter);
+
+router.get(
+  "/recommendations",
+  validate([
+    query("noteId")
+      .isMongoId()
+      .withMessage("noteId query parameter must be a valid id"),
+    query("limit")
+      .optional()
+      .isInt({ min: 1, max: 20 })
+      .withMessage("limit must be between 1 and 20"),
+  ]),
+  getNotebookRecommendations
+);
+
+router.get(
+  "/smart",
+  validate([
+    query("tag").optional().isString().trim().isLength({ max: 64 }),
+    query("search").optional().isString().trim().isLength({ max: 120 }),
+    query("limit")
+      .optional()
+      .isInt({ min: 1, max: 60 })
+      .withMessage("limit must be between 1 and 60"),
+  ]),
+  getSmartNotebook
+);
 
 // List all notebooks
 router.get("/", listNotebooks);
@@ -240,6 +271,29 @@ router.post(
     body("noteIds.*").isMongoId().withMessage("Each noteId must be valid"),
   ]),
   moveNotesToNotebook
+);
+
+router.get(
+  "/:id/history",
+  validate([
+    validationRules.objectId("id"),
+    query("limit")
+      .optional()
+      .isInt({ min: 1, max: 200 })
+      .withMessage("limit must be between 1 and 200"),
+  ]),
+  getNotebookHistory
+);
+
+router.post(
+  "/:id/history/undo",
+  validate([
+    validationRules.objectId("id"),
+    body("eventId")
+      .isMongoId()
+      .withMessage("eventId must be a valid MongoDB ObjectId"),
+  ]),
+  undoNotebookHistoryEvent
 );
 
 export default router;
