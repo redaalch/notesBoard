@@ -12,15 +12,22 @@ import {
   UsersIcon,
   XIcon,
 } from "lucide-react";
+import {
+  NOTEBOOK_ANALYTICS_DEFAULT_RANGE,
+  NOTEBOOK_ANALYTICS_RANGE_OPTIONS,
+} from "@shared/analyticsTypes.js";
 import api from "../lib/axios.js";
-import { formatDate, formatRelativeTime, formatTagLabel } from "../lib/Utils.js";
+import {
+  formatDate,
+  formatRelativeTime,
+  formatTagLabel,
+} from "../lib/Utils.js";
 import Sparkline from "./Sparkline.jsx";
 
-const RANGE_OPTIONS = [
-  { value: "7d", label: "Last 7 days" },
-  { value: "30d", label: "Last 30 days" },
-  { value: "90d", label: "Last 90 days" },
-];
+/**
+ * @typedef {import("@shared/analyticsTypes.js").NotebookAnalyticsOverview} NotebookAnalyticsOverview
+ * @typedef {import("@shared/analyticsTypes.js").NotebookAnalyticsChartResponse} NotebookAnalyticsChartResponse
+ */
 
 const TABS = [
   { id: "overview", label: "Overview", icon: ActivityIcon },
@@ -42,12 +49,7 @@ const fetchNotebookAnalytics = async ({ notebookId, range, slice }) => {
 
 const useNotebookAnalyticsQuery = ({ notebookId, range, slice, enabled }) =>
   useQuery({
-    queryKey: [
-      "notebook-analytics",
-      slice ?? "overview",
-      notebookId,
-      range,
-    ],
+    queryKey: ["notebook-analytics", slice ?? "overview", notebookId, range],
     enabled: Boolean(enabled && notebookId && range),
     queryFn: () => fetchNotebookAnalytics({ notebookId, range, slice }),
     staleTime: 60_000,
@@ -92,12 +94,12 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
   const notebookName = notebook?.name ?? "Notebook";
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("overview");
-  const [range, setRange] = useState("30d");
+  const [range, setRange] = useState(NOTEBOOK_ANALYTICS_DEFAULT_RANGE);
 
   useEffect(() => {
     if (!open) {
       setActiveTab("overview");
-      setRange("30d");
+      setRange(NOTEBOOK_ANALYTICS_DEFAULT_RANGE);
     }
   }, [open]);
 
@@ -151,14 +153,7 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
         staleTime: 60_000,
       });
     });
-  }, [
-    open,
-    notebookId,
-    queryClient,
-    overviewQuery.data,
-    range,
-    activeTab,
-  ]);
+  }, [open, notebookId, queryClient, overviewQuery.data, range, activeTab]);
 
   const cacheMeta = overviewQuery.data?.meta?.cache ?? null;
   const generatedAt = overviewQuery.data?.meta?.generatedAt ?? null;
@@ -187,10 +182,7 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
     if (overviewQuery.isError) {
       const message = overviewQuery.error?.response?.data?.message;
       return (
-        <ErrorState
-          message={message}
-          onRetry={() => overviewQuery.refetch()}
-        />
+        <ErrorState message={message} onRetry={() => overviewQuery.refetch()} />
       );
     }
 
@@ -238,10 +230,7 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
               {totalNotesCreated}
             </div>
             <div className="mt-4 h-20">
-              <Sparkline
-                data={notesDaily}
-                ariaLabel="Daily notes created"
-              />
+              <Sparkline data={notesDaily} ariaLabel="Daily notes created" />
             </div>
           </div>
           <div className="rounded-2xl border border-base-300/60 bg-base-100 p-5 shadow-sm">
@@ -275,9 +264,7 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
             <div className="mt-4 rounded-xl bg-base-200/70 px-4 py-3 text-xs text-base-content/60">
               Snapshot coverage: {coverageDisplay}
               {data.meta?.snapshots?.liveFallbackApplied ? (
-                <span className="ml-2 text-warning">
-                  (Live fallback used)
-                </span>
+                <span className="ml-2 text-warning">(Live fallback used)</span>
               ) : null}
             </div>
           </div>
@@ -292,7 +279,10 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
             {topTags.length ? (
               <ul className="mt-4 space-y-3">
                 {topTags.map((entry) => (
-                  <li key={entry.tag} className="flex items-center justify-between text-sm">
+                  <li
+                    key={entry.tag}
+                    className="flex items-center justify-between text-sm"
+                  >
                     <span className="font-medium text-base-content">
                       {formatTagLabel(entry.tag)}
                     </span>
@@ -322,7 +312,10 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
                 {Object.keys(notebookRoles).length ? (
                   <ul className="mt-2 space-y-1.5">
                     {Object.entries(notebookRoles).map(([role, count]) => (
-                      <li key={role} className="flex items-center justify-between">
+                      <li
+                        key={role}
+                        className="flex items-center justify-between"
+                      >
                         <span className="capitalize text-base-content">
                           {role}
                         </span>
@@ -345,7 +338,10 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
                 {Object.keys(noteCollaborators).length ? (
                   <ul className="mt-2 space-y-1.5">
                     {Object.entries(noteCollaborators).map(([role, count]) => (
-                      <li key={role} className="flex items-center justify-between">
+                      <li
+                        key={role}
+                        className="flex items-center justify-between"
+                      >
                         <span className="capitalize text-base-content">
                           {role}
                         </span>
@@ -376,10 +372,7 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
     if (activityQuery.isError) {
       const message = activityQuery.error?.response?.data?.message;
       return (
-        <ErrorState
-          message={message}
-          onRetry={() => activityQuery.refetch()}
-        />
+        <ErrorState message={message} onRetry={() => activityQuery.refetch()} />
       );
     }
 
@@ -413,22 +406,25 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
               Recent days
             </h4>
             <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {labels.slice(-9).reverse().map((label, index) => {
-                const value = series[labels.length - 1 - index] ?? 0;
-                return (
-                  <li
-                    key={label}
-                    className="rounded-xl border border-base-200/70 bg-base-200/50 px-4 py-3 text-sm"
-                  >
-                    <div className="text-xs uppercase text-base-content/60">
-                      {label}
-                    </div>
-                    <div className="text-lg font-semibold text-base-content">
-                      {value}
-                    </div>
-                  </li>
-                );
-              })}
+              {labels
+                .slice(-9)
+                .reverse()
+                .map((label, index) => {
+                  const value = series[labels.length - 1 - index] ?? 0;
+                  return (
+                    <li
+                      key={label}
+                      className="rounded-xl border border-base-200/70 bg-base-200/50 px-4 py-3 text-sm"
+                    >
+                      <div className="text-xs uppercase text-base-content/60">
+                        {label}
+                      </div>
+                      <div className="text-lg font-semibold text-base-content">
+                        {value}
+                      </div>
+                    </li>
+                  );
+                })}
             </ul>
           </div>
         ) : null}
@@ -586,13 +582,17 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
 
     const data = snapshotsQuery.data;
     if (!data || !data.labels?.length) {
-      return <EmptyState message="No snapshot history captured for this range." />;
+      return (
+        <EmptyState message="No snapshot history captured for this range." />
+      );
     }
 
-    const notes = data.series?.find((entry) => entry.label === "notesCreated")
-      ?.data;
-    const edits = data.series?.find((entry) => entry.label === "editsCount")
-      ?.data;
+    const notes = data.series?.find(
+      (entry) => entry.label === "notesCreated"
+    )?.data;
+    const edits = data.series?.find(
+      (entry) => entry.label === "editsCount"
+    )?.data;
     const uniqueEditors = data.series?.find(
       (entry) => entry.label === "uniqueEditors"
     )?.data;
@@ -609,9 +609,7 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
           </div>
           <div className="mt-4 grid gap-4 sm:grid-cols-3">
             <div>
-              <p className="text-xs uppercase text-base-content/60">
-                Coverage
-              </p>
+              <p className="text-xs uppercase text-base-content/60">Coverage</p>
               <p className="text-2xl font-semibold text-base-content">
                 {Math.round(snapshotCoverage * 100)}%
               </p>
@@ -636,9 +634,7 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
         </div>
 
         <div className="rounded-2xl border border-base-300/60 bg-base-100 p-5 shadow-sm">
-          <h4 className="text-sm font-semibold text-base-content">
-            Trends
-          </h4>
+          <h4 className="text-sm font-semibold text-base-content">Trends</h4>
           <div className="mt-4 grid gap-4 sm:grid-cols-3">
             <div className="h-28">
               <Sparkline
@@ -691,24 +687,28 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {details.slice(-10).reverse().map((entry) => (
-                    <tr key={entry.date}>
-                      <td>{entry.date}</td>
-                      <td>{entry.notesCreated ?? 0}</td>
-                      <td>{entry.editsCount ?? 0}</td>
-                      <td>{entry.uniqueEditors ?? 0}</td>
-                      <td className="max-w-xs">
-                        {entry.topTags?.length
-                          ? entry.topTags
-                              .slice(0, 3)
-                              .map(({ tag, count }) =>
-                                `${formatTagLabel(tag)} (${count})`
-                              )
-                              .join(", ")
-                          : "—"}
-                      </td>
-                    </tr>
-                  ))}
+                  {details
+                    .slice(-10)
+                    .reverse()
+                    .map((entry) => (
+                      <tr key={entry.date}>
+                        <td>{entry.date}</td>
+                        <td>{entry.notesCreated ?? 0}</td>
+                        <td>{entry.editsCount ?? 0}</td>
+                        <td>{entry.uniqueEditors ?? 0}</td>
+                        <td className="max-w-xs">
+                          {entry.topTags?.length
+                            ? entry.topTags
+                                .slice(0, 3)
+                                .map(
+                                  ({ tag, count }) =>
+                                    `${formatTagLabel(tag)} (${count})`
+                                )
+                                .join(", ")
+                            : "—"}
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
@@ -757,7 +757,7 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
             ) : null}
             {cacheMeta ? (
               <p className="text-xs text-base-content/50">
-                Cache {cacheMeta.hit ? "hit" : "miss"}; TTL {" "}
+                Cache {cacheMeta.hit ? "hit" : "miss"}; TTL{" "}
                 {cacheMeta.ttlSeconds ? `${cacheMeta.ttlSeconds}s` : "n/a"}
               </p>
             ) : null}
@@ -768,7 +768,7 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
               value={range}
               onChange={(event) => setRange(event.target.value)}
             >
-              {RANGE_OPTIONS.map((option) => (
+              {NOTEBOOK_ANALYTICS_RANGE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
