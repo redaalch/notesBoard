@@ -38,7 +38,9 @@ function Sparkline({
     })
     .join(" ");
 
-  const areaPoints = `${points} ${inset + usableWidth},${inset + usableHeight} ${inset},${inset + usableHeight}`;
+  const areaPoints = `${points} ${inset + usableWidth},${
+    inset + usableHeight
+  } ${inset},${inset + usableHeight}`;
   const lastValue = data[data.length - 1];
   const lastX = inset + ((data.length - 1) / denominator) * usableWidth;
   const lastRatio = lastValue / maxValue;

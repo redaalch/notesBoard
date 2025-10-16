@@ -94,8 +94,8 @@ const WorkspaceMembersCard = ({ workspaceId, canManage }) => {
   return (
     <div className="card border border-base-300/60 bg-base-100/90 shadow-lg rounded-2xl">
       <div className="card-body space-y-5">
-        <div className="flex items-center justify-between gap-2">
-          <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
             <h3 className="text-base font-bold text-secondary">
               Collaborators
             </h3>
@@ -103,7 +103,7 @@ const WorkspaceMembersCard = ({ workspaceId, canManage }) => {
               {`Workspace: ${workspaceName}`}
             </p>
           </div>
-          <span className="badge badge-outline text-xs px-3 py-1">
+          <span className="badge badge-outline text-xs px-3 py-1 self-start sm:self-auto">
             {members.length} member{members.length === 1 ? "" : "s"}
           </span>
         </div>
@@ -125,7 +125,7 @@ const WorkspaceMembersCard = ({ workspaceId, canManage }) => {
               {sortedMembers.map((member) => (
                 <li
                   key={member.id}
-                  className="flex items-center justify-between gap-3 px-4 py-3"
+                  className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div>
                     <p className="text-sm font-semibold text-base-content">
@@ -137,7 +137,7 @@ const WorkspaceMembersCard = ({ workspaceId, canManage }) => {
                       </p>
                     ) : null}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
                     {member.isOwner ? (
                       <span className="badge badge-sm badge-primary gap-1">
                         <ShieldCheckIcon className="size-3" /> Owner
