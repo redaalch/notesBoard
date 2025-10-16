@@ -1,4 +1,5 @@
 import { body, param, query, validationResult } from "express-validator";
+import { NOTEBOOK_ANALYTICS_RANGES } from "../../../shared/analyticsTypes.js";
 
 /**
  * Validation middleware creator
@@ -31,7 +32,7 @@ export const validate = (validations) => {
 /**
  * Common validation rules
  */
-const ANALYTICS_RANGE_VALUES = ["7d", "30d", "90d", "365d"];
+const ANALYTICS_RANGE_VALUES = [...NOTEBOOK_ANALYTICS_RANGES];
 
 export const validationRules = {
   // ID validations
