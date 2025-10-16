@@ -8,6 +8,7 @@ import NoteCollaborator from "../models/NoteCollaborator.js";
 import User from "../models/User.js";
 import logger from "../utils/logger.js";
 import { isValidObjectId } from "../utils/validators.js";
+import { enqueueNotebookIndexJob } from "../tasks/notebookIndexingWorker.js";
 import {
   resolveBoardForUser,
   resolveNoteForUser,
@@ -36,6 +37,21 @@ const NOTE_NOT_FOUND = {
 
 const EDIT_ROLES = new Set(["owner", "admin", "editor"]);
 const NOTEBOOK_WRITE_ROLES = new Set(["owner", "editor"]);
+
+const queueNotebookIndexSafely = async (notebookId, reason) => {
+  if (!notebookId) {
+    return;
+  }
+  try {
+    await enqueueNotebookIndexJob({ notebookId, reason });
+  } catch (error) {
+    logger.warn("Failed to enqueue notebook index job", {
+      notebookId: notebookId?.toString?.() ?? String(notebookId),
+      reason,
+      message: error?.message,
+    });
+  }
+};
 
 const MAX_TAGS_PER_NOTE = 8;
 
@@ -348,6 +364,10 @@ export const createNote = async (req, res) => {
     if (notebookObjectId) {
       await appendNotesToNotebookOrder(notebookObjectId, [savedNote._id]);
     }
+
+    if (notebookObjectId) {
+      await queueNotebookIndexSafely(notebookObjectId, "note-create");
+    }
     return res.status(201).json(savedNote);
   } catch (error) {
     logger.error("Error in createNote", { error: error?.message });
@@ -538,6 +558,17 @@ export const updateNote = async (req, res) => {
       }
     }
 
+    const indexTargets = new Set();
+    if (previousNotebookId) {
+      indexTargets.add(previousNotebookId.toString());
+    }
+    if (updatedNote.notebookId) {
+      indexTargets.add(updatedNote.notebookId.toString());
+    }
+    for (const target of indexTargets) {
+      await queueNotebookIndexSafely(target, "note-update");
+    }
+
     const refreshedAccess = await resolveNoteForUser(
       updatedNote._id,
       req.user.id
@@ -619,6 +650,7 @@ export const deleteNote = async (req, res) => {
       await removeNotesFromNotebookOrder(deletedNote.notebookId, [
         deletedNote._id,
       ]);
+      await queueNotebookIndexSafely(deletedNote.notebookId, "note-delete");
     }
 
     // 204 No Content is common; 200 is fine too.
@@ -912,6 +944,10 @@ export const bulkUpdateNotes = async (req, res) => {
         );
       }
 
+      for (const notebook of notebookRemovals) {
+        await queueNotebookIndexSafely(notebook, "bulk-delete");
+      }
+
       return res.status(200).json({
         action,
         deleted: result.deletedCount ?? 0,
@@ -928,6 +964,7 @@ export const bulkUpdateNotes = async (req, res) => {
       }
 
       let updatedCount = 0;
+      const updatedNotebookIds = new Set();
       for (const note of permittedNotes) {
         const existingTags = Array.isArray(note.tags) ? note.tags : [];
         const merged = Array.from(
@@ -942,6 +979,9 @@ export const bulkUpdateNotes = async (req, res) => {
         );
         if (result.modifiedCount) {
           updatedCount += 1;
+          if (note.notebookId) {
+            updatedNotebookIds.add(note.notebookId.toString());
+          }
           await NoteHistory.create({
             noteId: note._id,
             workspaceId: note.workspaceId ?? null,
@@ -954,6 +994,10 @@ export const bulkUpdateNotes = async (req, res) => {
       }
 
       await Promise.all(touchPromises);
+
+      for (const notebookId of updatedNotebookIds) {
+        await queueNotebookIndexSafely(notebookId, "bulk-add-tags");
+      }
 
       return res.status(200).json({
         action,
@@ -1052,6 +1096,15 @@ export const bulkUpdateNotes = async (req, res) => {
 
       if (targetNotebookId) {
         await appendNotesToNotebookOrder(targetNotebookId, noteObjectIds);
+      }
+
+      const indexTargets = new Set(previousNotebookIds);
+      if (targetNotebookId) {
+        indexTargets.add(targetNotebookId.toString());
+      }
+
+      for (const notebook of indexTargets) {
+        await queueNotebookIndexSafely(notebook, "bulk-move-notebook");
       }
 
       return res.status(200).json({
