@@ -8,12 +8,14 @@ import NotebookMember from "../models/NotebookMember.js";
 import ShareLink from "../models/ShareLink.js";
 import NotebookIndex from "../models/NotebookIndex.js";
 import NotebookEvent from "../models/NotebookEvent.js";
+import NotebookPublication from "../models/NotebookPublication.js";
 import {
   appendNotesToNotebookOrder,
   ensureNotebookOwnership,
   normalizeObjectId,
   removeNotesFromNotebookOrder,
 } from "../utils/notebooks.js";
+import SavedNotebookQuery from "../models/SavedNotebookQuery.js";
 import { resolveNoteForUser } from "../utils/access.js";
 import {
   isAllowedNotebookColor,
@@ -26,6 +28,13 @@ import { enqueueNotebookIndexJob } from "../tasks/notebookIndexingWorker.js";
 import { getNotebookRecommendations as computeNotebookRecommendations } from "../services/notebookRecommendationService.js";
 import { buildSmartNotebook } from "../services/notebookSmartService.js";
 import { applyUndoForNotebookEvent } from "../services/notebookUndoService.js";
+
+const TRANSACTION_UNSUPPORTED_MESSAGE =
+  "Transaction numbers are only allowed on a replica set member or mongos";
+
+const isTransactionUnsupported = (error) =>
+  typeof error?.message === "string" &&
+  error.message.includes(TRANSACTION_UNSUPPORTED_MESSAGE);
 
 const INTERNAL_SERVER_ERROR = { message: "Internal server error" };
 
@@ -63,6 +72,130 @@ const mapLikeToPlainObject = (value) => {
     return value;
   }
   return null;
+};
+
+const serializeDate = (value) =>
+  value instanceof Date
+    ? value.toISOString()
+    : value
+    ? new Date(value).toISOString()
+    : null;
+
+const serializeNotebookSnapshot = (notebookDoc) => {
+  if (!notebookDoc) {
+    return null;
+  }
+
+  return {
+    id: notebookDoc._id?.toString?.() ?? null,
+    owner: notebookDoc.owner?.toString?.() ?? null,
+    workspaceId: notebookDoc.workspaceId?.toString?.() ?? null,
+    name: notebookDoc.name ?? null,
+    description: notebookDoc.description ?? "",
+    color: notebookDoc.color ?? null,
+    icon: notebookDoc.icon ?? null,
+    isPublic: Boolean(notebookDoc.isPublic),
+    publicSlug: notebookDoc.publicSlug ?? null,
+    publicMetadata: mapLikeToPlainObject(notebookDoc.publicMetadata) ?? null,
+    publishedAt: serializeDate(notebookDoc.publishedAt),
+    noteOrder: Array.isArray(notebookDoc.noteOrder)
+      ? notebookDoc.noteOrder
+          .map((entry) => entry?.toString?.())
+          .filter(Boolean)
+      : [],
+    offlineRevision: notebookDoc.offlineRevision ?? 0,
+    offlineSnapshotHash: notebookDoc.offlineSnapshotHash ?? null,
+    offlineSnapshotUpdatedAt: serializeDate(
+      notebookDoc.offlineSnapshotUpdatedAt
+    ),
+    createdAt: serializeDate(notebookDoc.createdAt),
+    updatedAt: serializeDate(notebookDoc.updatedAt),
+  };
+};
+
+const serializeNoteSnapshot = (noteDoc) => {
+  if (!noteDoc) {
+    return null;
+  }
+
+  return {
+    id: noteDoc._id?.toString?.() ?? null,
+    owner: noteDoc.owner?.toString?.() ?? null,
+    workspaceId: noteDoc.workspaceId?.toString?.() ?? null,
+    boardId: noteDoc.boardId?.toString?.() ?? null,
+    title: noteDoc.title ?? "",
+    content: noteDoc.content ?? "",
+    contentText: noteDoc.contentText ?? noteDoc.content ?? "",
+    tags: Array.isArray(noteDoc.tags) ? [...noteDoc.tags] : [],
+    pinned: Boolean(noteDoc.pinned),
+    notebookId: noteDoc.notebookId?.toString?.() ?? null,
+    createdAt: serializeDate(noteDoc.createdAt),
+    updatedAt: serializeDate(noteDoc.updatedAt),
+    docName: noteDoc.docName ?? null,
+    richContent: noteDoc.richContent ?? null,
+  };
+};
+
+const serializeMemberSnapshot = (memberDoc) => {
+  if (!memberDoc) {
+    return null;
+  }
+
+  return {
+    id: memberDoc._id?.toString?.() ?? null,
+    notebookId: memberDoc.notebookId?.toString?.() ?? null,
+    userId: memberDoc.userId?.toString?.() ?? null,
+    role: memberDoc.role ?? "viewer",
+    status: memberDoc.status ?? "pending",
+    invitedBy: memberDoc.invitedBy?.toString?.() ?? null,
+    invitedAt: serializeDate(memberDoc.invitedAt),
+    inviteTokenHash: memberDoc.inviteTokenHash ?? null,
+    inviteExpiresAt: serializeDate(memberDoc.inviteExpiresAt),
+    acceptedAt: serializeDate(memberDoc.acceptedAt),
+    revokedAt: serializeDate(memberDoc.revokedAt),
+    revokedBy: memberDoc.revokedBy?.toString?.() ?? null,
+    lastNotifiedAt: serializeDate(memberDoc.lastNotifiedAt),
+    metadata: mapLikeToPlainObject(memberDoc.metadata) ?? {},
+    createdAt: serializeDate(memberDoc.createdAt),
+    updatedAt: serializeDate(memberDoc.updatedAt),
+  };
+};
+
+const serializeShareLinkSnapshot = (linkDoc) => {
+  if (!linkDoc) {
+    return null;
+  }
+
+  return {
+    id: linkDoc._id?.toString?.() ?? null,
+    resourceType: linkDoc.resourceType ?? "notebook",
+    notebookId: linkDoc.notebookId?.toString?.() ?? null,
+    boardId: linkDoc.boardId?.toString?.() ?? null,
+    tokenHash: linkDoc.tokenHash ?? null,
+    role: linkDoc.role ?? "viewer",
+    expiresAt: serializeDate(linkDoc.expiresAt),
+    createdBy: linkDoc.createdBy?.toString?.() ?? null,
+    revokedAt: serializeDate(linkDoc.revokedAt),
+    revokedBy: linkDoc.revokedBy?.toString?.() ?? null,
+    lastAccessedAt: serializeDate(linkDoc.lastAccessedAt),
+    metadata: mapLikeToPlainObject(linkDoc.metadata) ?? {},
+    createdAt: serializeDate(linkDoc.createdAt),
+    updatedAt: serializeDate(linkDoc.updatedAt),
+  };
+};
+
+const serializeCollabDocumentSnapshot = (doc) => {
+  if (!doc) {
+    return null;
+  }
+
+  return {
+    name: doc.name ?? null,
+    state: doc.state ? Buffer.from(doc.state).toString("base64") : null,
+    awareness: mapLikeToPlainObject(doc.awareness) ?? {},
+    createdAt: serializeDate(doc.createdAt),
+    updatedAt: serializeDate(doc.updatedAt),
+  };
 };
 
 const serializeNotebookEvent = (event) => {
@@ -174,91 +307,138 @@ export const createNotebook = async (req, res) => {
   const normalizedDescription =
     typeof description === "string" ? description.trim() : "";
 
-  const session = await mongoose.startSession();
+  let session = null;
+  try {
+    session = await mongoose.startSession();
+  } catch (sessionError) {
+    logger.warn(
+      "Failed to start mongoose session; continuing without transaction",
+      {
+        message: sessionError?.message,
+      }
+    );
+    session = null;
+  }
+
+  const runCreate = async (activeSession = null) => {
+    const createOptions = {};
+    if (activeSession) {
+      createOptions.session = activeSession;
+    }
+
+    const [notebook] = await Notebook.create(
+      [
+        {
+          owner: ownerId,
+          name: name.trim(),
+          color: normalizedColor,
+          icon: normalizedIcon,
+          description: normalizedDescription,
+        },
+      ],
+      createOptions
+    );
+
+    const notebookObject = notebook.toObject();
+
+    try {
+      const membershipOptions = {};
+      if (activeSession) {
+        membershipOptions.session = activeSession;
+      }
+      await NotebookMember.findOneAndUpdate(
+        {
+          notebookId: notebook._id,
+          userId: notebook.owner,
+        },
+        {
+          $setOnInsert: {
+            role: "owner",
+            status: "active",
+            invitedBy: notebook.owner,
+            invitedAt: notebook.createdAt ?? new Date(),
+            acceptedAt: notebook.createdAt ?? new Date(),
+          },
+        },
+        {
+          upsert: true,
+          new: true,
+          setDefaultsOnInsert: true,
+          ...membershipOptions,
+        }
+      );
+    } catch (membershipError) {
+      logger.error("Failed to seed notebook owner membership", {
+        message: membershipError?.message,
+        notebookId: notebook._id?.toString?.() ?? null,
+      });
+    }
+
+    const eventOptions = activeSession ? { session: activeSession } : {};
+
+    await appendNotebookEvent(
+      {
+        notebookId: notebook._id,
+        ownerId: notebook.owner,
+        workspaceId: notebook.workspaceId ?? null,
+        actorId: notebook.owner,
+        eventType: "notebook.create",
+        commandName: "createNotebook",
+        summary: `Created notebook ${notebook.name}`,
+        payload: {
+          name: notebook.name,
+          color: notebook.color,
+          icon: notebook.icon,
+          description: notebook.description,
+        },
+        inversePayload: {
+          action: "deleteNotebook",
+          notebookId: notebook._id,
+        },
+      },
+      eventOptions
+    );
+
+    return notebookObject;
+  };
+
   let notebookRecord = null;
 
   try {
-    await session.withTransaction(async () => {
-      const [notebook] = await Notebook.create(
-        [
-          {
-            owner: ownerId,
-            name: name.trim(),
-            color: normalizedColor,
-            icon: normalizedIcon,
-            description: normalizedDescription,
-          },
-        ],
-        { session }
-      );
-
-      notebookRecord = notebook.toObject();
-
+    if (session) {
       try {
-        await NotebookMember.findOneAndUpdate(
-          {
-            notebookId: notebook._id,
-            userId: notebook.owner,
-          },
-          {
-            $setOnInsert: {
-              role: "owner",
-              status: "active",
-              invitedBy: notebook.owner,
-              invitedAt: notebook.createdAt ?? new Date(),
-              acceptedAt: notebook.createdAt ?? new Date(),
-            },
-          },
-          {
-            upsert: true,
-            new: true,
-            setDefaultsOnInsert: true,
-            session,
-          }
-        );
-      } catch (membershipError) {
-        logger.error("Failed to seed notebook owner membership", {
-          message: membershipError?.message,
-          notebookId: notebook._id?.toString?.() ?? null,
+        await session.withTransaction(async () => {
+          notebookRecord = await runCreate(session);
         });
+      } catch (error) {
+        if (isTransactionUnsupported(error)) {
+          logger.warn(
+            "MongoDB deployment does not support transactions; retrying notebook create without session"
+          );
+          notebookRecord = await runCreate(null);
+        } else {
+          throw error;
+        }
       }
-
-      await appendNotebookEvent(
-        {
-          notebookId: notebook._id,
-          ownerId: notebook.owner,
-          workspaceId: notebook.workspaceId ?? null,
-          actorId: notebook.owner,
-          eventType: "notebook.create",
-          commandName: "createNotebook",
-          summary: `Created notebook ${notebook.name}`,
-          payload: {
-            name: notebook.name,
-            color: notebook.color,
-            icon: notebook.icon,
-            description: notebook.description,
-          },
-          inversePayload: {
-            action: "deleteNotebook",
-            notebookId: notebook._id,
-          },
-        },
-        { session }
-      );
-    });
+    } else {
+      notebookRecord = await runCreate(null);
+    }
   } catch (error) {
-    if (error?.code === 11000) {
+    if (session) {
       await session.endSession();
+    }
+    if (error?.code === 11000) {
       return res
         .status(409)
         .json({ message: "A notebook with this name already exists" });
     }
     logger.error("Failed to create notebook", { message: error?.message });
-    await session.endSession();
     return res.status(500).json(INTERNAL_SERVER_ERROR);
   }
 
-  await session.endSession();
+  if (session) {
+    await session.endSession();
+  }
 
   if (notebookRecord) {
     await queueNotebookIndexSafely(notebookRecord._id, "notebook-create", {
@@ -447,15 +627,39 @@ export const deleteNotebook = async (req, res) => {
         targetNotebookObjectId = targetNotebook._id;
       }
 
-      const notes = await Note.find({ notebookId: notebookDoc._id })
+      const noteDocs = await Note.find({ notebookId: notebookDoc._id })
         .session(session)
-        .select({ _id: 1, docName: 1, workspaceId: 1, boardId: 1 })
         .lean();
 
-      const noteIds = notes.map((doc) => doc._id);
-      const docNames = notes
+      const noteIds = noteDocs.map((doc) => doc._id);
+      const docNames = noteDocs
         .map((doc) => doc.docName)
         .filter((value) => typeof value === "string" && value.length > 0);
+
+      const memberDocs = await NotebookMember.find({
+        notebookId: notebookDoc._id,
+      })
+        .session(session)
+        .lean();
+
+      const shareLinkDocs = await ShareLink.find({
+        notebookId: notebookDoc._id,
+      })
+        .session(session)
+        .lean();
+
+      const publicationDoc = await NotebookPublication.findOne({
+        notebookId: notebookDoc._id,
+      })
+        .session(session)
+        .lean();
+
+      const collabDocs =
+        deleteCollaborative && docNames.length
+          ? await CollabDocument.find({ name: { $in: docNames } })
+              .session(session)
+              .lean()
+          : [];
 
       let deletedNotes = 0;
       let movedNotes = 0;
@@ -473,8 +677,8 @@ export const deleteNotebook = async (req, res) => {
               { session }
             );
           }
-          if (notes.length) {
-            const historyPayload = notes.map((note) => ({
+          if (noteDocs.length) {
+            const historyPayload = noteDocs.map((note) => ({
               noteId: note._id,
               workspaceId: note.workspaceId ?? null,
               boardId: note.boardId ?? null,
@@ -515,6 +719,10 @@ export const deleteNotebook = async (req, res) => {
       await Promise.all([
         NotebookMember.deleteMany({ notebookId: notebookDoc._id }, { session }),
         ShareLink.deleteMany({ notebookId: notebookDoc._id }, { session }),
+        NotebookPublication.deleteMany(
+          { notebookId: notebookDoc._id },
+          { session }
+        ),
         NotebookIndex.deleteOne({ notebookId: notebookDoc._id }, { session }),
       ]);
 
@@ -538,26 +746,35 @@ export const deleteNotebook = async (req, res) => {
           },
           inversePayload: {
             action: "restoreNotebook",
-            notebook: {
-              id: notebookDoc._id.toString(),
-              name: notebookDoc.name,
-              color: notebookDoc.color,
-              icon: notebookDoc.icon,
-              description: notebookDoc.description,
-              noteOrder: Array.isArray(notebookDoc.noteOrder)
-                ? notebookDoc.noteOrder.map((value) => value.toString())
-                : [],
-            },
-            notes:
-              mode === "delete"
-                ? notes.map((note) => ({
-                    id: note._id.toString(),
-                    workspaceId: note.workspaceId
-                      ? note.workspaceId.toString()
-                      : null,
-                    boardId: note.boardId ? note.boardId.toString() : null,
-                  }))
-                : [],
+            notebook: serializeNotebookSnapshot(notebookDoc),
+            notes: noteDocs
+              .map((note) => serializeNoteSnapshot(note))
+              .filter(Boolean),
+            members: memberDocs
+              .map((member) => serializeMemberSnapshot(member))
+              .filter(Boolean),
+            shareLinks: shareLinkDocs
+              .map((link) => serializeShareLinkSnapshot(link))
+              .filter(Boolean),
+            collabDocuments: collabDocs
+              .map((doc) => serializeCollabDocumentSnapshot(doc))
+              .filter(Boolean),
+            publication: publicationDoc
+              ? {
+                  id: publicationDoc._id?.toString?.() ?? null,
+                  publicSlug: publicationDoc.publicSlug ?? null,
+                  snapshot: mapLikeToPlainObject(publicationDoc.snapshot),
+                  snapshotHash: publicationDoc.snapshotHash ?? null,
+                  html: publicationDoc.html ?? null,
+                  metadata: mapLikeToPlainObject(publicationDoc.metadata) ?? {},
+                  publishedAt: serializeDate(publicationDoc.publishedAt),
+                  createdAt: serializeDate(publicationDoc.createdAt),
+                  updatedAt: serializeDate(publicationDoc.updatedAt),
+                }
+              : null,
+            deleteCollaborative: Boolean(
+              deleteCollaborative && docNames.length
+            ),
           },
         },
         { session }
@@ -780,19 +997,70 @@ export const getSmartNotebook = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const { tag = null, search = null, limit = undefined } = req.query ?? {};
+    const {
+      tag = null,
+      search = null,
+      limit = undefined,
+      savedQueryId = null,
+    } = req.query ?? {};
 
-    if (!tag && !search) {
-      return res
-        .status(400)
-        .json({ message: "tag or search query parameter is required" });
+    let savedQuery = null;
+    if (savedQueryId) {
+      if (!mongoose.Types.ObjectId.isValid(savedQueryId)) {
+        return res.status(400).json({ message: "Invalid savedQueryId" });
+      }
+
+      savedQuery = await SavedNotebookQuery.findOne({
+        _id: savedQueryId,
+        userId: new mongoose.Types.ObjectId(userId),
+      }).lean();
+
+      if (!savedQuery) {
+        return res.status(404).json({ message: "Saved query not found" });
+      }
     }
+
+    if (!tag && !search && !savedQuery) {
+      return res.status(400).json({
+        message: "tag, search or savedQueryId query parameter is required",
+      });
+    }
+
+    const mapLikeToObject = (value) => {
+      if (!value) return null;
+      if (value instanceof Map) {
+        return Object.fromEntries(value.entries());
+      }
+      if (typeof value === "object" && !Array.isArray(value)) {
+        return { ...value };
+      }
+      return value;
+    };
+
+    const normalizedSavedQuery = savedQuery
+      ? {
+          id: savedQuery._id.toString(),
+          notebookId: savedQuery.notebookId?.toString?.() ?? null,
+          ownerId: savedQuery.ownerId?.toString?.() ?? null,
+          userId: savedQuery.userId?.toString?.() ?? null,
+          name: savedQuery.name,
+          query: savedQuery.query ?? "",
+          filters:
+            savedQuery.filters && typeof savedQuery.filters === "object"
+              ? JSON.parse(JSON.stringify(savedQuery.filters))
+              : null,
+          sort: mapLikeToObject(savedQuery.sort),
+          scope: savedQuery.scope ?? "notebook",
+          metadata: mapLikeToObject(savedQuery.metadata),
+        }
+      : null;
 
     const smartNotebook = await buildSmartNotebook({
       userId,
       tag,
       search,
       limit,
+      savedQuery: normalizedSavedQuery,
     });
 
     return res.status(200).json(smartNotebook ?? {});
@@ -870,22 +1138,20 @@ export const undoNotebookHistoryEvent = async (req, res) => {
   try {
     await session.withTransaction(async () => {
       const ownerObjectId = new mongoose.Types.ObjectId(ownerId);
-      const notebook = await Notebook.findOne({
-        _id: id,
-        owner: ownerObjectId,
-      }).session(session);
-
-      if (!notebook) {
-        throw new Error("NOTEBOOK_NOT_FOUND");
-      }
+      const notebookObjectId = new mongoose.Types.ObjectId(id);
+      const eventObjectId = new mongoose.Types.ObjectId(eventId);
 
       const event = await NotebookEvent.findOne({
-        _id: eventId,
-        notebookId: notebook._id,
+        _id: eventObjectId,
+        notebookId: notebookObjectId,
       }).session(session);
 
       if (!event) {
         throw new Error("EVENT_NOT_FOUND");
+      }
+
+      if (event.ownerId?.toString?.() !== ownerId) {
+        throw new Error("NOTEBOOK_NOT_FOUND");
       }
 
       const eventMetadata = mapLikeToPlainObject(event.metadata) ?? {};
@@ -893,8 +1159,39 @@ export const undoNotebookHistoryEvent = async (req, res) => {
         throw new Error("EVENT_ALREADY_UNDONE");
       }
 
+      const inversePayload = mapLikeToPlainObject(event.inversePayload) ?? {};
+      const inferredAction = inversePayload?.action ?? null;
+      const fallbackAction = inversePayload?.previous
+        ? "restoreNotebookFields"
+        : null;
+      const undoAction = inferredAction ?? fallbackAction;
+
+      let notebook = await Notebook.findOne({
+        _id: notebookObjectId,
+        owner: ownerObjectId,
+      }).session(session);
+
+      if (!notebook) {
+        if (undoAction === "restoreNotebook") {
+          const workspaceIdValue = inversePayload?.notebook?.workspaceId;
+          const workspaceId =
+            workspaceIdValue &&
+            mongoose.Types.ObjectId.isValid(workspaceIdValue)
+              ? new mongoose.Types.ObjectId(workspaceIdValue)
+              : null;
+
+          notebook = {
+            _id: notebookObjectId,
+            owner: ownerObjectId,
+            workspaceId,
+          };
+        } else {
+          throw new Error("NOTEBOOK_NOT_FOUND");
+        }
+      }
+
       const newerEvent = await NotebookEvent.findOne({
-        notebookId: notebook._id,
+        notebookId: notebookObjectId,
         createdAt: { $gt: event.createdAt },
       })
         .sort({ createdAt: 1 })
@@ -928,11 +1225,25 @@ export const undoNotebookHistoryEvent = async (req, res) => {
         { session }
       );
 
+      const workspaceContext = (() => {
+        if (notebook?.workspaceId) {
+          return notebook.workspaceId;
+        }
+        const workspaceIdValue = inversePayload?.notebook?.workspaceId;
+        if (
+          workspaceIdValue &&
+          mongoose.Types.ObjectId.isValid(workspaceIdValue)
+        ) {
+          return new mongoose.Types.ObjectId(workspaceIdValue);
+        }
+        return null;
+      })();
+
       const undoEntry = await appendNotebookEvent(
         {
-          notebookId: notebook._id,
-          ownerId: notebook.owner,
-          workspaceId: notebook.workspaceId ?? null,
+          notebookId: event.notebookId,
+          ownerId: event.ownerId,
+          workspaceId: workspaceContext,
           actorId: ownerObjectId,
           eventType: "notebook.undo",
           commandName: "undoNotebookEvent",
