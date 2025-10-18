@@ -15,7 +15,7 @@ import VerifyEmailPage from "./pages/VerifyEmailPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import SkipToContent from "./Components/SkipToContent.jsx";
 import NotebookInvitePage from "./pages/NotebookInvitePage.jsx";
-import PublishedNotebookPage from "./pages/PublishedNotebookPage.jsx";
+import PublishedNotebookPage from "./pages/published-notebook-page.jsx";
 
 const App = () => {
   return (
