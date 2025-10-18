@@ -150,4 +150,58 @@ export const validationRules = {
       .withMessage(
         `range must be one of: ${ANALYTICS_RANGE_VALUES.join(", ")}`
       ),
+
+  notebookPublicSlug: (field = "slug") =>
+    body(field)
+      .optional()
+      .isString()
+      .trim()
+      .isLength({ min: 6, max: 64 })
+      .withMessage("Slug must be between 6 and 64 characters"),
+
+  syncClientId: (field = "clientId") =>
+    body(field)
+      .optional()
+      .isString()
+      .trim()
+      .isLength({ min: 1, max: 64 })
+      .withMessage("clientId must be between 1 and 64 characters"),
+
+  syncBaseRevision: (field = "baseRevision") =>
+    body(field)
+      .optional({ values: "falsy" })
+      .isInt({ min: 0 })
+      .withMessage("baseRevision must be a non-negative integer"),
+
+  savedQueryName: () =>
+    body("name")
+      .isString()
+      .trim()
+      .notEmpty()
+      .withMessage("Name is required")
+      .isLength({ max: 120 })
+      .withMessage("Name must be 120 characters or fewer"),
+
+  savedQueryPayload: () => [
+    body("query")
+      .optional({ values: "falsy" })
+      .isString()
+      .trim()
+      .isLength({ max: 512 })
+      .withMessage("Query must be 512 characters or fewer"),
+    body("filters")
+      .optional({ nullable: true })
+      .isObject()
+      .withMessage("filters must be an object"),
+    body("sort")
+      .optional({ nullable: true })
+      .isObject()
+      .withMessage("sort must be an object"),
+    body("scope")
+      .optional()
+      .isString()
+      .trim()
+      .isLength({ max: 32 })
+      .withMessage("scope must be 32 characters or fewer"),
+  ],
 };

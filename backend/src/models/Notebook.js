@@ -39,8 +39,6 @@ const notebookSchema = new mongoose.Schema(
       type: String,
       default: null,
       maxlength: 64,
-      unique: true,
-      sparse: true,
     },
     publishedAt: {
       type: Date,
@@ -90,7 +88,13 @@ const notebookSchema = new mongoose.Schema(
 );
 
 notebookSchema.index({ owner: 1, name: 1 }, { unique: true });
-notebookSchema.index({ isPublic: 1, publicSlug: 1 });
+notebookSchema.index(
+  { publicSlug: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { publicSlug: { $type: "string" } },
+  }
+);
 notebookSchema.index({ owner: 1, offlineRevision: -1 });
 
 const Notebook = mongoose.model("Notebook", notebookSchema);
