@@ -37,6 +37,22 @@ import {
   getNotebookAnalyticsSnapshots,
 } from "../controllers/notebookAnalyticsController.js";
 import ensureNotebookAnalyticsContext from "../middleware/analyticsContext.js";
+import {
+  getNotebookSyncState,
+  pushNotebookSyncState,
+} from "../controllers/notebookSyncController.js";
+import {
+  getNotebookPublishingState,
+  publishNotebook,
+  unpublishNotebook,
+} from "../controllers/notebookPublishingController.js";
+import {
+  listSavedNotebookQueries,
+  createSavedNotebookQuery,
+  updateSavedNotebookQuery,
+  deleteSavedNotebookQuery,
+  touchSavedNotebookQuery,
+} from "../controllers/notebookSavedQueriesController.js";
 
 const router = express.Router();
 
@@ -63,6 +79,10 @@ router.get(
   validate([
     query("tag").optional().isString().trim().isLength({ max: 64 }),
     query("search").optional().isString().trim().isLength({ max: 120 }),
+    query("savedQueryId")
+      .optional()
+      .isMongoId()
+      .withMessage("savedQueryId must be a valid MongoDB ObjectId"),
     query("limit")
       .optional()
       .isInt({ min: 1, max: 60 })
@@ -294,6 +314,96 @@ router.post(
       .withMessage("eventId must be a valid MongoDB ObjectId"),
   ]),
   undoNotebookHistoryEvent
+);
+
+router.get(
+  "/:id/sync",
+  validate([validationRules.objectId("id")]),
+  getNotebookSyncState
+);
+
+router.post(
+  "/:id/sync",
+  validate([
+    validationRules.objectId("id"),
+    validationRules.syncClientId(),
+    validationRules.syncBaseRevision(),
+    body("operations")
+      .optional()
+      .isArray({ max: 100 })
+      .withMessage("operations must be an array with at most 100 items"),
+  ]),
+  pushNotebookSyncState
+);
+
+router.get(
+  "/:id/publish",
+  validate([validationRules.objectId("id")]),
+  getNotebookPublishingState
+);
+
+router.post(
+  "/:id/publish",
+  validate([
+    validationRules.objectId("id"),
+    validationRules.notebookPublicSlug(),
+    body("metadata")
+      .optional({ nullable: true })
+      .isObject()
+      .withMessage("metadata must be an object"),
+  ]),
+  publishNotebook
+);
+
+router.delete(
+  "/:id/publish",
+  validate([validationRules.objectId("id")]),
+  unpublishNotebook
+);
+
+router.get(
+  "/:id/saved-queries",
+  validate([validationRules.objectId("id")]),
+  listSavedNotebookQueries
+);
+
+router.post(
+  "/:id/saved-queries",
+  validate([
+    validationRules.objectId("id"),
+    validationRules.savedQueryName(),
+    ...validationRules.savedQueryPayload(),
+  ]),
+  createSavedNotebookQuery
+);
+
+router.patch(
+  "/:id/saved-queries/:queryId",
+  validate([
+    validationRules.objectId("id"),
+    validationRules.objectId("queryId"),
+    body("name").optional().isString().trim(),
+    ...validationRules.savedQueryPayload(),
+  ]),
+  updateSavedNotebookQuery
+);
+
+router.delete(
+  "/:id/saved-queries/:queryId",
+  validate([
+    validationRules.objectId("id"),
+    validationRules.objectId("queryId"),
+  ]),
+  deleteSavedNotebookQuery
+);
+
+router.post(
+  "/:id/saved-queries/:queryId/use",
+  validate([
+    validationRules.objectId("id"),
+    validationRules.objectId("queryId"),
+  ]),
+  touchSavedNotebookQuery
 );
 
 export default router;
