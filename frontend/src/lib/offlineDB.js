@@ -9,6 +9,8 @@ const STORE_NOTES = "notes";
 const STORE_MUTATIONS = "mutations";
 const STORE_METADATA = "metadata";
 
+const notebookSyncKey = (notebookId) => `notebook-sync:${notebookId}`;
+
 let dbPromise;
 
 const getDb = () => {
@@ -112,6 +114,19 @@ export const storeNotes = async (notes = []) => {
     if (import.meta.env.DEV) {
       console.warn("[offlineDB] storeNotes failed", error);
     }
+  }
+};
+
+export const getNoteById = async (id) => {
+  if (!id) return null;
+  try {
+    const db = await getDb();
+    return await db.get(STORE_NOTES, id);
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.warn("[offlineDB] getNoteById failed", id, error);
+    }
+    return null;
   }
 };
 
@@ -225,4 +240,14 @@ export const clearDatabase = async () => {
       console.warn("[offlineDB] clearDatabase failed", error);
     }
   }
+};
+
+export const getNotebookSyncMetadata = async (notebookId) => {
+  if (!notebookId) return null;
+  return getMetadata(notebookSyncKey(notebookId));
+};
+
+export const setNotebookSyncMetadata = async (notebookId, value) => {
+  if (!notebookId) return;
+  await setMetadata(notebookSyncKey(notebookId), value);
 };

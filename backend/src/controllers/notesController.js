@@ -1165,37 +1165,6 @@ export const getNoteHistory = async (req, res) => {
   }
 };
 
-export const getNotePresence = async (req, res) => {
-  try {
-    const { id } = req.params;
-    if (!isValidObjectId(id)) {
-      return res.status(400).json(INVALID_NOTE_ID);
-    }
-
-    const access = await resolveNoteForUser(id, req.user.id);
-    if (!access) {
-      return res.status(404).json(NOTE_NOT_FOUND);
-    }
-
-    if (access.workspaceId) {
-      await touchWorkspaceMember(access.workspaceId, req.user.id);
-    }
-
-    const docName = access.note?.docName ?? `note:${id}`;
-    const collabDoc = await CollabDocument.findOne({ name: docName })
-      .select({ awareness: 1, updatedAt: 1 })
-      .lean();
-
-    return res.status(200).json({
-      updatedAt: collabDoc?.updatedAt ?? null,
-      awareness: collabDoc?.awareness ?? {},
-    });
-  } catch (error) {
-    logger.error("Failed to fetch note presence", { error: error?.message });
-    return res.status(500).json(INTERNAL_SERVER_ERROR);
-  }
-};
-
 export const getNoteLayout = async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -1235,31 +1204,24 @@ export const getNoteLayout = async (req, res) => {
 
 export const updateNoteLayout = async (req, res) => {
   try {
-    const { noteIds, notebookId } = req.body ?? {};
-    const normalizedIds = normalizeNoteIds(noteIds);
-    const userId = req.user.id;
-
-    if (!normalizedIds.length) {
-      if (notebookId && notebookId !== "uncategorized") {
-        const notebook = await ensureNotebookOwnership(notebookId, userId);
-        if (!notebook) {
-          return res.status(404).json({ message: "Notebook not found" });
-        }
-        await Notebook.findByIdAndUpdate(notebook._id, { noteOrder: [] });
-        return res.status(200).json({ noteIds: [] });
-      }
-
-      await User.findByIdAndUpdate(userId, { customNoteOrder: [] });
-      if (req.userDocument) {
-        req.userDocument.customNoteOrder = [];
-      }
-      return res.status(200).json({ noteIds: [] });
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
 
+    const { noteIds, notebookId } = req.body ?? {};
+    if (!Array.isArray(noteIds)) {
+      return res
+        .status(400)
+        .json({ message: "noteIds must be provided as an array" });
+    }
+
+    const normalizedIds = normalizeNoteIds(noteIds);
     const userObjectId = new mongoose.Types.ObjectId(userId);
+
     const accessibleWorkspaceIds = await listAccessibleWorkspaceIds(userId);
     const workspaceObjectIds = accessibleWorkspaceIds.map(
-      (value) => new mongoose.Types.ObjectId(value)
+      (id) => new mongoose.Types.ObjectId(id)
     );
 
     const collaboratorDocs = await NoteCollaborator.find({
@@ -1269,11 +1231,13 @@ export const updateNoteLayout = async (req, res) => {
       .lean();
 
     const collaboratorNoteObjectIds = collaboratorDocs
-      .map((entry) => entry?.noteId)
-      .filter((noteId) =>
-        noteId ? mongoose.Types.ObjectId.isValid(noteId) : false
-      )
-      .map((noteId) => new mongoose.Types.ObjectId(noteId));
+      .map((entry) => entry?.noteId?.toString?.())
+      .filter(Boolean)
+      .map((value) => new mongoose.Types.ObjectId(value));
+
+    const normalizedObjectIds = normalizedIds.map(
+      (id) => new mongoose.Types.ObjectId(id)
+    );
 
     const orConditions = [{ owner: userObjectId }];
 
@@ -1291,11 +1255,14 @@ export const updateNoteLayout = async (req, res) => {
         return res.status(404).json({ message: "Notebook not found" });
       }
 
+      if (!normalizedObjectIds.length) {
+        await Notebook.findByIdAndUpdate(notebook._id, { noteOrder: [] });
+        return res.status(200).json({ noteIds: [] });
+      }
+
       const candidates = await Note.find(
         {
-          _id: {
-            $in: normalizedIds.map((id) => new mongoose.Types.ObjectId(id)),
-          },
+          _id: { $in: normalizedObjectIds },
           owner: userObjectId,
           notebookId: notebook._id,
         },
@@ -1305,22 +1272,28 @@ export const updateNoteLayout = async (req, res) => {
       const allowedSet = new Set(candidates.map((note) => note._id.toString()));
       const filteredIds = normalizedIds.filter((id) => allowedSet.has(id));
 
-      const objectIdOrder = filteredIds.map(
+      const notebookOrder = filteredIds.map(
         (id) => new mongoose.Types.ObjectId(id)
       );
 
       await Notebook.findByIdAndUpdate(notebook._id, {
-        noteOrder: objectIdOrder,
+        noteOrder: notebookOrder,
       });
 
       return res.status(200).json({ noteIds: filteredIds });
     }
 
+    if (!normalizedObjectIds.length) {
+      await User.findByIdAndUpdate(userId, { customNoteOrder: [] });
+      if (req.userDocument) {
+        req.userDocument.customNoteOrder = [];
+      }
+      return res.status(200).json({ noteIds: [] });
+    }
+
     const candidates = await Note.find(
       {
-        _id: {
-          $in: normalizedIds.map((id) => new mongoose.Types.ObjectId(id)),
-        },
+        _id: { $in: normalizedObjectIds },
         $or: orConditions,
       },
       { _id: 1 }
