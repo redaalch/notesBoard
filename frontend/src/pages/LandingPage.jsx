@@ -1,26 +1,29 @@
 import { Link } from "react-router-dom";
 import {
   ArrowRightIcon,
+  BadgeCheckIcon,
   CheckCircle2Icon,
-  ClockIcon,
+  Globe2Icon,
+  HistoryIcon,
   LayoutDashboardIcon,
-  FeatherIcon,
   LineChartIcon,
   NotebookPenIcon,
   RocketIcon,
   ShieldCheckIcon,
   SparklesIcon,
-  Wand2Icon,
+  Undo2Icon,
+  WandSparklesIcon,
 } from "lucide-react";
 import useAuth from "../hooks/useAuth.js";
+import Logo from "../Components/Logo.jsx";
 
 const HERO_BACKGROUND = "https://bg.ibelick.com/backgrounds/bg-44.svg";
 const SECTION_BACKGROUND = "https://bg.ibelick.com/backgrounds/bg-24.svg";
 
 const metrics = [
   { value: "45k+", label: "Notes captured every week" },
-  { value: "3m", label: "Avg. time to first note" },
-  { value: "99.9%", label: "Sync reliability" },
+  { value: "12k", label: "Undo events replayed daily" },
+  { value: "82%", label: "Faster resurfacing with saved views" },
   { value: "120+", label: "Teams collaborating" },
 ];
 
@@ -36,24 +39,45 @@ const featureHighlights = [
     icon: NotebookPenIcon,
   },
   {
-    title: "Smarter organization",
+    title: "Undo anything",
     description:
-      "Saved filters, tag analytics, and pinboards keep the right ideas at the top without manual sorting marathons.",
+      "Time-travel through your notebook history with one click and resurrect boards, members, and share links instantly.",
     bullets: [
-      "Auto-tag suggestions from recent notes",
-      "Filter presets that remember your view",
+      "Full-state notebook snapshots",
+      "Granular note + member restoration",
     ],
-    icon: LineChartIcon,
+    icon: Undo2Icon,
   },
   {
-    title: "Peace-of-mind security",
+    title: "Publish & share",
     description:
-      "Granular session controls, secure sharing links, and privacy-first defaults keep sensitive projects protected.",
-    bullets: [
-      "Session refresh on sensitive changes",
-      "Encryption in transit and at rest",
-    ],
-    icon: ShieldCheckIcon,
+      "Hand-select what goes public. Saved queries, smart notebooks, and instant publishing give every idea the perfect audience.",
+    bullets: ["Shareable saved filters", "SEO-ready notebook publishing"],
+    icon: Globe2Icon,
+  },
+];
+
+const whatsNew = [
+  {
+    title: "Undo timeline",
+    caption: "New",
+    description:
+      "Roll back notebook deletes, member changes, and share links with a single action—no replica set required.",
+    icon: HistoryIcon,
+  },
+  {
+    title: "Saved views",
+    caption: "Enhanced",
+    description:
+      "Create reusable filters and sorts for every project, then surface them from the smart notebook in seconds.",
+    icon: BadgeCheckIcon,
+  },
+  {
+    title: "One-click publishing",
+    caption: "Beta",
+    description:
+      "Capture a polished snapshot of your notebook, generate a public slug, and share updates that stay in sync.",
+    icon: Globe2Icon,
   },
 ];
 
@@ -62,19 +86,19 @@ const workflowSteps = [
     label: "Capture",
     description:
       "Open NotesBoard and jot ideas instantly with keyboard-first shortcuts and auto-save.",
-    icon: FeatherIcon,
+    icon: NotebookPenIcon,
   },
   {
     label: "Organize",
     description:
-      "Tag topics, sort by priority, and filter by word count or recency in seconds.",
-    icon: ClockIcon,
+      "Tag topics, pin saved filters, and let smart views resurface the best research at the right time.",
+    icon: LineChartIcon,
   },
   {
-    label: "Create",
+    label: "Publish & iterate",
     description:
-      "Transform raw thoughts into polished notes and share-ready content with confidence.",
-    icon: SparklesIcon,
+      "Ship a shareable notebook, gather feedback, and roll back changes with the new undo timeline.",
+    icon: HistoryIcon,
   },
 ];
 
@@ -100,18 +124,8 @@ function LandingPage() {
     <div className="min-h-screen bg-slate-100 text-slate-900">
       <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/80 backdrop-blur supports-[backdrop-filter:blur(0px)]:bg-white/70">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4">
-          <Link to="/" className="flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-primary via-secondary to-accent text-primary-content shadow-lg shadow-primary/30">
-              <Wand2Icon className="size-5" />
-            </span>
-            <div className="flex flex-col leading-tight">
-              <span className="text-xs uppercase tracking-[0.45em] text-slate-500">
-                Notes
-              </span>
-              <span className="text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-                Board
-              </span>
-            </div>
+          <Link to="/" aria-label="NotesBoard home" className="inline-flex">
+            <Logo size="2.75rem" className="text-left" />
           </Link>
 
           <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
@@ -167,15 +181,15 @@ function LandingPage() {
             <div className="flex-1 space-y-6 text-center lg:text-left">
               <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-xs font-semibold text-primary">
                 <RocketIcon className="size-4" />
-                Productivity without the noise
+                Now with undo timeline & saved views
               </span>
               <h1 className="text-4xl font-bold leading-tight sm:text-5xl">
-                Build a second brain that actually sparks ideas.
+                Build a second brain that remembers—and restores—everything.
               </h1>
               <p className="text-lg text-slate-600 sm:text-xl">
-                NotesBoard blends intuitive note-taking, rich organization, and
-                a calm aesthetic so you can focus on thinking—not fighting your
-                tools.
+                NotesBoard blends intuitive note-taking, saved query views, and
+                one-click publishing so you can focus on thinking—not fighting
+                your tools.
               </p>
               <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-start">
                 {initializing ? null : user ? (
@@ -208,7 +222,7 @@ function LandingPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <SparklesIcon className="size-4 text-warning" />
-                  <span>10+ crafted themes included</span>
+                  <span>Undo timeline + smart views included</span>
                 </div>
               </div>
               <div className="mt-10 grid w-full gap-4 sm:grid-cols-2">
@@ -234,15 +248,10 @@ function LandingPage() {
                     Why teams switch to NotesBoard
                   </h2>
                   <div className="space-y-3 text-sm text-slate-600">
+                    <p>• Restore deleted notebooks, members, and links.</p>
+                    <p>• Spin up saved queries that travel across devices.</p>
                     <p>
-                      • Filter notes by recency, length, or tags in a single
-                      click.
-                    </p>
-                    <p>
-                      • Track writing streaks and spot top tags with live stats.
-                    </p>
-                    <p>
-                      • Share-ready formatting with Markdown support built-in.
+                      • Publish curated snapshots whenever you&apos;re ready.
                     </p>
                   </div>
                   <div className="rounded-2xl border border-primary/30 bg-primary/10 p-4 text-sm text-primary">
@@ -250,6 +259,43 @@ function LandingPage() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto w-full max-w-6xl px-4 py-12">
+          <div className="flex flex-col gap-6 rounded-3xl border border-slate-200/70 bg-white/90 p-8 shadow-xl shadow-primary/10 md:flex-row md:items-center md:justify-between">
+            <div className="max-w-2xl space-y-3 text-slate-700">
+              <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+                <WandSparklesIcon className="size-3.5" />
+                What&apos;s new
+              </span>
+              <h2 className="text-3xl font-bold text-slate-900">
+                Ship ideas faster with the latest release
+              </h2>
+              <p className="text-base text-slate-600">
+                The autumn update expands NotesBoard with powerful recovery,
+                smarter discovery, and a publishing flow built for teams.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {whatsNew.map(({ title, caption, description, icon: Icon }) => (
+                <div
+                  key={title}
+                  className="flex h-full flex-col gap-3 rounded-2xl border border-slate-200/60 bg-base-100/60 p-5 text-left shadow-md shadow-primary/10"
+                >
+                  <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.25em] text-primary">
+                    <span>{caption}</span>
+                    <Icon className="size-4 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-900">
+                    {title}
+                  </h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    {description}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
