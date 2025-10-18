@@ -29,6 +29,7 @@ import {
   FilterIcon,
   FolderIcon,
   FolderPlusIcon,
+  GlobeIcon,
   LightbulbIcon,
   ListChecksIcon,
   ListTodoIcon,
@@ -52,6 +53,7 @@ import {
   BookOpenIcon,
   LayersIcon,
   Share2Icon,
+  HistoryIcon,
 } from "lucide-react";
 import { NOTEBOOK_COLORS, NOTEBOOK_ICONS } from "@shared/notebookOptions.js";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -73,6 +75,10 @@ import ConfirmDialog from "../Components/ConfirmDialog.jsx";
 import { useCommandPalette } from "../contexts/CommandPaletteContext.jsx";
 import NotebookShareDialog from "../Components/NotebookShareDialog.jsx";
 import NotebookAnalyticsDialog from "../Components/NotebookAnalyticsDialog.jsx";
+import SavedNotebookQueryDialog from "../Components/SavedNotebookQueryDialog.jsx";
+import NotebookPublishDialog from "../Components/NotebookPublishDialog.jsx";
+import NotebookHistoryDialog from "../Components/NotebookHistoryDialog.jsx";
+import NotebookInsightsDrawer from "../Components/NotebookInsightsDrawer.jsx";
 
 const FILTER_STORAGE_KEY = "notesboard-filters-v1";
 const NOTEBOOK_ANALYTICS_ENABLED =
@@ -115,7 +121,12 @@ const getNoteId = (note) => {
   return typeof rawId === "string" ? rawId : rawId?.toString?.() ?? null;
 };
 
-function SortableNoteCard({ note, selectedTags, onTagClick }) {
+function SortableNoteCard({
+  note,
+  selectedTags,
+  onTagClick,
+  onOpenNoteInsights,
+}) {
   const id = getNoteId(note);
   const {
     attributes,
@@ -152,6 +163,7 @@ function SortableNoteCard({ note, selectedTags, onTagClick }) {
       dragHandleRef={setActivatorNodeRef}
       style={style}
       dragging={isDragging}
+      onOpenInsights={onOpenNoteInsights}
     />
   );
 }
@@ -162,6 +174,56 @@ const sortLabelMap = {
   alphabetical: "A → Z",
   updated: "Recently updated",
   custom: "Custom order",
+};
+
+const normalizeSortDirection = (value) => {
+  if (typeof value === "number") {
+    return value >= 0 ? "asc" : "desc";
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["asc", "ascending", "1", "true"].includes(normalized)) {
+      return "asc";
+    }
+    if (["desc", "descending", "-1", "false"].includes(normalized)) {
+      return "desc";
+    }
+  }
+  return null;
+};
+
+const sortOrderToSavedSort = (order) => {
+  switch (order) {
+    case "oldest":
+      return { updatedAt: "asc" };
+    case "alphabetical":
+      return { title: "asc" };
+    case "newest":
+    case "updated":
+      return { updatedAt: "desc" };
+    default:
+      return null;
+  }
+};
+
+const savedSortToSortOrder = (sortSpec) => {
+  if (!sortSpec || typeof sortSpec !== "object") {
+    return "newest";
+  }
+
+  if (Object.prototype.hasOwnProperty.call(sortSpec, "title")) {
+    return "alphabetical";
+  }
+
+  if (Object.prototype.hasOwnProperty.call(sortSpec, "updatedAt")) {
+    const direction = normalizeSortDirection(sortSpec.updatedAt);
+    if (direction === "asc") {
+      return "oldest";
+    }
+    return "newest";
+  }
+
+  return "newest";
 };
 
 const BULK_SUCCESS_MESSAGES = {
@@ -216,6 +278,7 @@ function DraggableBoardNote({
   onSelectionChange,
   onTagClick,
   selectedTags,
+  onOpenNoteInsights,
 }) {
   const noteId = getNoteId(note);
   const disabled = customizeMode;
@@ -251,6 +314,7 @@ function DraggableBoardNote({
       cardDragProps={disabled ? null : { ...attributes, ...listeners }}
       style={dragStyle}
       dragging={isDragging}
+      onOpenInsights={onOpenNoteInsights}
     />
   );
 }
@@ -303,6 +367,11 @@ function HomePage() {
     useState(false);
   const [deletingTemplateId, setDeletingTemplateId] = useState(null);
   const [saveTemplateSubmitting, setSaveTemplateSubmitting] = useState(false);
+  const [savedQueryDialogOpen, setSavedQueryDialogOpen] = useState(false);
+  const [appliedSavedQuery, setAppliedSavedQuery] = useState(null);
+  const [publishNotebook, setPublishNotebook] = useState(null);
+  const [historyNotebook, setHistoryNotebook] = useState(null);
+  const [insightsNote, setInsightsNote] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const filterPanelRef = useRef(null);
   const hasInitializedFilters = useRef(false);
@@ -311,6 +380,7 @@ function HomePage() {
   const liveMessageTimeoutRef = useRef(null);
   const layoutMutationTimeoutRef = useRef(null);
   const lastLayoutMutationRef = useRef(0);
+  const applyingSavedQueryRef = useRef(false);
   const queryClient = useQueryClient();
   const invalidateNotesCaches = useCallback(
     () =>
@@ -321,6 +391,117 @@ function HomePage() {
         queryClient.invalidateQueries({ queryKey: ["notebooks"] }),
       ]),
     [queryClient]
+  );
+  const openPublishNotebook = useCallback((notebook) => {
+    if (notebook) {
+      setPublishNotebook(notebook);
+    }
+  }, []);
+  const closePublishNotebook = useCallback(() => {
+    setPublishNotebook(null);
+  }, []);
+  const openHistoryNotebook = useCallback((notebook) => {
+    if (notebook) {
+      setHistoryNotebook(notebook);
+    }
+  }, []);
+  const closeHistoryNotebook = useCallback(() => {
+    setHistoryNotebook(null);
+  }, []);
+  const openNoteInsights = useCallback((note) => {
+    if (note) {
+      setInsightsNote(note);
+    }
+  }, []);
+  const closeNoteInsights = useCallback(() => {
+    setInsightsNote(null);
+  }, []);
+  const handlePublishingChange = useCallback(
+    async ({ notebookId: updatedNotebookId } = {}) => {
+      await invalidateNotesCaches();
+      if (updatedNotebookId) {
+        await queryClient.invalidateQueries({
+          queryKey: ["notebook-publish", updatedNotebookId],
+        });
+      }
+    },
+    [invalidateNotesCaches, queryClient]
+  );
+  const handleHistoryUndo = useCallback(
+    async ({ notebookId: historyNotebookId } = {}) => {
+      await invalidateNotesCaches();
+      await queryClient.invalidateQueries({
+        predicate: ({ queryKey }) =>
+          Array.isArray(queryKey) &&
+          queryKey[0] === "notebook-history" &&
+          (!historyNotebookId || queryKey.includes(historyNotebookId)),
+      });
+    },
+    [invalidateNotesCaches, queryClient]
+  );
+  const handleSelectNotebook = useCallback(
+    (nextId) => {
+      const normalized =
+        typeof nextId === "string" && nextId.trim().length ? nextId : "all";
+      setActiveNotebookId(normalized);
+      setSelectionMode(false);
+      setSelectedNoteIds([]);
+      setCustomOrderOverride([]);
+      setAppliedSavedQuery(null);
+      if (customizeMode) {
+        setCustomizeMode(false);
+        if (previousSortRef.current && previousSortRef.current !== "custom") {
+          setSortOrder(previousSortRef.current);
+        } else if (sortOrder === "custom") {
+          setSortOrder("newest");
+        }
+      }
+    },
+    [customizeMode, sortOrder]
+  );
+  const handleViewNotebookFromInsights = useCallback(
+    (notebookId) => {
+      if (!notebookId) return;
+      handleSelectNotebook(notebookId);
+      closeNoteInsights();
+    },
+    [closeNoteInsights, handleSelectNotebook]
+  );
+  const handleApplySmartView = useCallback(
+    ({ search = "", matchedTag = null, tags = [], noteCount = null }) => {
+      const normalizedTags = Array.isArray(tags)
+        ? tags
+        : matchedTag
+        ? [matchedTag]
+        : [];
+      setSearchQuery(search);
+      setSelectedTags(
+        normalizedTags.map((tag) => normalizeTag(tag)).filter(Boolean)
+      );
+      setMinWords(0);
+      setSortOrder("newest");
+      setActiveTab("all");
+      setAppliedSavedQuery(null);
+      setSelectionMode(false);
+      setSelectedNoteIds([]);
+      toast.success(
+        noteCount
+          ? `Smart view applied to ${noteCount} notes`
+          : "Smart view applied"
+      );
+      closeNoteInsights();
+    },
+    [
+      closeNoteInsights,
+      setActiveTab,
+      setSelectionMode,
+      setSelectedNoteIds,
+      setSortOrder,
+      setSearchQuery,
+      setSelectedTags,
+      setMinWords,
+      setAppliedSavedQuery,
+    ]
   );
   const navigate = useNavigate();
   const { registerCommands } = useCommandPalette();
@@ -382,6 +563,15 @@ function HomePage() {
     () => (Array.isArray(notesQuery.data) ? notesQuery.data : []),
     [notesQuery.data]
   );
+  useEffect(() => {
+    if (!insightsNote) return;
+    const noteId = getNoteId(insightsNote);
+    if (!noteId) return;
+    const exists = notes.some((note) => getNoteId(note) === noteId);
+    if (!exists) {
+      setInsightsNote(null);
+    }
+  }, [insightsNote, notes]);
   const loading = notesQuery.isLoading;
   const layoutOrder = useMemo(() => {
     return Array.isArray(layoutQuery.data) ? layoutQuery.data : [];
@@ -501,6 +691,96 @@ function HomePage() {
     staleTime: 180_000,
   });
 
+  const savedQueriesEnabled =
+    Boolean(activeNotebookId) &&
+    activeNotebookId !== "all" &&
+    activeNotebookId !== "uncategorized";
+
+  const savedNotebookQueriesQuery = useQuery({
+    queryKey: ["notebook-saved-queries", activeNotebookId],
+    queryFn: async () => {
+      const response = await api.get(
+        `/notebooks/${activeNotebookId}/saved-queries`
+      );
+      const list = Array.isArray(response.data?.queries)
+        ? response.data.queries
+        : [];
+      return list;
+    },
+    enabled: savedQueriesEnabled,
+    staleTime: 60_000,
+  });
+
+  const savedNotebookQueries = useMemo(() => {
+    if (!savedQueriesEnabled) return [];
+    if (Array.isArray(savedNotebookQueriesQuery.data)) {
+      return savedNotebookQueriesQuery.data;
+    }
+    return [];
+  }, [savedNotebookQueriesQuery.data, savedQueriesEnabled]);
+
+  const createSavedNotebookQueryMutation = useMutation({
+    mutationFn: async (payload) => {
+      if (!savedQueriesEnabled) return null;
+      const response = await api.post(
+        `/notebooks/${activeNotebookId}/saved-queries`,
+        payload
+      );
+      return response.data;
+    },
+    onSuccess: async (data) => {
+      await queryClient.invalidateQueries({
+        queryKey: ["notebook-saved-queries", activeNotebookId],
+      });
+      if (data?.name) {
+        toast.success(`Saved view "${data.name}" ready to use`);
+      } else {
+        toast.success("Saved view created");
+      }
+    },
+    onError: (error) => {
+      const message =
+        error?.response?.data?.message ??
+        "Unable to save this view. Try a different name.";
+      toast.error(message);
+    },
+  });
+
+  const deleteSavedNotebookQueryMutation = useMutation({
+    mutationFn: async (queryId) => {
+      if (!savedQueriesEnabled || !queryId) return null;
+      await api.delete(
+        `/notebooks/${activeNotebookId}/saved-queries/${queryId}`
+      );
+      return queryId;
+    },
+    onSuccess: async (queryId) => {
+      await queryClient.invalidateQueries({
+        queryKey: ["notebook-saved-queries", activeNotebookId],
+      });
+      if (appliedSavedQuery?.id === queryId) {
+        setAppliedSavedQuery(null);
+      }
+      toast.success("Saved view deleted");
+    },
+    onError: (error) => {
+      const message =
+        error?.response?.data?.message ?? "Unable to delete this saved view";
+      toast.error(message);
+    },
+  });
+
+  const touchSavedNotebookQueryMutation = useMutation({
+    mutationFn: async ({ notebookId, queryId }) => {
+      if (!notebookId || !queryId) return null;
+      await api.post(`/notebooks/${notebookId}/saved-queries/${queryId}/use`);
+      return queryId;
+    },
+    onError: (error) => {
+      console.warn("Failed to update saved query usage", error);
+    },
+  });
+
   const notebooks = useMemo(
     () => notebooksQuery.data?.notebooks ?? [],
     [notebooksQuery.data]
@@ -585,6 +865,21 @@ function HomePage() {
       }
     },
     [invalidateNotesCaches, notebooks]
+  );
+
+  const handleMoveNoteToNotebook = useCallback(
+    async (noteId, targetNotebookId) => {
+      if (!noteId || !targetNotebookId) {
+        return;
+      }
+      await moveNotesToNotebook({
+        noteIds: [noteId],
+        targetNotebookId,
+        skipLoader: true,
+      });
+      closeNoteInsights();
+    },
+    [closeNoteInsights, moveNotesToNotebook]
   );
 
   const updateLayoutMutation = useMutation({
@@ -935,6 +1230,62 @@ function HomePage() {
     setSearchParams,
   ]);
 
+  useEffect(() => {
+    if (!appliedSavedQuery) return;
+    if (applyingSavedQueryRef.current) return;
+
+    const savedSearch = (appliedSavedQuery?.query ?? "").trim();
+    if (savedSearch !== searchQuery.trim()) {
+      setAppliedSavedQuery(null);
+      return;
+    }
+
+    const savedTags = Array.isArray(appliedSavedQuery?.filters?.tags)
+      ? Array.from(
+          new Set(
+            appliedSavedQuery.filters.tags
+              .map((tag) => normalizeTag(tag))
+              .filter(Boolean)
+          )
+        )
+      : [];
+    const currentTags = Array.from(
+      new Set(selectedTags.map((tag) => normalizeTag(tag)).filter(Boolean))
+    );
+    const tagsMatch =
+      savedTags.length === currentTags.length &&
+      savedTags.every((tag) => currentTags.includes(tag));
+    if (!tagsMatch) {
+      setAppliedSavedQuery(null);
+      return;
+    }
+
+    const normalizedSortOrder = sortOrder === "updated" ? "newest" : sortOrder;
+    const savedOrder = savedSortToSortOrder(appliedSavedQuery?.sort);
+    if (normalizedSortOrder !== savedOrder) {
+      setAppliedSavedQuery(null);
+      return;
+    }
+
+    const savedMinWords = Number(appliedSavedQuery?.filters?.minWords) || 0;
+    if (savedMinWords !== (Number(minWords) || 0)) {
+      setAppliedSavedQuery(null);
+    }
+  }, [
+    appliedSavedQuery,
+    applyingSavedQueryRef,
+    minWords,
+    searchQuery,
+    selectedTags,
+    sortOrder,
+  ]);
+
+  useEffect(() => {
+    if (!savedQueriesEnabled && savedQueryDialogOpen) {
+      setSavedQueryDialogOpen(false);
+    }
+  }, [savedQueriesEnabled, savedQueryDialogOpen]);
+
   const isFetchingNotes = notesQuery.isFetching;
 
   const closeDrawer = () => setDrawerOpen(false);
@@ -981,6 +1332,13 @@ function HomePage() {
 
   const activeFilterChips = useMemo(() => {
     const chips = [];
+    if (appliedSavedQuery) {
+      chips.push({
+        key: "saved-query",
+        label: `Saved view: ${appliedSavedQuery.name ?? "Untitled"}`,
+        onClear: () => setAppliedSavedQuery(null),
+      });
+    }
     const trimmedQuery = searchQuery.trim();
 
     if (trimmedQuery) {
@@ -1032,6 +1390,7 @@ function HomePage() {
 
     return chips;
   }, [
+    appliedSavedQuery,
     searchQuery,
     minWords,
     sortOrder,
@@ -1210,6 +1569,7 @@ function HomePage() {
     setActiveTab("all");
     setSelectedTags([]);
     setActiveNotebookId("all");
+    setAppliedSavedQuery(null);
   };
 
   const selectionCount = selectedNoteIds.length;
@@ -1518,24 +1878,127 @@ function HomePage() {
     }
   };
 
-  const handleSelectNotebook = useCallback(
-    (nextId) => {
-      const normalized =
-        typeof nextId === "string" && nextId.trim().length ? nextId : "all";
-      setActiveNotebookId(normalized);
+  const openSavedQueryDialog = useCallback(() => {
+    if (!savedQueriesEnabled) return;
+    setSavedQueryDialogOpen(true);
+  }, [savedQueriesEnabled]);
+
+  const closeSavedQueryDialog = useCallback(() => {
+    setSavedQueryDialogOpen(false);
+  }, []);
+
+  const handleApplySavedQuery = useCallback(
+    (savedQuery) => {
+      if (!savedQuery) return;
+      const normalizedTags = Array.isArray(savedQuery?.filters?.tags)
+        ? Array.from(
+            new Set(
+              savedQuery.filters.tags
+                .map((tag) => normalizeTag(tag))
+                .filter(Boolean)
+            )
+          )
+        : [];
+
+      const savedMinWords = Number(savedQuery?.filters?.minWords) || 0;
+      const derivedSortOrder = savedSortToSortOrder(savedQuery?.sort);
+
+      applyingSavedQueryRef.current = true;
+      setSearchQuery(savedQuery?.query ?? "");
+      setSelectedTags(normalizedTags);
+      setMinWords(savedMinWords);
+      setSortOrder(derivedSortOrder);
+      setActiveTab("all");
       setSelectionMode(false);
       setSelectedNoteIds([]);
       setCustomOrderOverride([]);
-      if (customizeMode) {
-        setCustomizeMode(false);
-        if (previousSortRef.current && previousSortRef.current !== "custom") {
-          setSortOrder(previousSortRef.current);
-        } else if (sortOrder === "custom") {
-          setSortOrder("newest");
-        }
+      setAppliedSavedQuery(savedQuery);
+
+      setTimeout(() => {
+        applyingSavedQueryRef.current = false;
+      }, 0);
+
+      if (savedQueriesEnabled && savedQuery?.id) {
+        touchSavedNotebookQueryMutation.mutate({
+          notebookId: activeNotebookId,
+          queryId: savedQuery.id,
+        });
+      }
+
+      if (savedQuery?.name) {
+        toast.success(`Applied saved view "${savedQuery.name}"`);
       }
     },
-    [customizeMode, sortOrder]
+    [
+      activeNotebookId,
+      savedQueriesEnabled,
+      setActiveTab,
+      setMinWords,
+      setSearchQuery,
+      setSelectedNoteIds,
+      setSelectedTags,
+      setSortOrder,
+      setCustomOrderOverride,
+      touchSavedNotebookQueryMutation,
+    ]
+  );
+
+  const handleSavedQuerySubmit = useCallback(
+    async (name) => {
+      if (!savedQueriesEnabled) return;
+
+      const trimmedName = name.trim();
+      if (!trimmedName) return;
+
+      const filters = {};
+      const normalizedSelectedTags = selectedTags
+        .map((tag) => normalizeTag(tag))
+        .filter(Boolean);
+      if (normalizedSelectedTags.length) {
+        filters.tags = Array.from(new Set(normalizedSelectedTags));
+      }
+      const minWordCount = Number(minWords) || 0;
+      if (minWordCount > 0) {
+        filters.minWords = minWordCount;
+      }
+
+      const payload = {
+        name: trimmedName,
+        query: searchQuery.trim(),
+        filters: Object.keys(filters).length ? filters : null,
+        sort: sortOrderToSavedSort(sortOrder),
+        scope: "notebook",
+      };
+
+      try {
+        const created = await createSavedNotebookQueryMutation.mutateAsync(
+          payload
+        );
+        setSavedQueryDialogOpen(false);
+        if (created) {
+          handleApplySavedQuery(created);
+        }
+      } catch {
+        // errors handled in mutation callbacks
+      }
+    },
+    [
+      savedQueriesEnabled,
+      selectedTags,
+      minWords,
+      searchQuery,
+      sortOrder,
+      createSavedNotebookQueryMutation,
+      handleApplySavedQuery,
+    ]
+  );
+
+  const handleDeleteSavedQuery = useCallback(
+    (queryId) => {
+      if (!queryId) return;
+      deleteSavedNotebookQueryMutation.mutate(queryId);
+    },
+    [deleteSavedNotebookQueryMutation]
   );
 
   const openCreateNotebook = () => {
@@ -2132,6 +2595,32 @@ function HomePage() {
                                       <span>Share & members</span>
                                     </button>
                                   </li>
+                                  <li>
+                                    <button
+                                      type="button"
+                                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors duration-150 hover:bg-base-200/80"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openPublishNotebook(notebook);
+                                      }}
+                                    >
+                                      <GlobeIcon className="size-4 flex-shrink-0 text-base-content/70" />
+                                      <span>Publish notebook</span>
+                                    </button>
+                                  </li>
+                                  <li>
+                                    <button
+                                      type="button"
+                                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors duration-150 hover:bg-base-200/80"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openHistoryNotebook(notebook);
+                                      }}
+                                    >
+                                      <HistoryIcon className="size-4 flex-shrink-0 text-base-content/70" />
+                                      <span>History & undo</span>
+                                    </button>
+                                  </li>
                                   {NOTEBOOK_ANALYTICS_ENABLED ? (
                                     <li>
                                       <button
@@ -2197,6 +2686,122 @@ function HomePage() {
                   </div>
                 )}
               </div>
+
+              {savedQueriesEnabled ? (
+                <div className="mt-6 space-y-4 rounded-2xl border border-base-300/60 bg-base-100/80 p-4 shadow-sm backdrop-blur supports-[backdrop-filter:blur(0px)]:bg-base-100/70">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3">
+                      <BookmarkIcon className="size-5 text-secondary" />
+                      <div>
+                        <h3 className="text-sm font-semibold text-base-content">
+                          Saved views
+                        </h3>
+                        <p className="text-xs text-base-content/60">
+                          Reapply this notebook&apos;s filters and searches
+                          instantly.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm gap-2 sm:w-auto"
+                      onClick={openSavedQueryDialog}
+                      disabled={createSavedNotebookQueryMutation.isPending}
+                    >
+                      <BookmarkIcon className="size-4" />
+                      Save current view
+                    </button>
+                  </div>
+
+                  {savedNotebookQueriesQuery.isLoading ? (
+                    <div className="space-y-1">
+                      {[1, 2].map((key) => (
+                        <div
+                          key={key}
+                          className="h-10 w-full animate-pulse rounded-xl bg-base-200/80"
+                        />
+                      ))}
+                    </div>
+                  ) : savedNotebookQueries.length ? (
+                    <ul className="space-y-2">
+                      {savedNotebookQueries.map((query) => {
+                        const active = appliedSavedQuery?.id === query.id;
+                        return (
+                          <li
+                            key={query.id}
+                            className="flex flex-col gap-2 rounded-2xl border border-base-300/50 bg-base-100/80 p-3 sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <div className="flex flex-col gap-1">
+                              <button
+                                type="button"
+                                className={`text-left text-sm font-semibold text-base-content transition-colors hover:text-primary ${
+                                  active ? "text-primary" : ""
+                                }`}
+                                onClick={() => handleApplySavedQuery(query)}
+                              >
+                                {query.name}
+                              </button>
+                              <div className="flex flex-wrap items-center gap-2 text-xs text-base-content/60">
+                                {query.query ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-base-200 px-2 py-0.5">
+                                    <SearchIcon className="size-3" />
+                                    <span>{query.query}</span>
+                                  </span>
+                                ) : null}
+                                {Array.isArray(query?.filters?.tags) &&
+                                query.filters.tags.length
+                                  ? query.filters.tags
+                                      .slice(0, 3)
+                                      .map((tag) => (
+                                        <span
+                                          key={tag}
+                                          className="inline-flex items-center gap-1 rounded-full bg-base-200 px-2 py-0.5"
+                                        >
+                                          <TagIcon className="size-3" />
+                                          <span>{formatTagLabel(tag)}</span>
+                                        </span>
+                                      ))
+                                  : null}
+                                {query.filters?.minWords ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-base-200 px-2 py-0.5">
+                                    <ListTodoIcon className="size-3" />
+                                    <span>{`≥ ${query.filters.minWords} words`}</span>
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {savedNotebookQueriesQuery.isFetching ? (
+                                <span className="loading loading-spinner loading-xs text-primary" />
+                              ) : null}
+                              {active ? (
+                                <span className="badge badge-outline badge-sm border-primary/50 text-primary">
+                                  Active
+                                </span>
+                              ) : null}
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-xs text-error"
+                                onClick={() => handleDeleteSavedQuery(query.id)}
+                                disabled={
+                                  deleteSavedNotebookQueryMutation.isPending
+                                }
+                                aria-label={`Delete saved view ${query.name}`}
+                              >
+                                <Trash2Icon className="size-4" />
+                              </button>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <div className="rounded-xl bg-base-200/70 px-4 py-3 text-xs text-base-content/70">
+                      Save a set of filters to reopen them with one click.
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </section>
 
             <div className="sticky top-4 z-10 space-y-3">
@@ -2498,6 +3103,7 @@ function HomePage() {
                             note={note}
                             onTagClick={toggleTagSelection}
                             selectedTags={selectedTags}
+                            onOpenNoteInsights={openNoteInsights}
                           />
                         );
                       })}
@@ -2521,6 +3127,7 @@ function HomePage() {
                             selectionMode ? undefined : toggleTagSelection
                           }
                           selectedTags={selectedTags}
+                          onOpenNoteInsights={openNoteInsights}
                         />
                       );
                     })}
@@ -3017,6 +3624,37 @@ function HomePage() {
         </div>
       )}
 
+      {publishNotebook ? (
+        <NotebookPublishDialog
+          notebook={publishNotebook}
+          open
+          onClose={closePublishNotebook}
+          onUpdated={handlePublishingChange}
+        />
+      ) : null}
+
+      {historyNotebook ? (
+        <NotebookHistoryDialog
+          notebook={historyNotebook}
+          notebooks={notebooks}
+          open
+          onClose={closeHistoryNotebook}
+          onUndoSuccess={handleHistoryUndo}
+        />
+      ) : null}
+
+      <NotebookInsightsDrawer
+        open={Boolean(insightsNote)}
+        note={insightsNote}
+        onClose={closeNoteInsights}
+        onMoveNote={handleMoveNoteToNotebook}
+        onViewNotebook={handleViewNotebookFromInsights}
+        onApplySmartView={handleApplySmartView}
+        notebooks={notebooks}
+        savedQueries={savedNotebookQueries}
+        activeNotebookId={activeNotebookId}
+      />
+
       {shareNotebookState ? (
         <NotebookShareDialog
           notebook={shareNotebookState}
@@ -3086,6 +3724,18 @@ function HomePage() {
           onClose={closeNotebookAnalytics}
         />
       ) : null}
+
+      <SavedNotebookQueryDialog
+        open={savedQueryDialogOpen}
+        onClose={closeSavedQueryDialog}
+        onSubmit={handleSavedQuerySubmit}
+        submitting={createSavedNotebookQueryMutation.isPending}
+        defaultName={
+          appliedSavedQuery?.name ??
+          (searchQuery.trim() ||
+            (activeNotebook?.name ? `${activeNotebook.name} view` : ""))
+        }
+      />
 
       <NotebookTemplateGalleryModal
         open={notebookTemplateModalOpen}
