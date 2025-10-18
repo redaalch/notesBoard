@@ -8,7 +8,6 @@ import {
   getTagStats,
   bulkUpdateNotes,
   getNoteHistory,
-  getNotePresence,
   getNoteLayout,
   updateNoteLayout,
 } from "../controllers/notesController.js";
@@ -77,13 +76,6 @@ router.get(
   "/:id/history",
   validate([validationRules.objectId("id"), ...validationRules.pagination()]),
   getNoteHistory
-);
-
-// Note presence (real-time users)
-router.get(
-  "/:id/presence",
-  validate([validationRules.objectId("id")]),
-  getNotePresence
 );
 
 // Collaborators routes

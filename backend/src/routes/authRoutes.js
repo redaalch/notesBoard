@@ -4,7 +4,6 @@ import {
   login,
   refresh,
   logout,
-  me,
   requestPasswordReset,
   resetPassword,
   verifyEmail,
@@ -104,7 +103,5 @@ router.post(
   ]),
   changePassword
 );
-
-router.get("/me", auth, me);
 
 export default router;
