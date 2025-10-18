@@ -14,6 +14,7 @@ import {
   PinOffIcon,
   TrashIcon,
   UsersIcon,
+  SparklesIcon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
@@ -53,6 +54,7 @@ function NoteCard({
   style,
   dragging = false,
   cardDragProps = null,
+  onOpenInsights = null,
 }) {
   const queryClient = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -413,6 +415,23 @@ function NoteCard({
               </div>
               {!selectionMode && !customizeMode && (
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  {typeof onOpenInsights === "function" ? (
+                    <div
+                      className="tooltip tooltip-bottom"
+                      data-tip="Recommendations & smart view"
+                    >
+                      <button
+                        className="btn btn-outline btn-sm flex-shrink-0"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          onOpenInsights(note);
+                        }}
+                        aria-label="Open recommendations and smart view"
+                      >
+                        <SparklesIcon className="size-4" />
+                      </button>
+                    </div>
+                  ) : null}
                   <div
                     className="tooltip tooltip-bottom"
                     data-tip="Open note details"
