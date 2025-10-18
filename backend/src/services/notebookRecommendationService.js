@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import Notebook from "../models/Notebook.js";
 import NotebookMember from "../models/NotebookMember.js";
 import NotebookIndex from "../models/NotebookIndex.js";
+import NotebookPublication from "../models/NotebookPublication.js";
+import SavedNotebookQuery from "../models/SavedNotebookQuery.js";
 import NoteCollaborator from "../models/NoteCollaborator.js";
 import { buildNotebookVector } from "../utils/textAnalytics.js";
 
@@ -182,29 +184,53 @@ export const getNotebookRecommendations = async ({
   const limitedIds = Array.from(candidateNotebookIds).slice(0, MAX_CANDIDATES);
   const objectIds = limitedIds.map((id) => new mongoose.Types.ObjectId(id));
 
-  const [indexDocs, notebookDocs, membershipDetails, noteCollaborators] =
-    await Promise.all([
-      NotebookIndex.find({ notebookId: { $in: objectIds } })
-        .select({
-          notebookId: 1,
-          vector: 1,
-          tagFrequencies: 1,
-          noteCount: 1,
-          lastIndexedAt: 1,
-          metadata: 1,
-        })
-        .lean(),
-      Notebook.find({ _id: { $in: objectIds } })
-        .select({ name: 1, description: 1, updatedAt: 1, owner: 1 })
-        .lean(),
-      NotebookMember.find({
-        notebookId: { $in: objectIds },
-        status: "active",
+  const [
+    indexDocs,
+    notebookDocs,
+    membershipDetails,
+    noteCollaborators,
+    savedQueries,
+    publications,
+  ] = await Promise.all([
+    NotebookIndex.find({ notebookId: { $in: objectIds } })
+      .select({
+        notebookId: 1,
+        vector: 1,
+        tagFrequencies: 1,
+        noteCount: 1,
+        lastIndexedAt: 1,
+        metadata: 1,
       })
-        .select({ notebookId: 1, userId: 1 })
-        .lean(),
-      NoteCollaborator.find({ noteId: note._id }).select({ userId: 1 }).lean(),
-    ]);
+      .lean(),
+    Notebook.find({ _id: { $in: objectIds } })
+      .select({
+        name: 1,
+        description: 1,
+        updatedAt: 1,
+        owner: 1,
+        offlineRevision: 1,
+        isPublic: 1,
+        publicSlug: 1,
+        publishedAt: 1,
+      })
+      .lean(),
+    NotebookMember.find({
+      notebookId: { $in: objectIds },
+      status: "active",
+    })
+      .select({ notebookId: 1, userId: 1 })
+      .lean(),
+    NoteCollaborator.find({ noteId: note._id }).select({ userId: 1 }).lean(),
+    SavedNotebookQuery.find({
+      notebookId: { $in: objectIds },
+      userId: ownerObjectId,
+    })
+      .select({ notebookId: 1, lastUsedAt: 1 })
+      .lean(),
+    NotebookPublication.find({ notebookId: { $in: objectIds } })
+      .select({ notebookId: 1, publishedAt: 1 })
+      .lean(),
+  ]);
 
   const indexByNotebookId = new Map(
     indexDocs.map((doc) => [doc.notebookId.toString(), doc])
@@ -224,6 +250,29 @@ export const getNotebookRecommendations = async ({
     acc.get(key).add(entry.userId.toString());
     return acc;
   }, new Map());
+
+  const savedQueryStats = savedQueries.reduce((acc, entry) => {
+    if (!entry.notebookId) {
+      return acc;
+    }
+    const key = entry.notebookId.toString();
+    if (!acc.has(key)) {
+      acc.set(key, { count: 0, lastUsedAt: null });
+    }
+    const current = acc.get(key);
+    current.count += 1;
+    if (
+      entry.lastUsedAt &&
+      (!current.lastUsedAt || entry.lastUsedAt > current.lastUsedAt)
+    ) {
+      current.lastUsedAt = entry.lastUsedAt;
+    }
+    return acc;
+  }, new Map());
+
+  const publicationByNotebook = new Map(
+    publications.map((doc) => [doc.notebookId.toString(), doc])
+  );
 
   const collaboratorIds = new Set(
     noteCollaborators
@@ -273,8 +322,36 @@ export const getNotebookRecommendations = async ({
       memberSet
     );
 
-    const blendedScore =
+    const relevanceScore =
       cosine * 0.6 + tagResult.score * 0.3 + collaboratorResult.score * 0.1;
+
+    const revisionScore = Math.min(
+      0.15,
+      Math.max(0, (notebook.offlineRevision ?? 0) * 0.01)
+    );
+
+    const savedQueryInfo = savedQueryStats.get(notebookId) ?? {
+      count: 0,
+      lastUsedAt: null,
+    };
+    const savedQueryScore = Math.min(0.15, savedQueryInfo.count * 0.03);
+
+    const publication = publicationByNotebook.get(notebookId) ?? null;
+    const publicationScore = publication ? 0.1 : 0;
+
+    const freshnessScore = (() => {
+      if (savedQueryInfo.lastUsedAt) {
+        const ageMs = Date.now() - savedQueryInfo.lastUsedAt.getTime();
+        const thirtyDays = 1000 * 60 * 60 * 24 * 30;
+        return Math.max(0, Math.min(0.1, 0.1 - ageMs / (thirtyDays * 10)));
+      }
+      return 0;
+    })();
+
+    const metaBoost =
+      revisionScore + savedQueryScore + publicationScore + freshnessScore;
+
+    const blendedScore = Math.min(1, relevanceScore * 0.7 + metaBoost);
 
     if (blendedScore <= 0) {
       return;
@@ -283,6 +360,7 @@ export const getNotebookRecommendations = async ({
     recommendations.push({
       notebookId,
       score: blendedScore,
+      relevanceScore,
       cosine,
       tagScore: tagResult.score,
       collaboratorScore: collaboratorResult.score,
@@ -290,6 +368,12 @@ export const getNotebookRecommendations = async ({
       matchedCollaborators: collaboratorResult.matches,
       notebook,
       index,
+      revisionScore,
+      savedQueryScore,
+      savedQueryCount: savedQueryInfo.count,
+      publicationScore,
+      freshnessScore,
+      publication,
     });
   });
 
@@ -305,14 +389,25 @@ export const getNotebookRecommendations = async ({
     name: entry.notebook?.name ?? "Untitled Notebook",
     description: entry.notebook?.description ?? "",
     score: Number.parseFloat(entry.score.toFixed(4)),
+    relevanceScore: Number.parseFloat(entry.relevanceScore.toFixed(4)),
     cosine: Number.parseFloat(entry.cosine.toFixed(4)),
     tagScore: Number.parseFloat(entry.tagScore.toFixed(4)),
     collaboratorScore: Number.parseFloat(entry.collaboratorScore.toFixed(4)),
+    revisionScore: Number.parseFloat(entry.revisionScore.toFixed(4)),
+    savedQueryScore: Number.parseFloat(entry.savedQueryScore.toFixed(4)),
+    publicationScore: Number.parseFloat(entry.publicationScore.toFixed(4)),
+    freshnessScore: Number.parseFloat(entry.freshnessScore.toFixed(4)),
     matchedTags: entry.matchedTags,
     matchedCollaborators: entry.matchedCollaborators,
     noteCount: entry.index?.noteCount ?? 0,
     lastIndexedAt: entry.index?.lastIndexedAt ?? null,
     updatedAt: entry.notebook?.updatedAt ?? null,
+    offlineRevision: entry.notebook?.offlineRevision ?? 0,
+    savedQueryCount: entry.savedQueryCount,
+    isPublic: Boolean(entry.notebook?.isPublic),
+    publicSlug: entry.notebook?.publicSlug ?? null,
+    publishedAt:
+      entry.notebook?.publishedAt ?? entry.publication?.publishedAt ?? null,
     metadata: (() => {
       const meta = toPlainObject(entry.index?.metadata);
       return {
