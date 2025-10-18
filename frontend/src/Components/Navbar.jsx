@@ -142,7 +142,11 @@ const getPreferredTheme = () => {
   return DEFAULT_THEME;
 };
 
-function Navbar({ onMobileFilterClick = () => {}, defaultNotebookId = null }) {
+function Navbar({
+  onMobileFilterClick = () => {},
+  defaultNotebookId = null,
+  hideAuthLinks = false,
+}) {
   const [theme, setTheme] = useState(getPreferredTheme);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -342,7 +346,7 @@ function Navbar({ onMobileFilterClick = () => {}, defaultNotebookId = null }) {
                 </div>
               </div>
 
-              {user ? (
+              {hideAuthLinks ? null : user ? (
                 <div className="dropdown dropdown-end">
                   <button
                     type="button"
