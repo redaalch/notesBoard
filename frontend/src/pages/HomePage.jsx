@@ -828,11 +828,17 @@ function HomePage() {
       }
 
       try {
-        await api.post("/notes/bulk", {
-          action: "moveNotebook",
-          noteIds: ids,
-          notebookId: normalizedTarget,
-        });
+        if (normalizedTarget === "uncategorized") {
+          await api.post("/notes/bulk", {
+            action: "moveNotebook",
+            noteIds: ids,
+            notebookId: normalizedTarget,
+          });
+        } else {
+          await api.post(`/notebooks/${normalizedTarget}/move`, {
+            noteIds: ids,
+          });
+        }
 
         const notebookLabel =
           normalizedTarget === "uncategorized"
