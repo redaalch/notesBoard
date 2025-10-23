@@ -11,28 +11,30 @@ import {
   formatTagLabel,
   normalizeTag,
 } from "../lib/Utils.js";
+import { MetricTile, Surface } from "./ui/index.js";
 
 const average = (numbers) => {
   if (!numbers.length) return 0;
   return numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
 };
 
+const numberFormatter = new Intl.NumberFormat();
+
+const LoadingTile = () => (
+  <Surface variant="raised" padding="sm" className="animate-pulse space-y-3">
+    <div className="h-3.5 w-20 rounded-full bg-border-subtle/40" />
+    <div className="h-7 w-28 rounded-xl bg-border-subtle/50" />
+    <div className="h-3 w-24 rounded-full bg-border-subtle/30" />
+  </Surface>
+);
+
 function NotesStats({ notes, loading, tagStats }) {
   if (loading) {
     return (
-      <div className="stats stats-vertical lg:stats-horizontal shadow bg-base-100 w-full">
-        <div className="stat">
-          <div className="skeleton mb-2 h-6 w-24" />
-          <div className="skeleton h-8 w-32" />
-        </div>
-        <div className="stat">
-          <div className="skeleton mb-2 h-6 w-24" />
-          <div className="skeleton h-8 w-32" />
-        </div>
-        <div className="stat">
-          <div className="skeleton mb-2 h-6 w-24" />
-          <div className="skeleton h-8 w-32" />
-        </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <LoadingTile key={`loading-metric-${index}`} />
+        ))}
       </div>
     );
   }
@@ -77,81 +79,62 @@ function NotesStats({ notes, loading, tagStats }) {
     .map((note) => note.updatedAt ?? note.createdAt)
     .filter(Boolean)
     .sort((a, b) => new Date(b) - new Date(a))[0];
+  const dailyMomentum = notes.filter((note) => {
+    const createdAt = new Date(note.createdAt);
+    const now = new Date();
+    const diff = now - createdAt;
+    return diff <= 86_400_000;
+  }).length;
+
+  const formattedNotes = numberFormatter.format(notes.length);
+  const formattedPinned = numberFormatter.format(pinnedCount);
+  const formattedAvg = `${numberFormatter.format(avgWords)} words`;
+  const formattedLongest = numberFormatter.format(longest);
+  const formattedMomentum = numberFormatter.format(dailyMomentum);
+  const formattedTags = `${numberFormatter.format(uniqueTags)} tags`;
 
   return (
-    <div className="stats stats-vertical lg:stats-horizontal shadow bg-base-100 w-full overflow-x-auto">
-      <div className="stat">
-        <div className="stat-figure text-primary">
-          <BarChart3Icon className="size-7 sm:size-8" />
-        </div>
-        <div className="stat-title">Total notes</div>
-        <div className="stat-value text-primary">{notes.length}</div>
-        <div className="stat-desc text-base-content/70">
-          Last update {formatRelativeTime(latestUpdate)}
-        </div>
-      </div>
-
-      <div className="stat">
-        <div className="stat-figure text-warning">
-          <PinIcon className="size-7 sm:size-8" />
-        </div>
-        <div className="stat-title">Pinned notes</div>
-        <div className="stat-value text-warning">{pinnedCount}</div>
-        <div className="stat-desc text-base-content/70">
-          {pinnedCount
-            ? "Kept at the top for easy access"
-            : "Pin important notes to prioritize them"}
-        </div>
-      </div>
-
-      <div className="stat">
-        <div className="stat-figure text-secondary">
-          <FileTextIcon className="size-7 sm:size-8" />
-        </div>
-        <div className="stat-title">Average length</div>
-        <div className="stat-value text-secondary">{avgWords} words</div>
-        <div className="stat-desc text-base-content/70">
-          Longest note is {longest} words
-        </div>
-      </div>
-
-      <div className="stat">
-        <div className="stat-figure text-accent">
-          <ClockIcon className="size-7 sm:size-8" />
-        </div>
-        <div className="stat-title">Daily momentum</div>
-        <div className="stat-value text-accent">
-          {
-            notes.filter((note) => {
-              const createdAt = new Date(note.createdAt);
-              const now = new Date();
-              const diff = now - createdAt;
-              return diff <= 86_400_000;
-            }).length
-          }
-        </div>
-        <div className="stat-desc text-base-content/70">
-          Notes captured in the last 24 hours
-        </div>
-      </div>
-
-      <div className="stat">
-        <div className="stat-figure text-info">
-          <TagIcon className="size-7 sm:size-8" />
-        </div>
-        <div className="stat-title">Tag coverage</div>
-        <div className="stat-value text-info">
-          {uniqueTags}
-          <span className="ml-1 text-sm font-semibold">tags</span>
-        </div>
-        <div className="stat-desc text-base-content/70">
-          {topTag
-            ? `${formatTagLabel(topTag)} appears in ${topTagCount} note${
-                topTagCount === 1 ? "" : "s"
-              }`
-            : "Add tags to unlock insights"}
-        </div>
-      </div>
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <MetricTile
+        label="Total notes"
+        value={formattedNotes}
+        sublabel={`Last update ${formatRelativeTime(latestUpdate)}`}
+        icon={<BarChart3Icon className="size-5" aria-hidden="true" />}
+      />
+      <MetricTile
+        label="Pinned notes"
+        value={formattedPinned}
+        sublabel={
+          pinnedCount
+            ? "Pinned for quick access"
+            : "Pin important notes to prioritize them"
+        }
+        icon={<PinIcon className="size-5" aria-hidden="true" />}
+      />
+      <MetricTile
+        label="Average length"
+        value={formattedAvg}
+        sublabel={`Longest note is ${formattedLongest} words`}
+        icon={<FileTextIcon className="size-5" aria-hidden="true" />}
+      />
+      <MetricTile
+        label="Daily momentum"
+        value={formattedMomentum}
+        sublabel="Notes captured in the last 24 hours"
+        icon={<ClockIcon className="size-5" aria-hidden="true" />}
+      />
+      <MetricTile
+        label="Tag coverage"
+        value={formattedTags}
+        sublabel={
+          topTag
+            ? `${formatTagLabel(topTag)} appears in ${numberFormatter.format(
+                topTagCount ?? 0
+              )} note${(topTagCount ?? 0) === 1 ? "" : "s"}`
+            : "Add tags to unlock insights"
+        }
+        icon={<TagIcon className="size-5" aria-hidden="true" />}
+      />
     </div>
   );
 }
