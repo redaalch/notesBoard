@@ -24,72 +24,24 @@ import { useCommandPalette } from "../contexts/CommandPaletteContext.jsx";
 
 const THEME_OPTIONS = [
   {
-    name: "forest",
-    label: "Forest",
-    description: "Leafy greens and natural contrast",
-    preview: ["bg-emerald-400", "bg-emerald-600", "bg-lime-400"],
-  },
-  {
-    name: "dark",
-    label: "Midnight",
-    description: "Balanced, high-contrast night mode",
-    preview: ["bg-slate-200", "bg-slate-500", "bg-slate-800"],
-  },
-  {
-    name: "coffee",
-    label: "Coffee",
-    description: "Toasty espresso and crema tones",
-    preview: ["bg-amber-400", "bg-amber-600", "bg-stone-700"],
-  },
-  {
-    name: "retro",
-    label: "Retro",
-    description: "Vintage hues with playful saturation",
-    preview: ["bg-amber-400", "bg-teal-500", "bg-rose-400"],
-  },
-  {
-    name: "light",
+    name: "notesLight",
     label: "Daylight",
-    description: "Bright neutral workspace with clarity",
-    preview: ["bg-sky-200", "bg-amber-200", "bg-emerald-200"],
+    description: "Bright neutrals with a calm brand accent.",
+    preview: ["bg-blue-200", "bg-blue-400", "bg-emerald-200"],
   },
   {
-    name: "cupcake",
-    label: "Cupcake",
-    description: "Frosted pastels and soft contrasts",
-    preview: ["bg-pink-200", "bg-purple-300", "bg-emerald-200"],
-  },
-  {
-    name: "valentine",
-    label: "Valentine",
-    description: "Warm rose tones with romantic glow",
-    preview: ["bg-rose-400", "bg-pink-500", "bg-amber-300"],
-  },
-  {
-    name: "cyberpunk",
-    label: "Cyberpunk",
-    description: "Electric neons with futuristic contrast",
-    preview: ["bg-purple-600", "bg-fuchsia-500", "bg-sky-500"],
-  },
-  {
-    name: "luxury",
-    label: "Luxury",
-    description: "Opulent gold accents on deep charcoal",
-    preview: ["bg-stone-700", "bg-amber-400", "bg-amber-600"],
-  },
-  {
-    name: "business",
-    label: "Business",
-    description: "Polished neutrals with professional blues",
-    preview: ["bg-slate-200", "bg-slate-500", "bg-sky-500"],
+    name: "notesDark",
+    label: "Night Shift",
+    description: "Dim surfaces with gentle contrast for focus.",
+    preview: ["bg-slate-700", "bg-slate-900", "bg-indigo-400"],
   },
 ];
 
 const THEME_MAP = new Map(THEME_OPTIONS.map((option) => [option.name, option]));
 const SUPPORTED_THEMES = new Set(THEME_MAP.keys());
-const DEFAULT_THEME = THEME_OPTIONS[0]?.name ?? "forest";
-const DARK_THEME_FALLBACK = SUPPORTED_THEMES.has("dark")
-  ? "dark"
+const DEFAULT_THEME = THEME_OPTIONS[0]?.name ?? "notesLight";
+const DARK_THEME_FALLBACK = SUPPORTED_THEMES.has("notesDark")
+  ? "notesDark"
   : DEFAULT_THEME;
 
 let themeTransitionTimeoutId;
