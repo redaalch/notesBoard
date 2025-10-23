@@ -79,6 +79,8 @@ import SavedNotebookQueryDialog from "../Components/SavedNotebookQueryDialog.jsx
 import NotebookPublishDialog from "../Components/NotebookPublishDialog.jsx";
 import NotebookHistoryDialog from "../Components/NotebookHistoryDialog.jsx";
 import NotebookInsightsDrawer from "../Components/NotebookInsightsDrawer.jsx";
+import { Button, Surface, Chip } from "../Components/ui/index.js";
+import { cn } from "../lib/cn.js";
 
 const FILTER_STORAGE_KEY = "notesboard-filters-v1";
 const NOTEBOOK_ANALYTICS_ENABLED =
@@ -2371,71 +2373,91 @@ function HomePage() {
         </div>
 
         <main id="main-content" tabIndex={-1} className="flex-1 w-full">
-          <section className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8">
+          <div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-8">
             <NotesStats
               notes={notes}
               loading={loading || isFetchingNotes}
               tagStats={tagInsights}
             />
 
-            <section className="rounded-2xl border border-base-300/60 bg-base-100/80 p-4 shadow-sm backdrop-blur supports-[backdrop-filter:blur(0px)]:bg-base-100/70">
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <Surface
+              variant="raised"
+              padding="md"
+              className="space-y-6 shadow-soft"
+            >
+              <div className="flex flex-col gap-4 md:flex-row md:flex-wrap md:items-center md:justify-between">
                 <div className="flex items-start gap-3">
-                  <FolderIcon className="size-5 text-primary" />
-                  <div>
-                    <h2 className="text-base font-semibold leading-tight">
+                  <span className="inline-flex size-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+                    <FolderIcon className="size-5" aria-hidden="true" />
+                  </span>
+                  <div className="space-y-1">
+                    <h2 className="typ-subtitle text-text-primary">
                       Notebooks
                     </h2>
-                    <p className="text-xs text-base-content/60">
+                    <p className="text-sm text-subtle">
                       Organize notes into folders and switch views quickly.
                     </p>
                   </div>
                 </div>
-                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:self-center">
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm gap-2 w-full sm:w-auto"
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                  <Button
+                    tone="primary"
+                    variant="solid"
+                    size="sm"
+                    icon={
+                      <FolderPlusIcon className="size-4" aria-hidden="true" />
+                    }
+                    className="w-full sm:w-auto"
                     onClick={openCreateNotebook}
                   >
-                    <FolderPlusIcon className="size-4" />
                     New notebook
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm gap-2 w-full sm:w-auto"
+                  </Button>
+                  <Button
+                    tone="primary"
+                    variant="subtle"
+                    size="sm"
+                    icon={
+                      <SparklesIcon className="size-4" aria-hidden="true" />
+                    }
+                    className="w-full sm:w-auto"
                     onClick={openNotebookTemplateGallery}
                   >
-                    <SparklesIcon className="size-4" />
                     Browse templates
-                  </button>
+                  </Button>
                 </div>
               </div>
 
               <div className="mt-4">
                 {notebooksLoading ? (
-                  <div className="flex gap-3">
-                    {[1, 2, 3].map((key) => (
+                  <div className="flex flex-wrap gap-3">
+                    {Array.from({ length: 4 }).map((_, index) => (
                       <div
-                        key={key}
-                        className="h-12 w-32 animate-pulse rounded-xl bg-base-200"
+                        key={`notebook-skeleton-${index}`}
+                        className="h-10 w-32 animate-pulse rounded-full border border-border-subtle/50 bg-surface-base"
                       />
                     ))}
                   </div>
                 ) : notebooksError ? (
-                  <div className="alert alert-error">
-                    <AlertTriangleIcon className="size-5" />
-                    <span className="text-sm">
-                      Unable to load notebooks. Try refreshing.
-                    </span>
-                  </div>
+                  <Surface
+                    variant="inset"
+                    padding="sm"
+                    className="flex items-center gap-3 text-sm text-error"
+                  >
+                    <AlertTriangleIcon className="size-5" aria-hidden="true" />
+                    <span>Unable to load notebooks. Try refreshing.</span>
+                  </Surface>
                 ) : notebooks.length === 0 && !uncategorizedNoteCount ? (
-                  <div className="rounded-xl bg-base-200/70 px-4 py-3 text-sm text-base-content/70">
+                  <Surface
+                    variant="inset"
+                    padding="sm"
+                    className="text-sm text-subtle"
+                  >
                     You haven&apos;t created any notebooks yet. Create one to
                     start grouping related notes.
-                  </div>
+                  </Surface>
                 ) : (
                   <div
-                    className="flex flex-col gap-3 pb-1 sm:flex-row sm:flex-wrap"
+                    className="flex flex-wrap gap-2"
                     role="tablist"
                     aria-label="Notebooks"
                   >
@@ -2444,30 +2466,26 @@ function HomePage() {
                         <button
                           type="button"
                           role="tab"
-                          aria-selected={activeNotebookId === "all"}
-                          className={`btn btn-sm h-auto min-h-[2.5rem] w-full flex-shrink-0 justify-between rounded-xl px-4 sm:w-auto sm:justify-start ${
-                            activeNotebookId === "all"
-                              ? "border-primary/60 bg-primary/15 text-primary shadow-primary/20 hover:bg-primary/20"
-                              : "btn-outline"
-                          } ${
-                            isOver
-                              ? "ring-2 ring-primary/60 ring-offset-2 ring-offset-base-100"
-                              : ""
-                          }`}
-                          onClick={() => handleSelectNotebook("all")}
                           ref={setNodeRef}
+                          aria-selected={activeNotebookId === "all"}
+                          className={cn(
+                            "group flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-2 text-sm font-semibold transition sm:w-auto sm:justify-start",
+                            activeNotebookId === "all"
+                              ? "border-brand-200 bg-brand-50 text-brand-700 shadow-soft"
+                              : "border-border-subtle bg-surface-base text-text-muted hover:border-brand-200/70 hover:bg-brand-50/70 hover:text-text-primary",
+                            isOver && "ring-2 ring-brand-300/70"
+                          )}
+                          onClick={() => handleSelectNotebook("all")}
                         >
-                          <span className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
-                            <span>All notes</span>
-                            <span
-                              className={`badge badge-sm ${
-                                activeNotebookId === "all"
-                                  ? "border-0 bg-primary/60 text-primary-content"
-                                  : ""
-                              }`}
-                            >
-                              {totalNotebookCount}
-                            </span>
+                          <span className="whitespace-nowrap">All notes</span>
+                          <span
+                            className={cn(
+                              "inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-surface-overlay px-2 py-0.5 text-xs font-semibold text-text-muted",
+                              activeNotebookId === "all" &&
+                                "bg-brand-500 text-white"
+                            )}
+                          >
+                            {totalNotebookCount}
                           </span>
                         </button>
                       )}
@@ -2480,30 +2498,28 @@ function HomePage() {
                         <button
                           type="button"
                           role="tab"
-                          aria-selected={activeNotebookId === "uncategorized"}
-                          className={`btn btn-sm h-auto min-h-[2.5rem] w-full flex-shrink-0 justify-between rounded-xl px-4 sm:w-auto sm:justify-start ${
-                            activeNotebookId === "uncategorized"
-                              ? "border-primary/60 bg-primary/15 text-primary shadow-primary/20 hover:bg-primary/20"
-                              : "btn-outline"
-                          } ${
-                            isOver
-                              ? "ring-2 ring-primary/60 ring-offset-2 ring-offset-base-100"
-                              : ""
-                          }`}
-                          onClick={() => handleSelectNotebook("uncategorized")}
                           ref={setNodeRef}
+                          aria-selected={activeNotebookId === "uncategorized"}
+                          className={cn(
+                            "group flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-2 text-sm font-semibold transition sm:w-auto sm:justify-start",
+                            activeNotebookId === "uncategorized"
+                              ? "border-brand-200 bg-brand-50 text-brand-700 shadow-soft"
+                              : "border-border-subtle bg-surface-base text-text-muted hover:border-brand-200/70 hover:bg-brand-50/70 hover:text-text-primary",
+                            isOver && "ring-2 ring-brand-300/70"
+                          )}
+                          onClick={() => handleSelectNotebook("uncategorized")}
                         >
-                          <span className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
-                            <span>Uncategorized</span>
-                            <span
-                              className={`badge badge-sm ${
-                                activeNotebookId === "uncategorized"
-                                  ? "border-0 bg-primary/60 text-primary-content"
-                                  : ""
-                              }`}
-                            >
-                              {uncategorizedNoteCount}
-                            </span>
+                          <span className="whitespace-nowrap">
+                            Uncategorized
+                          </span>
+                          <span
+                            className={cn(
+                              "inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-surface-overlay px-2 py-0.5 text-xs font-semibold text-text-muted",
+                              activeNotebookId === "uncategorized" &&
+                                "bg-brand-500 text-white"
+                            )}
+                          >
+                            {uncategorizedNoteCount}
                           </span>
                         </button>
                       )}
@@ -2528,54 +2544,49 @@ function HomePage() {
                               <button
                                 type="button"
                                 role="tab"
+                                ref={setNodeRef}
                                 aria-selected={isActive}
-                                className={`btn btn-sm h-auto min-h-[2.5rem] w-full justify-between rounded-xl px-4 pr-10 sm:w-auto sm:justify-start ${
+                                className={cn(
+                                  "group flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-2 pr-12 text-sm font-semibold transition sm:w-auto sm:justify-start",
                                   isActive
-                                    ? "border-primary/60 bg-primary/15 text-primary shadow-primary/20 hover:bg-primary/20"
-                                    : "btn-outline"
-                                } ${
-                                  isOver
-                                    ? "ring-2 ring-primary/60 ring-offset-2 ring-offset-base-100"
-                                    : ""
-                                }`}
+                                    ? "border-brand-200 bg-brand-50 text-brand-700 shadow-soft"
+                                    : "border-border-subtle bg-surface-base text-text-muted hover:border-brand-200/70 hover:bg-brand-50/70 hover:text-text-primary",
+                                  isOver && "ring-2 ring-brand-300/70"
+                                )}
                                 onClick={() =>
                                   handleSelectNotebook(notebook.id)
                                 }
-                                ref={setNodeRef}
                               >
-                                <span className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
-                                  <span className="flex items-center gap-2">
-                                    {hasColor ? (
-                                      <span
-                                        className="size-2.5 rounded-full border border-base-100/60 shadow-sm"
-                                        style={{
-                                          backgroundColor: notebook.color,
-                                        }}
-                                        aria-hidden="true"
-                                      />
-                                    ) : null}
-                                    <IconComponent
-                                      className="size-4"
-                                      style={
-                                        hasColor
-                                          ? { color: notebook.color }
-                                          : undefined
-                                      }
+                                <span className="flex items-center gap-2">
+                                  {hasColor ? (
+                                    <span
+                                      className="size-2.5 rounded-full border border-white/80 shadow-sm"
+                                      style={{
+                                        backgroundColor: notebook.color,
+                                      }}
                                       aria-hidden="true"
                                     />
-                                    <span className="truncate max-w-[8rem]">
-                                      {notebook.name}
-                                    </span>
+                                  ) : null}
+                                  <IconComponent
+                                    className="size-4"
+                                    style={
+                                      hasColor
+                                        ? { color: notebook.color }
+                                        : undefined
+                                    }
+                                    aria-hidden="true"
+                                  />
+                                  <span className="max-w-[8rem] truncate text-left">
+                                    {notebook.name}
                                   </span>
-                                  <span
-                                    className={`badge badge-sm ${
-                                      isActive
-                                        ? "border-0 bg-primary/60 text-primary-content"
-                                        : ""
-                                    }`}
-                                  >
-                                    {notebook.noteCount ?? 0}
-                                  </span>
+                                </span>
+                                <span
+                                  className={cn(
+                                    "inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-surface-overlay px-2 py-0.5 text-xs font-semibold text-text-muted",
+                                    isActive && "bg-brand-500 text-white"
+                                  )}
+                                >
+                                  {notebook.noteCount ?? 0}
                                 </span>
                               </button>
                               <div className="dropdown dropdown-end dropdown-top absolute right-1 top-1 z-20">
@@ -2668,7 +2679,7 @@ function HomePage() {
                                       <span>Save as template</span>
                                     </button>
                                   </li>
-                                  <div className="my-1 h-px bg-base-300/50"></div>
+                                  <div className="my-1 h-px bg-base-300/50" />
                                   <li>
                                     <button
                                       type="button"
@@ -2808,7 +2819,7 @@ function HomePage() {
                   )}
                 </div>
               ) : null}
-            </section>
+            </Surface>
 
             <div className="sticky top-4 z-10 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-base-300/60 bg-base-200/70 px-4 py-3">
@@ -3180,7 +3191,7 @@ function HomePage() {
               notes.length === 0 && (
                 <NotesNotFound createLinkState={createPageState} />
               )}
-          </section>
+          </div>
         </main>
 
         {!drawerOpen && (
