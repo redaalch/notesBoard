@@ -11,37 +11,37 @@ const withOpacityVariable =
   };
 
 const notesLight = {
-  primary: "#4B6BFB",
-  "primary-content": "#F8FAFF",
-  secondary: "#7C5CFF",
-  "secondary-content": "#F5F3FF",
-  accent: "#0BB89C",
-  "accent-content": "#052F2B",
-  neutral: "#1F2937",
+  primary: "#4B6BFB", // Brand blue-500
+  "primary-content": "#FFFFFF",
+  secondary: "#6366F1", // Indigo for secondary actions
+  "secondary-content": "#FFFFFF",
+  accent: "#0BB89C", // Teal accent
+  "accent-content": "#FFFFFF",
+  neutral: "#334155", // Neutral slate-700
   "neutral-content": "#F8FAFC",
-  "base-100": "#F8FAFC",
-  "base-200": "#EDF2F8",
-  "base-300": "#E2E8F0",
-  "base-content": "#0F172A",
-  info: "#2563EB",
+  "base-100": "#F8FAFC", // surface-1
+  "base-200": "#FFFFFF", // surface-2
+  "base-300": "#E2E8F0", // neutral-200
+  "base-content": "#0F172A", // text-primary
+  info: "#3B82F6",
   success: "#10B981",
   warning: "#F59E0B",
   error: "#EF4444",
 };
 
 const notesDark = {
-  primary: "#93B4FF",
-  "primary-content": "#041023",
-  secondary: "#B6A4FF",
-  "secondary-content": "#10062B",
-  accent: "#35D3BA",
-  "accent-content": "#02201C",
-  neutral: "#0F172A",
-  "neutral-content": "#E2E8F0",
-  "base-100": "#0B1220",
-  "base-200": "#111A2B",
-  "base-300": "#1F2A3C",
-  "base-content": "#E2E8F0",
+  primary: "#93B4FF", // Lighter brand for dark mode
+  "primary-content": "#080C18",
+  secondary: "#A5B4FC", // Lighter indigo
+  "secondary-content": "#080C18",
+  accent: "#34D399", // Brighter teal
+  "accent-content": "#052F2B",
+  neutral: "#334155", // Neutral slate-700
+  "neutral-content": "#F1F5F9",
+  "base-100": "#080C18", // surface-1 dark
+  "base-200": "#0B1220", // surface-2 dark
+  "base-300": "#111A29", // surface-3 dark
+  "base-content": "#F1F5F9", // text-primary dark
   info: "#60A5FA",
   success: "#34D399",
   warning: "#FBBF24",
@@ -135,32 +135,45 @@ export default {
         ],
       },
       spacing: {
-        13: "3.25rem",
-        14: "3.5rem",
-        15: "3.75rem",
-        18: "4.5rem",
-        22: "5.5rem",
-        26: "6.5rem",
-        30: "7.5rem",
-        36: "9rem",
-        44: "11rem",
-        88: "22rem",
-        128: "32rem",
+        1: "var(--space-1)", // 4px
+        2: "var(--space-2)", // 8px
+        3: "var(--space-3)", // 12px
+        4: "var(--space-4)", // 16px
+        5: "var(--space-5)", // 20px
+        6: "var(--space-6)", // 24px
+        8: "var(--space-8)", // 32px
+        10: "var(--space-10)", // 40px
+        12: "var(--space-12)", // 48px
+        16: "var(--space-16)", // 64px
+        20: "var(--space-20)", // 80px
+        24: "var(--space-24)", // 96px
+        32: "var(--space-32)", // 128px
       },
       borderRadius: {
-        lg: "1rem",
-        xl: "1.25rem",
-        "2xl": "1.5rem",
-        "3xl": "1.75rem",
-        "4xl": "2rem",
-        "5xl": "2.5rem",
+        xs: "var(--radius-xs)",
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+        xl: "var(--radius-xl)",
+        "2xl": "var(--radius-2xl)",
+        "3xl": "var(--radius-3xl)",
+        full: "var(--radius-full)",
       },
       boxShadow: {
-        hairline: "var(--shadow-hairline)",
-        soft: "var(--shadow-soft)",
-        medium: "var(--shadow-medium)",
-        large: "var(--shadow-large)",
+        xs: "var(--shadow-xs)",
+        sm: "var(--shadow-sm)",
+        md: "var(--shadow-md)",
+        lg: "var(--shadow-lg)",
+        xl: "var(--shadow-xl)",
+        "2xl": "var(--shadow-2xl)",
+        inner: "var(--shadow-inner)",
         glow: "var(--shadow-glow)",
+        "glow-lg": "var(--shadow-glow-lg)",
+        // Legacy aliases
+        hairline: "var(--shadow-xs)",
+        soft: "var(--shadow-md)",
+        medium: "var(--shadow-lg)",
+        large: "var(--shadow-2xl)",
         "inner-soft": "var(--shadow-inner)",
       },
       dropShadow: {
