@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="forest">
+<html lang="en" data-theme="notesLight">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
@@ -10,24 +10,15 @@
       name="description"
       content="NotesBoard helps you capture ideas, organize research, and track progress across every project."
     />
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="theme-color" content="#4B6BFB" />
     <meta name="mobile-web-app-capable" content="yes" />
     <title>NotesBoard</title>
     <script>
       (() => {
-        const supportedThemes = [
-          "forest",
-          "dark",
-          "coffee",
-          "retro",
-          "light",
-          "cupcake",
-          "valentine",
-          "cyberpunk",
-          "luxury",
-          "business",
-        ];
-        const defaultTheme = supportedThemes[0] ?? "forest";
+        const SUPPORTED_THEMES = ["notesLight", "notesDark"];
+        const DEFAULT_THEME = "notesLight";
+        const DARK_THEME = "notesDark";
+
         const ensureTheme = (themeName) => {
           document.documentElement.setAttribute("data-theme", themeName);
         };
@@ -38,18 +29,15 @@
             window.matchMedia &&
             window.matchMedia("(prefers-color-scheme: dark)").matches;
 
-          const darkFallback = supportedThemes.includes("dark")
-            ? "dark"
-            : defaultTheme;
-          const resolvedTheme = supportedThemes.includes(stored)
+          const resolvedTheme = SUPPORTED_THEMES.includes(stored)
             ? stored
             : prefersDark
-            ? darkFallback
-            : defaultTheme;
+            ? DARK_THEME
+            : DEFAULT_THEME;
 
           ensureTheme(resolvedTheme);
         } catch {
-          ensureTheme(defaultTheme);
+          ensureTheme(DEFAULT_THEME);
         }
       })();
     </script>
