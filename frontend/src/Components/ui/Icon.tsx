@@ -1,4 +1,4 @@
-import { forwardRef } from "react";
+import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
 import { cn } from "../../lib/cn";
 
 const SIZE_MAP = {
@@ -7,18 +7,16 @@ const SIZE_MAP = {
   md: "size-5",
   lg: "size-6",
   xl: "size-8",
-};
+} as const;
 
-/**
- * Icon wrapper component for consistent sizing and stroke weight
- * Wraps lucide-react icons with standardized dimensions
- *
- * @param {Object} props
- * @param {ReactElement} props.children - Icon component from lucide-react
- * @param {('xs'|'sm'|'md'|'lg'|'xl')} props.size - Icon size
- * @param {string} props.className - Additional CSS classes
- */
-const Icon = forwardRef(
+export type IconSize = keyof typeof SIZE_MAP;
+
+export interface IconProps extends HTMLAttributes<HTMLSpanElement> {
+  children: ReactNode;
+  size?: IconSize;
+}
+
+const Icon = forwardRef<HTMLSpanElement, IconProps>(
   ({ children, size = "md", className, ...props }, ref) => {
     const sizeClass = SIZE_MAP[size] ?? SIZE_MAP.md;
 

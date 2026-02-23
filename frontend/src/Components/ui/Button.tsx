@@ -1,4 +1,9 @@
-import { forwardRef } from "react";
+import {
+  type ButtonHTMLAttributes,
+  type ElementType,
+  forwardRef,
+  type ReactNode,
+} from "react";
 import { cn } from "../../lib/cn";
 
 const BASE_CLASSES =
@@ -10,7 +15,7 @@ const SIZE_VARIANTS = {
   md: "h-10 px-5 text-sm min-h-[40px]",
   lg: "h-12 px-6 text-base min-h-[48px]",
   xl: "h-14 px-8 text-base min-h-[56px]",
-};
+} as const;
 
 const ICON_SIZE = {
   xs: "size-3.5",
@@ -18,16 +23,8 @@ const ICON_SIZE = {
   md: "size-4.5",
   lg: "size-5",
   xl: "size-5.5",
-};
+} as const;
 
-/**
- * Button Variants System
- * - primary: Main CTA actions (blue brand)
- * - secondary: Alternative actions (neutral gray)
- * - subtle: Low-emphasis actions (minimal background)
- * - critical: Warning actions (orange/yellow)
- * - destructive: Dangerous actions (red)
- */
 const VARIANT_STYLES = {
   primary:
     "bg-brand-600 text-white shadow-sm hover:bg-brand-500 hover:shadow-md active:bg-brand-700 focus-visible:ring-brand-300",
@@ -39,17 +36,22 @@ const VARIANT_STYLES = {
     "bg-warning text-white shadow-sm hover:bg-warning/90 hover:shadow-md active:bg-warning/80 focus-visible:ring-warning/40",
   destructive:
     "bg-error text-white shadow-sm hover:bg-error/90 hover:shadow-md active:bg-error/80 focus-visible:ring-error/40",
-
-  // Additional useful variants
   accent:
     "bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 hover:shadow-md active:bg-emerald-700 focus-visible:ring-emerald-300",
   ghost:
     "bg-transparent text-neutral-600 hover:bg-neutral-50 active:bg-neutral-100 focus-visible:ring-neutral-200 dark:text-dark-200 dark:hover:bg-dark-800",
   outline:
     "bg-transparent border-2 border-brand-600 text-brand-600 hover:bg-brand-50 active:bg-brand-100 focus-visible:ring-brand-300 dark:border-brand-400 dark:text-brand-400 dark:hover:bg-dark-800",
-};
+} as const;
 
-const Spinner = ({ size = "md" }) => {
+export type ButtonVariant = keyof typeof VARIANT_STYLES;
+export type ButtonSize = keyof typeof SIZE_VARIANTS;
+
+interface SpinnerProps {
+  size?: ButtonSize;
+}
+
+const Spinner = ({ size = "md" }: SpinnerProps) => {
   const spinnerSize = ICON_SIZE[size] ?? ICON_SIZE.md;
   return (
     <span
@@ -63,21 +65,17 @@ const Spinner = ({ size = "md" }) => {
   );
 };
 
-/**
- * Button Component
- *
- * @param {Object} props
- * @param {('primary'|'secondary'|'subtle'|'critical'|'destructive'|'accent'|'ghost'|'outline')} props.variant - Button visual style
- * @param {('xs'|'sm'|'md'|'lg'|'xl')} props.size - Button size
- * @param {ReactNode} props.icon - Optional icon element
- * @param {('left'|'right')} props.iconPosition - Icon placement
- * @param {boolean} props.loading - Show loading spinner
- * @param {boolean} props.fullWidth - Full width button
- * @param {boolean} props.disabled - Disabled state
- * @param {string} props.className - Additional CSS classes
- * @param {('button'|'a'|Component)} props.as - Render as different element
- */
-const Button = forwardRef(
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  as?: ElementType;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  icon?: ReactNode;
+  iconPosition?: "left" | "right";
+  loading?: boolean;
+  fullWidth?: boolean;
+}
+
+const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
       as: Component = "button",

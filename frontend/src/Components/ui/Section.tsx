@@ -1,4 +1,9 @@
-import { forwardRef } from "react";
+import {
+  type ElementType,
+  forwardRef,
+  type HTMLAttributes,
+  type ReactNode,
+} from "react";
 import { cn } from "../../lib/cn";
 
 const SPACING_MAP = {
@@ -7,19 +12,20 @@ const SPACING_MAP = {
   md: "py-12 sm:py-16 lg:py-20",
   lg: "py-16 sm:py-20 lg:py-24",
   xl: "py-20 sm:py-24 lg:py-32",
-};
+} as const;
 
-/**
- * Section component for consistent vertical spacing between page sections
- *
- * @param {Object} props
- * @param {('none'|'sm'|'md'|'lg'|'xl')} props.spacing - Vertical spacing
- * @param {string} props.className - Additional CSS classes
- */
-const Section = forwardRef(
+type SectionSpacing = keyof typeof SPACING_MAP;
+
+export interface SectionProps extends HTMLAttributes<HTMLElement> {
+  as?: ElementType;
+  spacing?: SectionSpacing;
+  children?: ReactNode;
+}
+
+const Section = forwardRef<HTMLElement, SectionProps>(
   (
     {
-      as: Component = "section", // eslint-disable-line no-unused-vars
+      as: Component = "section",
       spacing = "md",
       className,
       children,

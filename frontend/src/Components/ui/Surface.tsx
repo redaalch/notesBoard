@@ -1,4 +1,9 @@
-import { forwardRef } from "react";
+import {
+  type ElementType,
+  forwardRef,
+  type HTMLAttributes,
+  type ReactNode,
+} from "react";
 import { cn } from "../../lib/cn";
 
 const VARIANT_CLASSES = {
@@ -7,7 +12,7 @@ const VARIANT_CLASSES = {
   overlay: "surface-overlay",
   inset: "surface-inset",
   glass: "glass-card",
-};
+} as const;
 
 const PADDING = {
   none: "p-0",
@@ -16,7 +21,7 @@ const PADDING = {
   md: "p-6",
   lg: "p-8",
   xl: "p-10",
-};
+} as const;
 
 const RADIUS = {
   none: "rounded-none",
@@ -26,12 +31,27 @@ const RADIUS = {
   lg: "rounded-2xl",
   xl: "rounded-3xl",
   pill: "rounded-full",
-};
+} as const;
 
-const Surface = forwardRef(
+export type SurfaceVariant = keyof typeof VARIANT_CLASSES;
+type SurfacePadding = keyof typeof PADDING;
+type SurfaceRadius = keyof typeof RADIUS;
+
+export interface SurfaceProps extends HTMLAttributes<HTMLElement> {
+  as?: ElementType;
+  variant?: SurfaceVariant;
+  padding?: SurfacePadding;
+  radius?: SurfaceRadius;
+  shadow?: boolean;
+  border?: boolean;
+  className?: string;
+  children?: ReactNode;
+}
+
+const Surface = forwardRef<HTMLElement, SurfaceProps>(
   (
     {
-      as: Component = "div", // eslint-disable-line no-unused-vars
+      as: Component = "div",
       variant = "base",
       padding = "md",
       radius = "lg",

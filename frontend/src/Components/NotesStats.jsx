@@ -11,7 +11,7 @@ import {
   formatTagLabel,
   normalizeTag,
 } from "../lib/Utils";
-import { MetricTile, Surface } from "./ui/index.js";
+import { MetricTile, Surface } from "./ui";
 
 const average = (numbers) => {
   if (!numbers.length) return 0;

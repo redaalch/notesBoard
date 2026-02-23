@@ -1,4 +1,9 @@
-import { forwardRef } from "react";
+import {
+  type ElementType,
+  forwardRef,
+  type HTMLAttributes,
+  type ReactNode,
+} from "react";
 import { cn } from "../../lib/cn";
 
 const TAG_VARIANTS = {
@@ -26,14 +31,25 @@ const TAG_VARIANTS = {
     subtle: "bg-error/10 text-error border border-error/40",
     outline: "border border-error/60 text-error bg-transparent",
   },
-};
+} as const;
 
-const resolveTagClasses = (tone, variant) => {
+export type TagTone = keyof typeof TAG_VARIANTS;
+export type TagVariant = "subtle" | "outline";
+
+const resolveTagClasses = (tone: TagTone, variant: TagVariant): string => {
   const toneEntry = TAG_VARIANTS[tone] ?? TAG_VARIANTS.neutral;
   return toneEntry[variant] ?? toneEntry.subtle;
 };
 
-const Tag = forwardRef(
+export interface TagProps extends HTMLAttributes<HTMLElement> {
+  as?: ElementType;
+  tone?: TagTone;
+  variant?: TagVariant;
+  icon?: ReactNode;
+  children?: ReactNode;
+}
+
+const Tag = forwardRef<HTMLElement, TagProps>(
   (
     {
       as: asComponent = "span",
