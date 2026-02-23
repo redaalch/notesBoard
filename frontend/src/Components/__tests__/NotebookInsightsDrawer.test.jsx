@@ -11,7 +11,7 @@ vi.mock("../../lib/axios.js", () => ({
   },
 }));
 
-import NotebookInsightsDrawer from "../NotebookInsightsDrawer.jsx";
+import NotebookInsightsDrawer from "../NotebookInsightsDrawer";
 import api from "../../lib/axios";
 
 const renderWithClient = (ui) => {

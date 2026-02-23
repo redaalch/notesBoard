@@ -4,8 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import api from "../lib/axios";
-import TagInput from "../Components/TagInput.jsx";
-import TemplateGalleryModal from "../Components/TemplateGalleryModal.jsx";
+import TagInput from "../Components/TagInput";
+import TemplateGalleryModal from "../Components/TemplateGalleryModal";
 import { useCommandPalette } from "../contexts/CommandPaletteContext";
 import { normalizeTag } from "../lib/Utils";
 

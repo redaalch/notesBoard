@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import CommandPalette from "../Components/CommandPalette.jsx";
+import CommandPalette from "../Components/CommandPalette";
 
 export interface PaletteCommand {
   id: string;
@@ -17,6 +17,7 @@ export interface PaletteCommand {
   description?: string;
   section?: string;
   shortcut?: string;
+  keywords?: string[];
   action: () => void | Promise<void>;
 }
 

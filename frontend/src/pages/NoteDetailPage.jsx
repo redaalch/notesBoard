@@ -20,12 +20,12 @@ import * as Y from "yjs";
 import { TiptapTransformer } from "@hocuspocus/transformer";
 
 import api from "../lib/axios";
-import ConfirmDialog from "../Components/ConfirmDialog.jsx";
-import TagInput from "../Components/TagInput.jsx";
-import CollaborativeEditor from "../Components/CollaborativeEditor.jsx";
-import PresenceAvatars from "../Components/PresenceAvatars.jsx";
-import TypingIndicator from "../Components/TypingIndicator.jsx";
-import NoteCollaboratorsCard from "../Components/NoteCollaboratorsCard.jsx";
+import ConfirmDialog from "../Components/ConfirmDialog";
+import TagInput from "../Components/TagInput";
+import CollaborativeEditor from "../Components/CollaborativeEditor";
+import PresenceAvatars from "../Components/PresenceAvatars";
+import TypingIndicator from "../Components/TypingIndicator";
+import NoteCollaboratorsCard from "../Components/NoteCollaboratorsCard";
 import { countWords, formatDate, formatRelativeTime } from "../lib/Utils";
 import useCollaborativeNote, {
   buildInitialNode,

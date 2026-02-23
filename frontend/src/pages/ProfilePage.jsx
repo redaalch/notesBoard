@@ -11,8 +11,8 @@ import {
   UserIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import Navbar from "../Components/Navbar.jsx";
-import WorkspaceMembersCard from "../Components/WorkspaceMembersCard.jsx";
+import Navbar from "../Components/Navbar";
+import WorkspaceMembersCard from "../Components/WorkspaceMembersCard";
 import useAuth from "../hooks/useAuth";
 import { formatDate, formatRelativeTime } from "../lib/Utils";
 

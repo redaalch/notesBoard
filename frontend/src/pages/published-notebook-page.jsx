@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "../lib/axios";
-import Navbar from "../Components/Navbar.jsx";
-import NoteSkeleton from "../Components/NoteSkeleton.jsx";
+import Navbar from "../Components/Navbar";
+import NoteSkeleton from "../Components/NoteSkeleton";
 
 const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
