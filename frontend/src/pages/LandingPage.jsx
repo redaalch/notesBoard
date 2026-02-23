@@ -15,7 +15,7 @@ import {
   WandSparklesIcon,
 } from "lucide-react";
 import useAuth from "../hooks/useAuth";
-import Logo from "../Components/Logo.jsx";
+import Logo from "../Components/Logo";
 
 const HERO_BACKGROUND = "https://bg.ibelick.com/backgrounds/bg-44.svg";
 const SECTION_BACKGROUND = "https://bg.ibelick.com/backgrounds/bg-24.svg";

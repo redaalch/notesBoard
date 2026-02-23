@@ -7,13 +7,13 @@ import LoginPage from "./pages/LoginPage.jsx";
 import RegisterPage from "./pages/RegisterPage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
-import RequireAuth from "./Components/RequireAuth.jsx";
+import RequireAuth from "./Components/RequireAuth";
 import LandingPage from "./pages/LandingPage.jsx";
 import PrivacyPage from "./pages/PrivacyPage.jsx";
 import TermsPage from "./pages/TermsPage.jsx";
 import VerifyEmailPage from "./pages/VerifyEmailPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
-import SkipToContent from "./Components/SkipToContent.jsx";
+import SkipToContent from "./Components/SkipToContent";
 import NotebookInvitePage from "./pages/NotebookInvitePage.jsx";
 import PublishedNotebookPage from "./pages/published-notebook-page.jsx";
 

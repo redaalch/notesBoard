@@ -11,7 +11,7 @@ vi.mock("../../lib/axios.js", () => ({
   },
 }));
 
-import NotebookPublishDialog from "../NotebookPublishDialog.jsx";
+import NotebookPublishDialog from "../NotebookPublishDialog";
 import api from "../../lib/axios";
 
 const renderWithClient = (ui) => {

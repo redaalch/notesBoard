@@ -11,7 +11,7 @@ vi.mock("../../lib/axios.js", () => ({
   },
 }));
 
-import NotebookHistoryDialog from "../NotebookHistoryDialog.jsx";
+import NotebookHistoryDialog from "../NotebookHistoryDialog";
 import api from "../../lib/axios";
 
 const renderWithClient = (ui) => {
