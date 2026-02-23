@@ -7,7 +7,7 @@ import api from "../lib/axios";
 import TagInput from "../Components/TagInput.jsx";
 import TemplateGalleryModal from "../Components/TemplateGalleryModal.jsx";
 import { useCommandPalette } from "../contexts/CommandPaletteContext.jsx";
-import { normalizeTag } from "../lib/Utils.js";
+import { normalizeTag } from "../lib/Utils";
 
 const CreatePage = () => {
   const location = useLocation();
@@ -42,7 +42,7 @@ const CreatePage = () => {
     setTags(
       Array.isArray(template.tags)
         ? template.tags.map((tag) => normalizeTag(tag)).filter(Boolean)
-        : []
+        : [],
     );
     setPinned(Boolean(template.pinned));
     setActiveTemplate(template);
@@ -140,12 +140,12 @@ const CreatePage = () => {
           invalidateTasks.push(
             queryClient.invalidateQueries({
               queryKey: ["note-layout", selectedNotebookId],
-            })
+            }),
           );
           invalidateTasks.push(
             queryClient.invalidateQueries({
               queryKey: ["notes", selectedNotebookId],
-            })
+            }),
           );
         }
         // Don't await - let it happen in background

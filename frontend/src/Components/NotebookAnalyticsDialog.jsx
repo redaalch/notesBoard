@@ -16,12 +16,8 @@ import {
   NOTEBOOK_ANALYTICS_DEFAULT_RANGE,
   NOTEBOOK_ANALYTICS_RANGE_OPTIONS,
 } from "@shared/analyticsTypes.js";
-import api from "../lib/axios.js";
-import {
-  formatDate,
-  formatRelativeTime,
-  formatTagLabel,
-} from "../lib/Utils.js";
+import api from "../lib/axios";
+import { formatDate, formatRelativeTime, formatTagLabel } from "../lib/Utils";
 import Sparkline from "./Sparkline.jsx";
 
 /**
@@ -162,7 +158,7 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
     if (!generatedAt) return null;
     const generatedDate = new Date(generatedAt);
     return `Generated ${formatRelativeTime(generatedDate)} (${formatDate(
-      generatedDate
+      generatedDate,
     )})`;
   }, [generatedAt]);
 
@@ -507,10 +503,10 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
     }
 
     const notebookSeries = data.series?.find(
-      (entry) => entry.label === "notebookRoles"
+      (entry) => entry.label === "notebookRoles",
     )?.data;
     const noteSeries = data.series?.find(
-      (entry) => entry.label === "noteCollaborators"
+      (entry) => entry.label === "noteCollaborators",
     )?.data;
 
     return (
@@ -588,13 +584,13 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
     }
 
     const notes = data.series?.find(
-      (entry) => entry.label === "notesCreated"
+      (entry) => entry.label === "notesCreated",
     )?.data;
     const edits = data.series?.find(
-      (entry) => entry.label === "editsCount"
+      (entry) => entry.label === "editsCount",
     )?.data;
     const uniqueEditors = data.series?.find(
-      (entry) => entry.label === "uniqueEditors"
+      (entry) => entry.label === "uniqueEditors",
     )?.data;
     const details = data.meta?.details ?? [];
     const missing = data.meta?.missingDates ?? [];
@@ -702,7 +698,7 @@ function NotebookAnalyticsDialog({ notebook, open, onClose }) {
                                 .slice(0, 3)
                                 .map(
                                   ({ tag, count }) =>
-                                    `${formatTagLabel(tag)} (${count})`
+                                    `${formatTagLabel(tag)} (${count})`,
                                 )
                                 .join(", ")
                             : "—"}

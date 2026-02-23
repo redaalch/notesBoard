@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { cn } from "../../lib/cn.js";
+import { cn } from "../../lib/cn";
 
 const BASE_CLASSES =
   "inline-flex items-center justify-center font-semibold rounded-xl transition-all duration-180 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none gap-2";
@@ -55,7 +55,7 @@ const Spinner = ({ size = "md" }) => {
     <span
       className={cn(
         "inline-flex animate-spin rounded-full border-2 border-current border-t-transparent",
-        spinnerSize
+        spinnerSize,
       )}
       aria-hidden="true"
       role="status"
@@ -93,7 +93,7 @@ const Button = forwardRef(
       type = "button",
       ...props
     },
-    ref
+    ref,
   ) => {
     const variantClass = VARIANT_STYLES[variant] ?? VARIANT_STYLES.primary;
     const sizeClass = SIZE_VARIANTS[size] ?? SIZE_VARIANTS.md;
@@ -112,7 +112,7 @@ const Button = forwardRef(
           variantClass,
           fullWidth && "w-full",
           loading && "relative",
-          className
+          className,
         )}
         disabled={isDisabled}
         aria-disabled={isDisabled || undefined}
@@ -143,7 +143,7 @@ const Button = forwardRef(
         )}
       </Component>
     );
-  }
+  },
 );
 
 Button.displayName = "Button";

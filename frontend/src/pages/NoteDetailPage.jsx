@@ -26,7 +26,7 @@ import CollaborativeEditor from "../Components/CollaborativeEditor.jsx";
 import PresenceAvatars from "../Components/PresenceAvatars.jsx";
 import TypingIndicator from "../Components/TypingIndicator.jsx";
 import NoteCollaboratorsCard from "../Components/NoteCollaboratorsCard.jsx";
-import { countWords, formatDate, formatRelativeTime } from "../lib/Utils.js";
+import { countWords, formatDate, formatRelativeTime } from "../lib/Utils";
 import useCollaborativeNote, {
   buildInitialNode,
 } from "../hooks/useCollaborativeNote.js";
@@ -296,7 +296,7 @@ function NoteDetailPage() {
       setHasChanges(true);
       applySharedTitle(value);
     },
-    [applySharedTitle, canEditNote]
+    [applySharedTitle, canEditNote],
   );
 
   const handleTagsChange = useCallback(
@@ -305,7 +305,7 @@ function NoteDetailPage() {
       setTags(Array.isArray(nextTags) ? nextTags.slice(0, TAG_LIMIT) : []);
       setHasChanges(true);
     },
-    [canEditNote]
+    [canEditNote],
   );
 
   const handleSave = useCallback(async () => {
@@ -323,7 +323,7 @@ function NoteDetailPage() {
     const snapshot = originalSnapshotRef.current;
     const richContent = doc
       ? TiptapTransformer.fromYdoc(doc, "default")
-      : snapshot?.richContent ?? buildInitialNode(snapshot ?? note);
+      : (snapshot?.richContent ?? buildInitialNode(snapshot ?? note));
     const plainText =
       editorRef.current?.getText({ blockSeparator: "\n" }) ??
       note?.content ??
@@ -425,7 +425,7 @@ function NoteDetailPage() {
       setPinned(Boolean(normalized.pinned));
       setLastSavedAt(new Date(normalized.updatedAt ?? Date.now()));
       toast.success(
-        normalized.pinned ? "Note pinned to top" : "Note removed from pinned"
+        normalized.pinned ? "Note pinned to top" : "Note removed from pinned",
       );
     } catch (error) {
       const message =
@@ -615,7 +615,7 @@ function NoteDetailPage() {
 
   const collabBadge = useMemo(
     () => mapCollabStatus(collabStatus, participants.length),
-    [collabStatus, participants.length]
+    [collabStatus, participants.length],
   );
   const CollabBadgeIcon = collabBadge.Icon;
 
@@ -628,17 +628,17 @@ function NoteDetailPage() {
     const permissionLabel = formatRoleLabel(effectiveRole ?? "viewer");
     if (notebookRole) {
       return `You were invited to this notebook as a ${formatRoleLabel(
-        notebookRole
+        notebookRole,
       )}. Current permission: ${permissionLabel}.`;
     }
     if (collaboratorRole) {
       return `You were added as a ${formatRoleLabel(
-        collaboratorRole
+        collaboratorRole,
       )} collaborator on this note. Current permission: ${permissionLabel}.`;
     }
     if (membershipRole) {
       return `Your workspace role is ${formatRoleLabel(
-        membershipRole
+        membershipRole,
       )}. Current permission: ${permissionLabel}.`;
     }
     return `You can view this note but cannot edit it. Current permission: ${permissionLabel}.`;

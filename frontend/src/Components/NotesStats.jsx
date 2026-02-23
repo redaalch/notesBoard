@@ -10,7 +10,7 @@ import {
   formatRelativeTime,
   formatTagLabel,
   normalizeTag,
-} from "../lib/Utils.js";
+} from "../lib/Utils";
 import { MetricTile, Surface } from "./ui/index.js";
 
 const average = (numbers) => {
@@ -65,7 +65,7 @@ function NotesStats({ notes, loading, tagStats }) {
       }
     });
     const sortedTags = Array.from(tagFrequency.entries()).sort(
-      (a, b) => b[1] - a[1]
+      (a, b) => b[1] - a[1],
     );
     const [fallbackTopTag, fallbackTopCount] = sortedTags[0] ?? [];
     uniqueTags = tagFrequency.size;
@@ -129,7 +129,7 @@ function NotesStats({ notes, loading, tagStats }) {
         sublabel={
           topTag
             ? `${formatTagLabel(topTag)} appears in ${numberFormatter.format(
-                topTagCount ?? 0
+                topTagCount ?? 0,
               )} note${(topTagCount ?? 0) === 1 ? "" : "s"}`
             : "Add tags to unlock insights"
         }

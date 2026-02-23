@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { cn } from "../../lib/cn.js";
+import { cn } from "../../lib/cn";
 
 const SIZE_MAP = {
   xs: "size-3.5",
@@ -28,7 +28,7 @@ const Icon = forwardRef(
         className={cn(
           "inline-flex items-center justify-center shrink-0",
           sizeClass,
-          className
+          className,
         )}
         aria-hidden="true"
         {...props}
@@ -36,7 +36,7 @@ const Icon = forwardRef(
         {children}
       </span>
     );
-  }
+  },
 );
 
 Icon.displayName = "Icon";

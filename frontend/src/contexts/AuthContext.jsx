@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import api from "../lib/axios.js";
+import api from "../lib/axios";
 
 import AuthContext from "./authContext.js";
 const ACCESS_TOKEN_KEY = "notesboard.accessToken";
@@ -123,7 +123,7 @@ export const AuthProvider = ({ children }) => {
         }
 
         return Promise.reject(error);
-      }
+      },
     );
 
     return () => {
@@ -156,7 +156,7 @@ export const AuthProvider = ({ children }) => {
         throw error;
       }
     },
-    [applyAccessToken]
+    [applyAccessToken],
   );
 
   const register = useCallback(async ({ name, email, password }) => {
@@ -216,7 +216,7 @@ export const AuthProvider = ({ children }) => {
         throw error;
       }
     },
-    [applyAccessToken]
+    [applyAccessToken],
   );
 
   const changePassword = useCallback(
@@ -250,7 +250,7 @@ export const AuthProvider = ({ children }) => {
         throw error;
       }
     },
-    [applyAccessToken]
+    [applyAccessToken],
   );
 
   const resendVerificationEmail = useCallback(
@@ -273,7 +273,7 @@ export const AuthProvider = ({ children }) => {
         throw error;
       }
     },
-    []
+    [],
   );
 
   const verifyEmail = useCallback(
@@ -296,7 +296,7 @@ export const AuthProvider = ({ children }) => {
         throw error;
       }
     },
-    [applyAccessToken]
+    [applyAccessToken],
   );
 
   const logout = useCallback(async () => {
@@ -335,7 +335,7 @@ export const AuthProvider = ({ children }) => {
       verifyEmail,
       logout,
       handleRefresh,
-    ]
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

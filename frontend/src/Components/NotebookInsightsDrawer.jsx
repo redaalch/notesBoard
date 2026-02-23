@@ -11,8 +11,8 @@ import {
   XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import api from "../lib/axios.js";
-import { formatRelativeTime } from "../lib/Utils.js";
+import api from "../lib/axios";
+import { formatRelativeTime } from "../lib/Utils";
 
 function NotebookInsightsDrawer({
   open,
@@ -332,7 +332,7 @@ function NotebookInsightsDrawer({
                   value={selectedSavedQueryId ?? ""}
                   onChange={(event) =>
                     setSelectedSavedQueryId(
-                      event.target.value ? event.target.value : null
+                      event.target.value ? event.target.value : null,
                     )
                   }
                 >

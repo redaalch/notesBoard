@@ -12,7 +12,7 @@ vi.mock("../../lib/axios.js", () => ({
 }));
 
 import NotebookPublishDialog from "../NotebookPublishDialog.jsx";
-import api from "../../lib/axios.js";
+import api from "../../lib/axios";
 
 const renderWithClient = (ui) => {
   const queryClient = new QueryClient({
@@ -22,7 +22,7 @@ const renderWithClient = (ui) => {
     },
   });
   const result = render(
-    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
   );
   return { ...result, queryClient };
 };
@@ -65,11 +65,11 @@ describe("NotebookPublishDialog", () => {
         open
         onClose={() => {}}
         onUpdated={onUpdated}
-      />
+      />,
     );
 
     const slugInput = await screen.findByPlaceholderText(
-      "e.g. notebook-launch-plan"
+      "e.g. notebook-launch-plan",
     );
     await userEvent.clear(slugInput);
     await userEvent.type(slugInput, "New Slug 123");
@@ -83,7 +83,7 @@ describe("NotebookPublishDialog", () => {
       expect(api.post).toHaveBeenCalledWith("/notebooks/nb1/publish", {
         slug: "launch-plannew-slug-123",
         metadata: null,
-      })
+      }),
     );
 
     await waitFor(() =>
@@ -94,7 +94,7 @@ describe("NotebookPublishDialog", () => {
           isPublic: true,
           slug: "launch-plannew-slug-123",
         },
-      })
+      }),
     );
   });
 });

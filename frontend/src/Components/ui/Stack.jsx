@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { cn } from "../../lib/cn.js";
+import { cn } from "../../lib/cn";
 
 const GAP_MAP = {
   none: "gap-0",
@@ -41,7 +41,7 @@ const Stack = forwardRef(
       children,
       ...props
     },
-    ref
+    ref,
   ) => {
     const Component = asComponent;
     const flexDirection = direction === "row" ? "flex-row" : "flex-col";
@@ -60,14 +60,14 @@ const Stack = forwardRef(
           alignClass,
           justifyClass,
           wrap && "flex-wrap",
-          className
+          className,
         )}
         {...props}
       >
         {children}
       </Component>
     );
-  }
+  },
 );
 
 Stack.displayName = "Stack";

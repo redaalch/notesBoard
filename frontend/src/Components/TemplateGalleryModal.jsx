@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { SearchIcon, SparklesIcon } from "lucide-react";
-import { noteTemplates } from "../lib/noteTemplates.js";
+import { noteTemplates } from "../lib/noteTemplates";
 
 const filterTemplates = (query) => {
   const trimmed = query.trim().toLowerCase();

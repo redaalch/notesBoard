@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 import { XIcon } from "lucide-react";
-import { cn } from "../../lib/cn.js";
+import { cn } from "../../lib/cn";
 
 const CHIP_VARIANTS = {
   neutral: {
@@ -57,7 +57,7 @@ const Chip = forwardRef(
       children,
       ...props
     },
-    ref
+    ref,
   ) => {
     const chipClasses = resolveChipClasses(tone, variant);
 
@@ -67,7 +67,7 @@ const Chip = forwardRef(
         className={cn(
           "inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-medium tracking-tight transition-colors",
           chipClasses,
-          className
+          className,
         )}
         {...props}
       >
@@ -94,7 +94,7 @@ const Chip = forwardRef(
         )}
       </Component>
     );
-  }
+  },
 );
 
 Chip.displayName = "Chip";

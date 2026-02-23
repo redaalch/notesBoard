@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { TagIcon, XIcon } from "lucide-react";
-import { formatTagLabel, normalizeTag } from "../lib/Utils.js";
+import { formatTagLabel, normalizeTag } from "../lib/Utils";
 
 const MAX_TAGS = 8;
 
@@ -14,7 +14,7 @@ function TagInput({
 
   const normalizedValue = useMemo(
     () => value.map((tag) => normalizeTag(tag)),
-    [value]
+    [value],
   );
 
   const handleAddTag = (rawTag) => {
@@ -38,7 +38,7 @@ function TagInput({
   const handleRemoveTag = (tagToRemove) => {
     if (disabled) return;
     onChange?.(
-      normalizedValue.filter((tag) => tag !== normalizeTag(tagToRemove))
+      normalizedValue.filter((tag) => tag !== normalizeTag(tagToRemove)),
     );
   };
 

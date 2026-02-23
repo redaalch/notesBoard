@@ -12,7 +12,7 @@ vi.mock("../../lib/axios.js", () => ({
 }));
 
 import NotebookInsightsDrawer from "../NotebookInsightsDrawer.jsx";
-import api from "../../lib/axios.js";
+import api from "../../lib/axios";
 
 const renderWithClient = (ui) => {
   const queryClient = new QueryClient({
@@ -22,7 +22,7 @@ const renderWithClient = (ui) => {
     },
   });
   const result = render(
-    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
   );
   return { ...result, queryClient };
 };
@@ -61,7 +61,7 @@ describe("NotebookInsightsDrawer", () => {
         notebooks={[{ id: "rec1", name: "Ideas" }]}
         savedQueries={[]}
         activeNotebookId="all"
-      />
+      />,
     );
 
     const moveButton = await screen.findByRole("button", {
@@ -71,7 +71,7 @@ describe("NotebookInsightsDrawer", () => {
     await userEvent.click(moveButton);
 
     await waitFor(() =>
-      expect(onMoveNote).toHaveBeenCalledWith("note1", "rec1")
+      expect(onMoveNote).toHaveBeenCalledWith("note1", "rec1"),
     );
 
     await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));

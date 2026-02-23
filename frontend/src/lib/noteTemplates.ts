@@ -1,4 +1,13 @@
-export const noteTemplates = [
+export interface NoteTemplate {
+  id: string;
+  name: string;
+  description: string;
+  title: string;
+  content: string;
+  tags: string[];
+}
+
+export const noteTemplates: readonly NoteTemplate[] = [
   {
     id: "daily-standup",
     name: "Daily Stand-up",
@@ -144,7 +153,7 @@ export const noteTemplates = [
 `,
     tags: ["product", "discovery"],
   },
-];
+] as const;
 
-export const findTemplateById = (id) =>
+export const findTemplateById = (id: string): NoteTemplate | null =>
   noteTemplates.find((template) => template.id === id) ?? null;

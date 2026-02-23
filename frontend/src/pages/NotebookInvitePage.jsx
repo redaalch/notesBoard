@@ -8,7 +8,7 @@ import {
   XCircleIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import api from "../lib/axios.js";
+import api from "../lib/axios";
 
 const STATUS_COPY = {
   loading: {
@@ -45,7 +45,7 @@ function NotebookInvitePage() {
     if (!token) {
       setStatus("error");
       setMessage(
-        "An invitation token is required. Check the link you received and try again."
+        "An invitation token is required. Check the link you received and try again.",
       );
       return;
     }
@@ -91,7 +91,7 @@ function NotebookInvitePage() {
 
   const copy = useMemo(
     () => STATUS_COPY[status] ?? STATUS_COPY.error,
-    [status]
+    [status],
   );
   const finalMessage = message || copy.description;
   const showGoButton = status === "success";
@@ -114,8 +114,8 @@ function NotebookInvitePage() {
     status === "success"
       ? CheckCircleIcon
       : status === "loading"
-      ? LoaderIcon
-      : XCircleIcon;
+        ? LoaderIcon
+        : XCircleIcon;
 
   return (
     <div className="min-h-screen bg-base-200">
