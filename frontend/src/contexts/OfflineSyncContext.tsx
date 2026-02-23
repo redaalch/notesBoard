@@ -1,13 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
   initializeOfflineSync,
   subscribeOfflineStatus,
   triggerManualSync,
 } from "../lib/offlineSyncManager";
-import OfflineSyncContext from "./offlineSyncContext.js";
+import type { OfflineStatusSnapshot } from "../lib/offlineSyncManager";
+import OfflineSyncContext from "./offlineSyncContext";
 
-export const OfflineSyncProvider = ({ children }) => {
-  const [status, setStatus] = useState({
+interface OfflineSyncProviderProps {
+  children: ReactNode;
+}
+
+export const OfflineSyncProvider = ({ children }: OfflineSyncProviderProps) => {
+  const [status, setStatus] = useState<OfflineStatusSnapshot>({
     isOnline: typeof navigator !== "undefined" ? navigator.onLine : true,
     queueLength: 0,
     isSyncing: false,

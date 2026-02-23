@@ -14,7 +14,7 @@ import {
   Undo2Icon,
   WandSparklesIcon,
 } from "lucide-react";
-import useAuth from "../hooks/useAuth.js";
+import useAuth from "../hooks/useAuth";
 import Logo from "../Components/Logo.jsx";
 
 const HERO_BACKGROUND = "https://bg.ibelick.com/backgrounds/bg-44.svg";

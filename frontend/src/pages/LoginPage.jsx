@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { LogInIcon, LoaderIcon, MailCheckIcon } from "lucide-react";
-import useAuth from "../hooks/useAuth.js";
+import useAuth from "../hooks/useAuth";
 
 const LoginPage = () => {
   const { login, user, initializing, resendVerificationEmail } = useAuth();

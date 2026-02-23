@@ -29,8 +29,8 @@ import NoteCollaboratorsCard from "../Components/NoteCollaboratorsCard.jsx";
 import { countWords, formatDate, formatRelativeTime } from "../lib/Utils";
 import useCollaborativeNote, {
   buildInitialNode,
-} from "../hooks/useCollaborativeNote.js";
-import useAuth from "../hooks/useAuth.js";
+} from "../hooks/useCollaborativeNote";
+import useAuth from "../hooks/useAuth";
 
 const HISTORY_REFRESH_MS = 15_000;
 const MAX_HISTORY_RESULTS = 100;

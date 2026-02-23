@@ -1,20 +1,45 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
+import type { onCloseParameters } from "@hocuspocus/provider";
 import { TiptapTransformer } from "@hocuspocus/transformer";
 import { Awareness } from "y-protocols/awareness";
-import useAuth from "./useAuth.js";
+import useAuth from "./useAuth";
 
-const resolveCollabUrl = () => {
-  const explicitUrl = import.meta.env.VITE_COLLAB_SERVER_URL;
+interface JSONContent {
+  type: string;
+  content?: JSONContent[];
+  text?: string;
+  attrs?: Record<string, unknown>;
+  marks?: { type: string; attrs?: Record<string, unknown> }[];
+}
+
+export interface CollabParticipant {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface NoteInput {
+  richContent?: JSONContent;
+  content?: string;
+}
+
+type CollabStatus = "connecting" | "connected" | "disconnected";
+
+const resolveCollabUrl = (): string => {
+  const explicitUrl = import.meta.env.VITE_COLLAB_SERVER_URL as
+    | string
+    | undefined;
   if (explicitUrl) {
     return explicitUrl;
   }
 
-  const rawPath = import.meta.env.VITE_COLLAB_PATH || "/collab";
+  const rawPath =
+    (import.meta.env.VITE_COLLAB_PATH as string | undefined) || "/collab";
   const path = rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
 
-  const buildUrl = (baseUrl) => {
+  const buildUrl = (baseUrl: string): string | null => {
     try {
       const url = new URL(baseUrl);
       url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
@@ -27,10 +52,10 @@ const resolveCollabUrl = () => {
     }
   };
 
-  const candidates = [];
+  const candidates: string[] = [];
 
   const apiBase =
-    import.meta.env.VITE_API_BASE_URL ??
+    (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
     (import.meta.env.DEV ? "http://localhost:5001/api" : "/api");
   candidates.push(apiBase);
 
@@ -56,7 +81,12 @@ const resolveCollabUrl = () => {
 
 const DEFAULT_COLLAB_URL = resolveCollabUrl();
 
-const decodeJWT = (token) => {
+interface JWTPayload {
+  exp?: number;
+  [key: string]: unknown;
+}
+
+const decodeJWT = (token: string): JWTPayload | null => {
   try {
     const base64Url = token.split(".")[1];
     const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
@@ -64,15 +94,17 @@ const decodeJWT = (token) => {
       atob(base64)
         .split("")
         .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
-        .join("")
+        .join(""),
     );
-    return JSON.parse(jsonPayload);
+    return JSON.parse(jsonPayload) as JWTPayload;
   } catch {
     return null;
   }
 };
 
-export const buildInitialNode = (note) => {
+export const buildInitialNode = (
+  note: NoteInput | null,
+): JSONContent | null => {
   if (!note) {
     return null;
   }
@@ -85,7 +117,7 @@ export const buildInitialNode = (note) => {
   // Split text by line breaks and create separate paragraphs
   if (text) {
     const lines = text.split(/\r?\n/);
-    const paragraphs = lines.map((line) => ({
+    const paragraphs: JSONContent[] = lines.map((line) => ({
       type: "paragraph",
       content: line.trim()
         ? [
@@ -109,7 +141,7 @@ export const buildInitialNode = (note) => {
   };
 };
 
-const hashColor = (value) => {
+const hashColor = (value: string): string => {
   let hash = 0;
   for (let i = 0; i < value.length; i += 1) {
     hash = (hash << 5) - hash + value.charCodeAt(i);
@@ -129,16 +161,19 @@ const hashColor = (value) => {
   return colors[index];
 };
 
-export const useCollaborativeNote = (noteId, note) => {
+export const useCollaborativeNote = (
+  noteId: string | null,
+  note: NoteInput | null,
+) => {
   const { accessToken, user, refresh } = useAuth();
-  const providerRef = useRef(null);
-  const docRef = useRef(null);
-  const awarenessRef = useRef(null);
-  const refreshTimerRef = useRef(null);
-  const [status, setStatus] = useState("connecting");
-  const [participants, setParticipants] = useState([]);
-  const [typingUsers, setTypingUsers] = useState([]);
-  const typingTimeoutRef = useRef(null);
+  const providerRef = useRef<HocuspocusProvider | null>(null);
+  const docRef = useRef<Y.Doc | null>(null);
+  const awarenessRef = useRef<Awareness | null>(null);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [status, setStatus] = useState<CollabStatus>("connecting");
+  const [participants, setParticipants] = useState<CollabParticipant[]>([]);
+  const [typingUsers, setTypingUsers] = useState<CollabParticipant[]>([]);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const color = useMemo(() => {
     const source = user?.id ?? "anonymous";
@@ -175,10 +210,14 @@ export const useCollaborativeNote = (noteId, note) => {
         const newToken = await refresh();
         if (newToken && providerRef.current) {
           // Update provider with new token
-          providerRef.current.configuration.token = newToken;
+          (
+            providerRef.current as unknown as {
+              configuration: { token: string };
+            }
+          ).configuration.token = newToken;
           if (import.meta.env.DEV) {
             console.debug(
-              "[useCollaborativeNote] Token refreshed successfully"
+              "[useCollaborativeNote] Token refreshed successfully",
             );
           }
         }
@@ -209,15 +248,15 @@ export const useCollaborativeNote = (noteId, note) => {
       document: yDoc,
       token: accessToken,
       awareness,
-      onAuthenticationFailed: ({ reason }) => {
+      onAuthenticationFailed: ({ reason }: { reason: string }) => {
         if (import.meta.env.DEV) {
           console.warn(
             "[HocuspocusProvider] Auth failed - token may be expired:",
-            reason
+            reason,
           );
         }
       },
-      onClose: ({ event }) => {
+      onClose: ({ event }: onCloseParameters) => {
         // Only log unexpected closures in dev mode
         if (import.meta.env.DEV && event.code !== 1000 && event.code !== 1001) {
           console.warn("[HocuspocusProvider] Connection closed:", {
@@ -232,27 +271,32 @@ export const useCollaborativeNote = (noteId, note) => {
     docRef.current = yDoc;
     awarenessRef.current = awareness;
 
-    const handleStatus = ({ status: nextStatus }) => {
+    const handleStatus = ({ status: nextStatus }: { status: CollabStatus }) => {
       setStatus(nextStatus);
     };
 
     const emitParticipants = () => {
-      const states = [];
-      const typing = [];
+      const states: CollabParticipant[] = [];
+      const typing: CollabParticipant[] = [];
       const now = Date.now();
 
       awareness.getStates().forEach((state) => {
-        if (state?.user?.id) {
-          states.push(state.user);
+        const s = state as {
+          user?: CollabParticipant;
+          typing?: boolean;
+          lastTyping?: number;
+        };
+        if (s?.user?.id) {
+          states.push(s.user);
 
           // Check if user is typing (last activity within 3 seconds)
           if (
-            state.typing &&
-            state.lastTyping &&
-            now - state.lastTyping < 3000 &&
-            state.user.id !== user?.id // Exclude current user
+            s.typing &&
+            s.lastTyping &&
+            now - s.lastTyping < 3000 &&
+            s.user.id !== user?.id // Exclude current user
           ) {
-            typing.push(state.user);
+            typing.push(s.user);
           }
         }
       });
@@ -290,7 +334,7 @@ export const useCollaborativeNote = (noteId, note) => {
       Y.applyUpdate(yDoc, update);
     };
 
-    const handleSynced = ({ state: isSynced }) => {
+    const handleSynced = ({ state: isSynced }: { state: boolean }) => {
       if (isSynced) {
         applyInitialContent();
       }

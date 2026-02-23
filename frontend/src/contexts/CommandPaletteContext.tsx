@@ -1,5 +1,6 @@
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
@@ -10,7 +11,25 @@ import {
 import { useNavigate } from "react-router-dom";
 import CommandPalette from "../Components/CommandPalette.jsx";
 
-const CommandPaletteContext = createContext({
+export interface PaletteCommand {
+  id: string;
+  label: string;
+  description?: string;
+  section?: string;
+  shortcut?: string;
+  action: () => void | Promise<void>;
+}
+
+export interface CommandPaletteContextValue {
+  openPalette: () => void;
+  closePalette: () => void;
+  registerCommands: (commands: PaletteCommand[]) => () => void;
+  setIsOpen: (open: boolean) => void;
+  isOpen: boolean;
+  commands: PaletteCommand[];
+}
+
+const CommandPaletteContext = createContext<CommandPaletteContextValue>({
   openPalette: () => {},
   closePalette: () => {},
   registerCommands: () => () => {},
@@ -19,19 +38,25 @@ const CommandPaletteContext = createContext({
   commands: [],
 });
 
-export const CommandPaletteProvider = ({ children }) => {
+interface CommandPaletteProviderProps {
+  children: ReactNode;
+}
+
+export const CommandPaletteProvider = ({
+  children,
+}: CommandPaletteProviderProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const registryRef = useRef(new Map());
-  const [commands, setCommands] = useState([]);
+  const registryRef = useRef(new Map<string, PaletteCommand>());
+  const [commands, setCommands] = useState<PaletteCommand[]>([]);
   const navigate = useNavigate();
 
-  const registerCommands = useCallback((commands) => {
-    if (!Array.isArray(commands) || !commands.length) {
+  const registerCommands = useCallback((cmds: PaletteCommand[]) => {
+    if (!Array.isArray(cmds) || !cmds.length) {
       return () => {};
     }
 
-    const ids = [];
-    commands.forEach((command) => {
+    const ids: string[] = [];
+    cmds.forEach((command) => {
       if (!command?.id) return;
       ids.push(command.id);
       registryRef.current.set(command.id, command);
@@ -247,7 +272,7 @@ export const CommandPaletteProvider = ({ children }) => {
                 "R - Refresh page\n" +
                 "Q - Log out\n" +
                 "/ - Focus search\n" +
-                "? - Show this help"
+                "? - Show this help",
             );
           }, 100);
         },
@@ -276,7 +301,7 @@ export const CommandPaletteProvider = ({ children }) => {
         action: () => {
           if (
             window.confirm(
-              "This will clear your local cache and reload the page. Continue?"
+              "This will clear your local cache and reload the page. Continue?",
             )
           ) {
             localStorage.clear();
@@ -312,7 +337,7 @@ export const CommandPaletteProvider = ({ children }) => {
     ]);
   }, [navigate, registerCommands, closePalette]);
 
-  const contextValue = useMemo(
+  const contextValue: CommandPaletteContextValue = useMemo(
     () => ({
       openPalette,
       closePalette,
@@ -321,7 +346,7 @@ export const CommandPaletteProvider = ({ children }) => {
       commands,
       setIsOpen,
     }),
-    [openPalette, closePalette, registerCommands, isOpen, commands]
+    [openPalette, closePalette, registerCommands, isOpen, commands],
   );
 
   return (
@@ -333,11 +358,11 @@ export const CommandPaletteProvider = ({ children }) => {
 };
 
 // eslint-disable-next-line react-refresh/only-export-components
-export const useCommandPalette = () => {
+export const useCommandPalette = (): CommandPaletteContextValue => {
   const context = useContext(CommandPaletteContext);
   if (!context) {
     throw new Error(
-      "useCommandPalette must be used within CommandPaletteProvider"
+      "useCommandPalette must be used within CommandPaletteProvider",
     );
   }
   return context;

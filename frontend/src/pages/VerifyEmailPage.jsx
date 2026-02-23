@@ -11,7 +11,7 @@ import {
   ShieldCheckIcon,
   RotateCcwIcon,
 } from "lucide-react";
-import useAuth from "../hooks/useAuth.js";
+import useAuth from "../hooks/useAuth";
 
 const VerifyEmailPage = () => {
   const { verifyEmail, user, initializing } = useAuth();

@@ -5,8 +5,8 @@ import "./index.css";
 import App from "./App.jsx";
 import { BrowserRouter } from "react-router-dom";
 import { Toaster } from "sonner";
-import { AuthProvider } from "./contexts/AuthContext.jsx";
-import { CommandPaletteProvider } from "./contexts/CommandPaletteContext.jsx";
+import { AuthProvider } from "./contexts/AuthContext";
+import { CommandPaletteProvider } from "./contexts/CommandPaletteContext";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,5 +46,5 @@ createRoot(document.getElementById("root")).render(
         </AuthProvider>
       </QueryClientProvider>
     </BrowserRouter>
-  </StrictMode>
+  </StrictMode>,
 );
