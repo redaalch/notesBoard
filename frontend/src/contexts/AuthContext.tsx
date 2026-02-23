@@ -1,17 +1,32 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import api from "../lib/axios";
 
-import AuthContext from "./authContext.js";
+import AuthContext, {
+  type AuthUser,
+  type AuthContextValue,
+} from "./authContext";
+
 const ACCESS_TOKEN_KEY = "notesboard.accessToken";
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [accessToken, setAccessToken] = useState(null);
-  const [initializing, setInitializing] = useState(true);
-  const refreshPromiseRef = useRef(null);
+interface AuthProviderProps {
+  children: ReactNode;
+}
 
-  const applyAccessToken = useCallback((token) => {
+export const AuthProvider = ({ children }: AuthProviderProps) => {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [initializing, setInitializing] = useState(true);
+  const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
+
+  const applyAccessToken = useCallback((token: string | null) => {
     if (token) {
       api.defaults.headers.common.Authorization = `Bearer ${token}`;
       localStorage.setItem(ACCESS_TOKEN_KEY, token);
@@ -30,10 +45,10 @@ export const AuthProvider = ({ children }) => {
 
   const handleRefresh = useCallback(() => {
     if (!refreshPromiseRef.current) {
-      refreshPromiseRef.current = (async () => {
+      refreshPromiseRef.current = (async (): Promise<string | null> => {
         try {
           const response = await api.post("/auth/refresh", undefined, {
-            validateStatus: (status) =>
+            validateStatus: (status: number) =>
               status === 200 || status === 204 || status === 401,
           });
 
@@ -42,7 +57,8 @@ export const AuthProvider = ({ children }) => {
             return null;
           }
 
-          const { accessToken: token, user: profile } = response.data ?? {};
+          const { accessToken: token, user: profile } =
+            (response.data as { accessToken?: string; user?: AuthUser }) ?? {};
 
           if (!token) {
             throw new Error("Missing access token in refresh response");
@@ -91,9 +107,17 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const interceptorId = api.interceptors.response.use(
       (response) => response,
-      async (error) => {
-        const originalRequest = error.config;
-        const status = error.response?.status;
+      async (error: unknown) => {
+        const axiosError = error as {
+          config?: {
+            url?: string;
+            _retry?: boolean;
+            headers: Record<string, string>;
+          };
+          response?: { status?: number };
+        };
+        const originalRequest = axiosError.config;
+        const status = axiosError.response?.status;
         const requestUrl = originalRequest?.url ?? "";
         const isAuthEndpoint =
           typeof requestUrl === "string" &&
@@ -113,9 +137,9 @@ export const AuthProvider = ({ children }) => {
               return Promise.reject(error);
             }
 
-            originalRequest._retry = true;
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
-            return api(originalRequest);
+            originalRequest!._retry = true;
+            originalRequest!.headers.Authorization = `Bearer ${newToken}`;
+            return api(originalRequest!);
           } catch (refreshError) {
             clearSession();
             return Promise.reject(refreshError);
@@ -131,11 +155,12 @@ export const AuthProvider = ({ children }) => {
     };
   }, [clearSession, handleRefresh]);
 
-  const login = useCallback(
+  const login: AuthContextValue["login"] = useCallback(
     async ({ email, password }) => {
       try {
         const response = await api.post("/auth/login", { email, password });
-        const { accessToken: token, user: profile } = response.data ?? {};
+        const { accessToken: token, user: profile } =
+          (response.data as { accessToken?: string; user?: AuthUser }) ?? {};
         if (!token || !profile) {
           throw new Error("Malformed login response");
         }
@@ -143,10 +168,13 @@ export const AuthProvider = ({ children }) => {
         setUser(profile);
         toast.success(`Welcome back, ${profile.name}`);
         return profile;
-      } catch (error) {
-        const status = error.response?.status;
+      } catch (error: unknown) {
+        const axiosError = error as {
+          response?: { status?: number; data?: { message?: string } };
+        };
+        const status = axiosError.response?.status;
         const message =
-          error.response?.data?.message ??
+          axiosError.response?.data?.message ??
           "Failed to log in. Check credentials.";
         if (status === 403) {
           toast.error(message || "Please verify your email before signing in.");
@@ -159,30 +187,37 @@ export const AuthProvider = ({ children }) => {
     [applyAccessToken],
   );
 
-  const register = useCallback(async ({ name, email, password }) => {
-    try {
-      const response = await api.post("/auth/register", {
-        name,
-        email,
-        password,
-      });
-      const message =
-        response.data?.message ??
-        "Please confirm your email address to finish signing up.";
-      toast.success(message);
-      return { message };
-    } catch (error) {
-      const message =
-        error.response?.data?.message ?? "Registration failed. Try again.";
-      toast.error(message);
-      throw error;
-    }
-  }, []);
+  const register: AuthContextValue["register"] = useCallback(
+    async ({ name, email, password }) => {
+      try {
+        const response = await api.post("/auth/register", {
+          name,
+          email,
+          password,
+        });
+        const message =
+          (response.data as { message?: string })?.message ??
+          "Please confirm your email address to finish signing up.";
+        toast.success(message);
+        return { message };
+      } catch (error: unknown) {
+        const axiosError = error as {
+          response?: { data?: { message?: string } };
+        };
+        const message =
+          axiosError.response?.data?.message ??
+          "Registration failed. Try again.";
+        toast.error(message);
+        throw error;
+      }
+    },
+    [],
+  );
 
-  const updateProfile = useCallback(
+  const updateProfile: AuthContextValue["updateProfile"] = useCallback(
     async ({ name, email, currentPassword, verificationRedirectUrl }) => {
       try {
-        const payload = {};
+        const payload: Record<string, string> = {};
         if (name !== undefined) payload.name = name;
         if (email !== undefined) payload.email = email;
         if (currentPassword !== undefined) {
@@ -197,7 +232,11 @@ export const AuthProvider = ({ children }) => {
           user: profile,
           accessToken: token,
           message,
-        } = response.data ?? {};
+        } = (response.data as {
+          user?: AuthUser;
+          accessToken?: string;
+          message?: string;
+        }) ?? {};
 
         if (token) {
           applyAccessToken(token);
@@ -208,10 +247,14 @@ export const AuthProvider = ({ children }) => {
         }
 
         toast.success(message ?? "Profile updated successfully");
-        return response.data ?? {};
-      } catch (error) {
+        return (response.data as Record<string, unknown>) ?? {};
+      } catch (error: unknown) {
+        const axiosError = error as {
+          response?: { data?: { message?: string } };
+        };
         const message =
-          error.response?.data?.message ?? "Failed to update your profile.";
+          axiosError.response?.data?.message ??
+          "Failed to update your profile.";
         toast.error(message);
         throw error;
       }
@@ -219,7 +262,7 @@ export const AuthProvider = ({ children }) => {
     [applyAccessToken],
   );
 
-  const changePassword = useCallback(
+  const changePassword: AuthContextValue["changePassword"] = useCallback(
     async ({ currentPassword, newPassword }) => {
       try {
         const response = await api.post("/auth/password/change", {
@@ -231,7 +274,11 @@ export const AuthProvider = ({ children }) => {
           user: profile,
           accessToken: token,
           message,
-        } = response.data ?? {};
+        } = (response.data as {
+          user?: AuthUser;
+          accessToken?: string;
+          message?: string;
+        }) ?? {};
 
         if (token) {
           applyAccessToken(token);
@@ -242,10 +289,13 @@ export const AuthProvider = ({ children }) => {
         }
 
         toast.success(message ?? "Password updated successfully");
-        return response.data ?? {};
-      } catch (error) {
+        return (response.data as Record<string, unknown>) ?? {};
+      } catch (error: unknown) {
+        const axiosError = error as {
+          response?: { data?: { message?: string } };
+        };
         const message =
-          error.response?.data?.message ?? "Failed to update password.";
+          axiosError.response?.data?.message ?? "Failed to update password.";
         toast.error(message);
         throw error;
       }
@@ -253,34 +303,36 @@ export const AuthProvider = ({ children }) => {
     [applyAccessToken],
   );
 
-  const resendVerificationEmail = useCallback(
-    async ({ email, verificationRedirectUrl }) => {
+  const resendVerificationEmail: AuthContextValue["resendVerificationEmail"] =
+    useCallback(async ({ email, verificationRedirectUrl }) => {
       try {
         const response = await api.post("/auth/verify-email/resend", {
           email,
           verificationRedirectUrl,
         });
         const message =
-          response.data?.message ??
+          (response.data as { message?: string })?.message ??
           "If your account exists and isn't verified, we've sent a confirmation email.";
         toast.success(message);
         return { message };
-      } catch (error) {
+      } catch (error: unknown) {
+        const axiosError = error as {
+          response?: { data?: { message?: string } };
+        };
         const message =
-          error.response?.data?.message ??
+          axiosError.response?.data?.message ??
           "Couldn't resend the verification email. Try again later.";
         toast.error(message);
         throw error;
       }
-    },
-    [],
-  );
+    }, []);
 
-  const verifyEmail = useCallback(
+  const verifyEmail: AuthContextValue["verifyEmail"] = useCallback(
     async (token) => {
       try {
         const response = await api.post("/auth/verify-email", { token });
-        const { accessToken: tokenValue, user: profile } = response.data ?? {};
+        const { accessToken: tokenValue, user: profile } =
+          (response.data as { accessToken?: string; user?: AuthUser }) ?? {};
         if (!tokenValue || !profile) {
           throw new Error("Malformed verify email response");
         }
@@ -288,9 +340,12 @@ export const AuthProvider = ({ children }) => {
         setUser(profile);
         toast.success("Email confirmed! You're all set.");
         return profile;
-      } catch (error) {
+      } catch (error: unknown) {
+        const axiosError = error as {
+          response?: { data?: { message?: string } };
+        };
         const message =
-          error.response?.data?.message ??
+          axiosError.response?.data?.message ??
           "Email verification failed. The link may have expired.";
         toast.error(message);
         throw error;
@@ -309,7 +364,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, [clearSession]);
 
-  const value = useMemo(
+  const value: AuthContextValue = useMemo(
     () => ({
       user,
       accessToken,

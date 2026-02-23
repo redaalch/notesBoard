@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { CommandIcon, CornerDownLeftIcon, LoaderIcon } from "lucide-react";
 import { useLocation } from "react-router-dom";
-import { useCommandPalette } from "../contexts/CommandPaletteContext.jsx";
+import { useCommandPalette } from "../contexts/CommandPaletteContext";
 
 const normalize = (value) => value?.toLowerCase?.() ?? "";
 
@@ -83,14 +83,14 @@ function CommandPalette() {
   const filteredCommands = useMemo(
     () =>
       filterCommands(commands, query).sort((a, b) =>
-        a.label.localeCompare(b.label)
+        a.label.localeCompare(b.label),
       ),
-    [commands, query]
+    [commands, query],
   );
 
   const groupedCommands = useMemo(
     () => groupCommands(filteredCommands),
-    [filteredCommands]
+    [filteredCommands],
   );
 
   const flatCommands = filteredCommands;
@@ -111,7 +111,7 @@ function CommandPalette() {
     if (event.key === "ArrowDown" || (event.key === "Tab" && !event.shiftKey)) {
       event.preventDefault();
       setHighlightedIndex((index) =>
-        index + 1 >= flatCommands.length ? 0 : index + 1
+        index + 1 >= flatCommands.length ? 0 : index + 1,
       );
     } else if (
       event.key === "ArrowUp" ||
@@ -119,7 +119,7 @@ function CommandPalette() {
     ) {
       event.preventDefault();
       setHighlightedIndex((index) =>
-        index - 1 < 0 ? Math.max(flatCommands.length - 1, 0) : index - 1
+        index - 1 < 0 ? Math.max(flatCommands.length - 1, 0) : index - 1,
       );
     } else if (event.key === "Enter") {
       event.preventDefault();
@@ -135,7 +135,7 @@ function CommandPalette() {
     if (!activeId) return;
 
     const activeElement = element.querySelector(
-      `[data-command-id="${activeId}"]`
+      `[data-command-id="${activeId}"]`,
     );
     if (activeElement) {
       activeElement.scrollIntoView({ block: "nearest" });
@@ -190,7 +190,7 @@ function CommandPalette() {
                   <ul className="mb-2 space-y-1">
                     {sectionCommands.map((command) => {
                       const index = flatCommands.findIndex(
-                        (item) => item.id === command.id
+                        (item) => item.id === command.id,
                       );
                       const highlighted = index === highlightedIndex;
                       return (
@@ -230,7 +230,7 @@ function CommandPalette() {
                     })}
                   </ul>
                 </Fragment>
-              )
+              ),
             )
           )}
         </div>

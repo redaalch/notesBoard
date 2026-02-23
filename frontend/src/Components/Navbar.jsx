@@ -18,9 +18,9 @@ import {
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
-import useAuth from "../hooks/useAuth.js";
+import useAuth from "../hooks/useAuth";
 import Logo from "./Logo.jsx";
-import { useCommandPalette } from "../contexts/CommandPaletteContext.jsx";
+import { useCommandPalette } from "../contexts/CommandPaletteContext";
 
 const THEME_OPTIONS = [
   {
@@ -105,7 +105,7 @@ function Navbar({
   const currentTheme = useMemo(
     () =>
       THEME_MAP.get(theme) ?? THEME_MAP.get(DEFAULT_THEME) ?? THEME_OPTIONS[0],
-    [theme]
+    [theme],
   );
   const currentThemeIndex = useMemo(() => {
     const index = THEME_OPTIONS.findIndex((option) => option.name === theme);
@@ -113,7 +113,7 @@ function Navbar({
   }, [theme]);
   const nextTheme = useMemo(
     () => THEME_OPTIONS[(currentThemeIndex + 1) % THEME_OPTIONS.length],
-    [currentThemeIndex]
+    [currentThemeIndex],
   );
   const cycleThemeLabel = `Switch to ${nextTheme.label} theme`;
   const applyTheme = useCallback((themeName) => {
@@ -510,7 +510,7 @@ function Navbar({
               </>
             )}
           </AnimatePresence>,
-          document.body
+          document.body,
         )}
     </>
   );

@@ -72,7 +72,7 @@ import SaveNotebookTemplateDialog from "../Components/SaveNotebookTemplateDialog
 import BulkActionsBar from "../Components/BulkActionsBar.jsx";
 import TagInput from "../Components/TagInput.jsx";
 import ConfirmDialog from "../Components/ConfirmDialog.jsx";
-import { useCommandPalette } from "../contexts/CommandPaletteContext.jsx";
+import { useCommandPalette } from "../contexts/CommandPaletteContext";
 import NotebookShareDialog from "../Components/NotebookShareDialog.jsx";
 import NotebookAnalyticsDialog from "../Components/NotebookAnalyticsDialog.jsx";
 import SavedNotebookQueryDialog from "../Components/SavedNotebookQueryDialog.jsx";

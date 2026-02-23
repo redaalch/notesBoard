@@ -6,7 +6,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import api from "../lib/axios";
 import TagInput from "../Components/TagInput.jsx";
 import TemplateGalleryModal from "../Components/TemplateGalleryModal.jsx";
-import { useCommandPalette } from "../contexts/CommandPaletteContext.jsx";
+import { useCommandPalette } from "../contexts/CommandPaletteContext";
 import { normalizeTag } from "../lib/Utils";
 
 const CreatePage = () => {

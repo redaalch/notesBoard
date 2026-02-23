@@ -13,7 +13,7 @@ import {
 import { toast } from "sonner";
 import Navbar from "../Components/Navbar.jsx";
 import WorkspaceMembersCard from "../Components/WorkspaceMembersCard.jsx";
-import useAuth from "../hooks/useAuth.js";
+import useAuth from "../hooks/useAuth";
 import { formatDate, formatRelativeTime } from "../lib/Utils";
 
 const emptyPasswordState = {
