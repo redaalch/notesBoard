@@ -1,4 +1,9 @@
-import { forwardRef } from "react";
+import {
+  type ElementType,
+  forwardRef,
+  type HTMLAttributes,
+  type ReactNode,
+} from "react";
 import { XIcon } from "lucide-react";
 import { cn } from "../../lib/cn";
 
@@ -36,17 +41,31 @@ const CHIP_VARIANTS = {
     subtle: "bg-red-50 text-red-700 border border-red-100",
     outline: "border border-red-300 text-red-700 bg-transparent",
   },
-};
+} as const;
 
-const resolveChipClasses = (tone, variant) => {
+export type ChipTone = keyof typeof CHIP_VARIANTS;
+export type ChipVariant = "solid" | "subtle" | "outline";
+
+const resolveChipClasses = (tone: ChipTone, variant: ChipVariant): string => {
   const toneEntry = CHIP_VARIANTS[tone] ?? CHIP_VARIANTS.neutral;
   return toneEntry[variant] ?? toneEntry.subtle;
 };
 
-const Chip = forwardRef(
+export interface ChipProps extends HTMLAttributes<HTMLElement> {
+  as?: ElementType;
+  tone?: ChipTone;
+  variant?: ChipVariant;
+  icon?: ReactNode;
+  after?: ReactNode;
+  onRemove?: () => void;
+  removeLabel?: string;
+  children?: ReactNode;
+}
+
+const Chip = forwardRef<HTMLElement, ChipProps>(
   (
     {
-      as: Component = "span", // eslint-disable-line no-unused-vars
+      as: Component = "span",
       tone = "neutral",
       variant = "subtle",
       icon = null,

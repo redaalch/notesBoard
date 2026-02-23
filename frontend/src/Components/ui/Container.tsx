@@ -1,26 +1,33 @@
-import { forwardRef } from "react";
+import {
+  type ElementType,
+  forwardRef,
+  type HTMLAttributes,
+  type ReactNode,
+} from "react";
 import { cn } from "../../lib/cn";
 
 const SIZE_MAP = {
-  sm: "max-w-3xl", // ~768px
-  md: "max-w-5xl", // ~1024px
-  lg: "max-w-7xl", // ~1280px
-  xl: "max-w-8xl", // ~1440px
+  sm: "max-w-3xl",
+  md: "max-w-5xl",
+  lg: "max-w-7xl",
+  xl: "max-w-8xl",
   full: "max-w-full",
-};
+} as const;
 
-/**
- * Container component for consistent page width and padding
- *
- * @param {Object} props
- * @param {('sm'|'md'|'lg'|'xl'|'full')} props.size - Container max width
- * @param {boolean} props.centered - Center the container horizontally
- * @param {boolean} props.gutters - Add horizontal padding
- */
-const Container = forwardRef(
+type ContainerSize = keyof typeof SIZE_MAP;
+
+export interface ContainerProps extends HTMLAttributes<HTMLElement> {
+  as?: ElementType;
+  size?: ContainerSize;
+  centered?: boolean;
+  gutters?: boolean;
+  children?: ReactNode;
+}
+
+const Container = forwardRef<HTMLElement, ContainerProps>(
   (
     {
-      as: Component = "div", // eslint-disable-line no-unused-vars
+      as: Component = "div",
       size = "lg",
       centered = true,
       gutters = true,

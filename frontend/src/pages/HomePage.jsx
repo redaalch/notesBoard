@@ -79,7 +79,7 @@ import SavedNotebookQueryDialog from "../Components/SavedNotebookQueryDialog.jsx
 import NotebookPublishDialog from "../Components/NotebookPublishDialog.jsx";
 import NotebookHistoryDialog from "../Components/NotebookHistoryDialog.jsx";
 import NotebookInsightsDrawer from "../Components/NotebookInsightsDrawer.jsx";
-import { Button, Surface, Chip } from "../Components/ui/index.js";
+import { Button, Surface, Chip } from "../Components/ui";
 import { cn } from "../lib/cn";
 
 const FILTER_STORAGE_KEY = "notesboard-filters-v1";

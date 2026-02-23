@@ -1,6 +1,12 @@
-import { forwardRef, useMemo } from "react";
+import {
+  type ElementType,
+  forwardRef,
+  type HTMLAttributes,
+  type ReactNode,
+  useMemo,
+} from "react";
 import { cn } from "../../lib/cn";
-import Surface from "./Surface.jsx";
+import Surface, { type SurfaceVariant } from "./Surface";
 
 const GAP_MAP = {
   none: "gap-0",
@@ -8,9 +14,25 @@ const GAP_MAP = {
   sm: "gap-3",
   md: "gap-4",
   lg: "gap-6",
-};
+} as const;
 
-const Card = forwardRef(
+type CardSpacing = keyof typeof GAP_MAP;
+type CardVariant = "base" | "raised" | "overlay" | "inset" | "outline";
+
+export interface CardProps extends Omit<HTMLAttributes<HTMLElement>, "title"> {
+  as?: ElementType;
+  variant?: CardVariant;
+  padding?: "none" | "xs" | "sm" | "md" | "lg" | "xl";
+  spacing?: CardSpacing;
+  eyebrow?: ReactNode;
+  title?: ReactNode;
+  subtitle?: ReactNode;
+  actions?: ReactNode;
+  footer?: ReactNode;
+  children?: ReactNode;
+}
+
+const Card = forwardRef<HTMLElement, CardProps>(
   (
     {
       as: asComponent = "section",
@@ -32,7 +54,7 @@ const Card = forwardRef(
     const gapClass = GAP_MAP[spacing] ?? GAP_MAP.md;
     const useOutline = variant === "outline";
 
-    const surfaceVariant = useMemo(() => {
+    const surfaceVariant: SurfaceVariant = useMemo(() => {
       if (variant === "base" || variant === "outline") return "base";
       if (variant === "overlay") return "overlay";
       if (variant === "inset") return "inset";

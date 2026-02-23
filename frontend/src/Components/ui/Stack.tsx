@@ -1,4 +1,9 @@
-import { forwardRef } from "react";
+import {
+  type ElementType,
+  forwardRef,
+  type HTMLAttributes,
+  type ReactNode,
+} from "react";
 import { cn } from "../../lib/cn";
 
 const GAP_MAP = {
@@ -8,7 +13,7 @@ const GAP_MAP = {
   md: "gap-4",
   lg: "gap-6",
   xl: "gap-8",
-};
+} as const;
 
 const ALIGN_MAP = {
   start: "items-start",
@@ -16,7 +21,7 @@ const ALIGN_MAP = {
   end: "items-end",
   stretch: "items-stretch",
   baseline: "items-baseline",
-};
+} as const;
 
 const JUSTIFY_MAP = {
   start: "justify-start",
@@ -25,9 +30,24 @@ const JUSTIFY_MAP = {
   between: "justify-between",
   around: "justify-around",
   evenly: "justify-evenly",
-};
+} as const;
 
-const Stack = forwardRef(
+type StackGap = keyof typeof GAP_MAP;
+type StackAlign = keyof typeof ALIGN_MAP;
+type StackJustify = keyof typeof JUSTIFY_MAP;
+
+export interface StackProps extends HTMLAttributes<HTMLElement> {
+  as?: ElementType;
+  direction?: "row" | "column";
+  gap?: StackGap;
+  align?: StackAlign;
+  justify?: StackJustify;
+  wrap?: boolean;
+  inline?: boolean;
+  children?: ReactNode;
+}
+
+const Stack = forwardRef<HTMLElement, StackProps>(
   (
     {
       as: asComponent = "div",

@@ -1,15 +1,41 @@
-import { forwardRef, useMemo } from "react";
+import {
+  type ElementType,
+  forwardRef,
+  type HTMLAttributes,
+  type ReactNode,
+  useMemo,
+} from "react";
 import { ArrowDownRightIcon, ArrowUpRightIcon } from "lucide-react";
 import { cn } from "../../lib/cn";
-import Surface from "./Surface.jsx";
+import Surface, { type SurfaceVariant } from "./Surface";
 
 const TREND_TONE_CLASSES = {
   positive: "text-emerald-600",
   negative: "text-error",
   neutral: "text-subtle",
-};
+} as const;
 
-const MetricTile = forwardRef(
+type TrendDirection = "up" | "down" | "neutral";
+type TrendTone = keyof typeof TREND_TONE_CLASSES;
+
+export interface MetricTrend {
+  direction?: TrendDirection;
+  tone?: TrendTone;
+  label?: string;
+  value?: string;
+}
+
+export interface MetricTileProps extends HTMLAttributes<HTMLElement> {
+  as?: ElementType;
+  variant?: SurfaceVariant;
+  label?: ReactNode;
+  value?: ReactNode;
+  sublabel?: ReactNode;
+  icon?: ReactNode;
+  trend?: MetricTrend | null;
+}
+
+const MetricTile = forwardRef<HTMLElement, MetricTileProps>(
   (
     {
       as: asComponent = "div",
@@ -25,7 +51,7 @@ const MetricTile = forwardRef(
     ref,
   ) => {
     const Component = asComponent;
-    const surfaceVariant =
+    const surfaceVariant: SurfaceVariant =
       variant === "base"
         ? "base"
         : variant === "overlay"
@@ -37,7 +63,7 @@ const MetricTile = forwardRef(
     const trendConfig = useMemo(() => {
       if (!trend) return null;
       const direction = trend.direction ?? "neutral";
-      const tone =
+      const tone: TrendTone =
         trend.tone ??
         (direction === "down"
           ? "negative"
@@ -45,7 +71,7 @@ const MetricTile = forwardRef(
             ? "positive"
             : "neutral");
       const text = trend.label ?? trend.value ?? null;
-      const Icon =
+      const TrendIconComponent =
         direction === "down"
           ? ArrowDownRightIcon
           : direction === "up"
@@ -55,7 +81,7 @@ const MetricTile = forwardRef(
       return {
         toneClass: TREND_TONE_CLASSES[tone] ?? TREND_TONE_CLASSES.neutral,
         text,
-        Icon,
+        Icon: TrendIconComponent,
       };
     }, [trend]);
 
