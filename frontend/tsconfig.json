@@ -1,0 +1,46 @@
+{
+  "compilerOptions": {
+    /* Language & Environment */
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+
+    /* Output — Vite handles bundling, so no emit */
+    "noEmit": true,
+
+    /* Interop */
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+
+    /* Gradual migration — allow JS & TS to coexist */
+    "allowJs": true,
+    "checkJs": false,
+
+    /* Strictness — start relaxed, tighten over time */
+    "strict": true,
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+
+    /* Paths (match Vite alias) */
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["../shared/*"]
+    },
+
+    /* Types */
+    "types": ["node", "vitest/globals"]
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.js",
+    "src/**/*.jsx",
+    "../shared/**/*",
+    "vite-env.d.ts"
+  ],
+  "exclude": ["node_modules", "dist", "coverage"]
+}
