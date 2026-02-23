@@ -14,8 +14,8 @@ import {
   XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import api from "../lib/axios.js";
-import { formatDate, formatRelativeTime } from "../lib/Utils.js";
+import api from "../lib/axios";
+import { formatDate, formatRelativeTime } from "../lib/Utils";
 
 const MEMBER_ROLE_OPTIONS = [
   { value: "editor", label: "Editor" },
@@ -180,7 +180,7 @@ function NotebookShareDialog({ notebook, open, onClose }) {
     mutationFn: async ({ memberId, role }) => {
       const response = await api.patch(
         `/notebooks/${notebookId}/members/${memberId}`,
-        { role }
+        { role },
       );
       return response.data;
     },
@@ -197,7 +197,7 @@ function NotebookShareDialog({ notebook, open, onClose }) {
   const removeMemberMutation = useMutation({
     mutationFn: async ({ memberId }) => {
       const response = await api.delete(
-        `/notebooks/${notebookId}/members/${memberId}`
+        `/notebooks/${notebookId}/members/${memberId}`,
       );
       return response.data;
     },
@@ -215,7 +215,7 @@ function NotebookShareDialog({ notebook, open, onClose }) {
   const resendInviteMutation = useMutation({
     mutationFn: async ({ memberId }) => {
       const response = await api.post(
-        `/notebooks/${notebookId}/invitations/${memberId}/resend`
+        `/notebooks/${notebookId}/invitations/${memberId}/resend`,
       );
       return response.data;
     },
@@ -233,7 +233,7 @@ function NotebookShareDialog({ notebook, open, onClose }) {
   const revokeInviteMutation = useMutation({
     mutationFn: async ({ memberId }) => {
       const response = await api.post(
-        `/notebooks/${notebookId}/invitations/${memberId}/revoke`
+        `/notebooks/${notebookId}/invitations/${memberId}/revoke`,
       );
       return response.data;
     },
@@ -289,7 +289,7 @@ function NotebookShareDialog({ notebook, open, onClose }) {
   const revokeShareLinkMutation = useMutation({
     mutationFn: async ({ shareLinkId }) => {
       const response = await api.delete(
-        `/notebooks/${notebookId}/share-links/${shareLinkId}`
+        `/notebooks/${notebookId}/share-links/${shareLinkId}`,
       );
       return response.data;
     },
@@ -702,7 +702,7 @@ function NotebookShareDialog({ notebook, open, onClose }) {
                               <span>
                                 Last used{" "}
                                 {formatRelativeTime(
-                                  new Date(link.lastAccessedAt)
+                                  new Date(link.lastAccessedAt),
                                 )}
                               </span>
                             </>

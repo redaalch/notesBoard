@@ -22,8 +22,8 @@ import {
   formatRelativeTime,
   formatTagLabel,
   normalizeTag,
-} from "../lib/Utils.js";
-import api from "../lib/axios.js";
+} from "../lib/Utils";
+import api from "../lib/axios";
 import { toast } from "sonner";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 
@@ -133,7 +133,7 @@ function NoteCard({
           : desiredPinned;
       const updatedTags = Array.isArray(responseData.tags)
         ? responseData.tags
-        : note.tags ?? [];
+        : (note.tags ?? []);
       updateNotesCache((prev) =>
         prev.map((item) =>
           item._id === note._id
@@ -143,12 +143,12 @@ function NoteCard({
                 pinned: updatedPinned,
                 tags: updatedTags,
               }
-            : item
-        )
+            : item,
+        ),
       );
 
       toast.success(
-        updatedPinned ? "Note pinned to top" : "Note removed from pinned"
+        updatedPinned ? "Note pinned to top" : "Note removed from pinned",
       );
       await invalidateNotesQueries();
     } catch (error) {

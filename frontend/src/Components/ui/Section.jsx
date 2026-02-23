@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { cn } from "../../lib/cn.js";
+import { cn } from "../../lib/cn";
 
 const SPACING_MAP = {
   none: "",
@@ -25,7 +25,7 @@ const Section = forwardRef(
       children,
       ...props
     },
-    ref
+    ref,
   ) => {
     const spacingClass = SPACING_MAP[spacing] ?? SPACING_MAP.md;
 
@@ -38,7 +38,7 @@ const Section = forwardRef(
         {children}
       </Component>
     );
-  }
+  },
 );
 
 Section.displayName = "Section";

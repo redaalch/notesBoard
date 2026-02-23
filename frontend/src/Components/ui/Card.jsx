@@ -1,5 +1,5 @@
 import { forwardRef, useMemo } from "react";
-import { cn } from "../../lib/cn.js";
+import { cn } from "../../lib/cn";
 import Surface from "./Surface.jsx";
 
 const GAP_MAP = {
@@ -26,7 +26,7 @@ const Card = forwardRef(
       className,
       ...props
     },
-    ref
+    ref,
   ) => {
     const Component = asComponent;
     const gapClass = GAP_MAP[spacing] ?? GAP_MAP.md;
@@ -53,7 +53,7 @@ const Card = forwardRef(
           gapClass,
           useOutline &&
             "surface-base border border-dashed border-border-subtle shadow-none",
-          className
+          className,
         )}
         {...props}
       >
@@ -95,7 +95,7 @@ const Card = forwardRef(
         ) : null}
       </Surface>
     );
-  }
+  },
 );
 
 Card.displayName = "Card";

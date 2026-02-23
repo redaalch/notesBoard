@@ -1,6 +1,6 @@
 import { forwardRef, useMemo } from "react";
 import { ArrowDownRightIcon, ArrowUpRightIcon } from "lucide-react";
-import { cn } from "../../lib/cn.js";
+import { cn } from "../../lib/cn";
 import Surface from "./Surface.jsx";
 
 const TREND_TONE_CLASSES = {
@@ -22,17 +22,17 @@ const MetricTile = forwardRef(
       className,
       ...props
     },
-    ref
+    ref,
   ) => {
     const Component = asComponent;
     const surfaceVariant =
       variant === "base"
         ? "base"
         : variant === "overlay"
-        ? "overlay"
-        : variant === "inset"
-        ? "inset"
-        : "raised";
+          ? "overlay"
+          : variant === "inset"
+            ? "inset"
+            : "raised";
 
     const trendConfig = useMemo(() => {
       if (!trend) return null;
@@ -42,15 +42,15 @@ const MetricTile = forwardRef(
         (direction === "down"
           ? "negative"
           : direction === "up"
-          ? "positive"
-          : "neutral");
+            ? "positive"
+            : "neutral");
       const text = trend.label ?? trend.value ?? null;
       const Icon =
         direction === "down"
           ? ArrowDownRightIcon
           : direction === "up"
-          ? ArrowUpRightIcon
-          : null;
+            ? ArrowUpRightIcon
+            : null;
 
       return {
         toneClass: TREND_TONE_CLASSES[tone] ?? TREND_TONE_CLASSES.neutral,
@@ -90,7 +90,7 @@ const MetricTile = forwardRef(
           <div
             className={cn(
               "flex items-center gap-1 text-sm font-medium",
-              trendConfig.toneClass
+              trendConfig.toneClass,
             )}
           >
             {TrendIcon ? (
@@ -101,7 +101,7 @@ const MetricTile = forwardRef(
         ) : null}
       </Surface>
     );
-  }
+  },
 );
 
 MetricTile.displayName = "MetricTile";

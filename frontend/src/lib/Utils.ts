@@ -1,4 +1,4 @@
-export function formatDate(date) {
+export function formatDate(date: Date): string {
   return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -6,12 +6,18 @@ export function formatDate(date) {
   });
 }
 
-export function formatRelativeTime(value) {
+export function formatRelativeTime(
+  value: Date | string | null | undefined,
+): string {
   if (!value) return "–";
 
   const target = value instanceof Date ? value : new Date(value);
   const diff = target.getTime() - Date.now();
-  const units = [
+  const units: {
+    limit: number;
+    value: number;
+    name: Intl.RelativeTimeFormatUnit;
+  }[] = [
     { limit: 60, value: 1, name: "second" },
     { limit: 3600, value: 60, name: "minute" },
     { limit: 86_400, value: 3_600, name: "hour" },
@@ -35,15 +41,15 @@ export function formatRelativeTime(value) {
   return formatter.format(Math.round(seconds / 31_536_000), "year");
 }
 
-export function countWords(content = "") {
+export function countWords(content = ""): number {
   return content.trim() ? content.trim().split(/\s+/).length : 0;
 }
 
-export function normalizeTag(tag = "") {
+export function normalizeTag(tag = ""): string {
   return String(tag).trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-export function formatTagLabel(tag = "") {
+export function formatTagLabel(tag = ""): string {
   return normalizeTag(tag)
     .split(" ")
     .filter(Boolean)

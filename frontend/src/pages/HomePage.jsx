@@ -59,13 +59,13 @@ import { NOTEBOOK_COLORS, NOTEBOOK_ICONS } from "@shared/notebookOptions.js";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../Components/Navbar.jsx";
 import RateLimitedUI from "../Components/RateLimitedUI.jsx";
-import api from "../lib/axios.js";
+import api from "../lib/axios";
 import { toast } from "sonner";
 import NoteCard from "../Components/NoteCard.jsx";
 import NotesNotFound from "../Components/NotesNotFound.jsx";
 import NoteSkeleton from "../Components/NoteSkeleton.jsx";
 import NotesStats from "../Components/NotesStats.jsx";
-import { countWords, formatTagLabel, normalizeTag } from "../lib/Utils.js";
+import { countWords, formatTagLabel, normalizeTag } from "../lib/Utils";
 import TemplateGalleryModal from "../Components/TemplateGalleryModal.jsx";
 import NotebookTemplateGalleryModal from "../Components/NotebookTemplateGalleryModal.jsx";
 import SaveNotebookTemplateDialog from "../Components/SaveNotebookTemplateDialog.jsx";
@@ -80,7 +80,7 @@ import NotebookPublishDialog from "../Components/NotebookPublishDialog.jsx";
 import NotebookHistoryDialog from "../Components/NotebookHistoryDialog.jsx";
 import NotebookInsightsDrawer from "../Components/NotebookInsightsDrawer.jsx";
 import { Button, Surface, Chip } from "../Components/ui/index.js";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn";
 
 const FILTER_STORAGE_KEY = "notesboard-filters-v1";
 const NOTEBOOK_ANALYTICS_ENABLED =
@@ -89,8 +89,8 @@ const NOTEBOOK_ANALYTICS_ENABLED =
 const mergeOrder = (primary = [], fallback = []) => {
   const fallbackStrings = new Set(
     fallback
-      .map((id) => (typeof id === "string" ? id : id?.toString?.() ?? null))
-      .filter(Boolean)
+      .map((id) => (typeof id === "string" ? id : (id?.toString?.() ?? null)))
+      .filter(Boolean),
   );
 
   const result = [];
@@ -120,7 +120,7 @@ const noop = () => {};
 const getNoteId = (note) => {
   if (!note) return null;
   const rawId = note._id ?? note.id;
-  return typeof rawId === "string" ? rawId : rawId?.toString?.() ?? null;
+  return typeof rawId === "string" ? rawId : (rawId?.toString?.() ?? null);
 };
 
 function SortableNoteCard({
@@ -392,7 +392,7 @@ function HomePage() {
         queryClient.invalidateQueries({ queryKey: ["note-layout"] }),
         queryClient.invalidateQueries({ queryKey: ["notebooks"] }),
       ]),
-    [queryClient]
+    [queryClient],
   );
   const openPublishNotebook = useCallback((notebook) => {
     if (notebook) {
@@ -427,7 +427,7 @@ function HomePage() {
         });
       }
     },
-    [invalidateNotesCaches, queryClient]
+    [invalidateNotesCaches, queryClient],
   );
   const handleHistoryUndo = useCallback(
     async ({ notebookId: historyNotebookId } = {}) => {
@@ -439,7 +439,7 @@ function HomePage() {
           (!historyNotebookId || queryKey.includes(historyNotebookId)),
       });
     },
-    [invalidateNotesCaches, queryClient]
+    [invalidateNotesCaches, queryClient],
   );
   const handleSelectNotebook = useCallback(
     (nextId) => {
@@ -459,7 +459,7 @@ function HomePage() {
         }
       }
     },
-    [customizeMode, sortOrder]
+    [customizeMode, sortOrder],
   );
   const handleViewNotebookFromInsights = useCallback(
     (notebookId) => {
@@ -467,18 +467,18 @@ function HomePage() {
       handleSelectNotebook(notebookId);
       closeNoteInsights();
     },
-    [closeNoteInsights, handleSelectNotebook]
+    [closeNoteInsights, handleSelectNotebook],
   );
   const handleApplySmartView = useCallback(
     ({ search = "", matchedTag = null, tags = [], noteCount = null }) => {
       const normalizedTags = Array.isArray(tags)
         ? tags
         : matchedTag
-        ? [matchedTag]
-        : [];
+          ? [matchedTag]
+          : [];
       setSearchQuery(search);
       setSelectedTags(
-        normalizedTags.map((tag) => normalizeTag(tag)).filter(Boolean)
+        normalizedTags.map((tag) => normalizeTag(tag)).filter(Boolean),
       );
       setMinWords(0);
       setSortOrder("newest");
@@ -489,7 +489,7 @@ function HomePage() {
       toast.success(
         noteCount
           ? `Smart view applied to ${noteCount} notes`
-          : "Smart view applied"
+          : "Smart view applied",
       );
       closeNoteInsights();
     },
@@ -503,7 +503,7 @@ function HomePage() {
       setSelectedTags,
       setMinWords,
       setAppliedSavedQuery,
-    ]
+    ],
   );
   const navigate = useNavigate();
   const { registerCommands } = useCommandPalette();
@@ -553,7 +553,7 @@ function HomePage() {
       const response = await api.get("/notes/layout", { params });
       const noteIds = Array.isArray(response.data?.noteIds)
         ? response.data.noteIds.map((id) =>
-            typeof id === "string" ? id : id?.toString?.()
+            typeof id === "string" ? id : id?.toString?.(),
           )
         : [];
       return noteIds.filter(Boolean);
@@ -563,7 +563,7 @@ function HomePage() {
 
   const notes = useMemo(
     () => (Array.isArray(notesQuery.data) ? notesQuery.data : []),
-    [notesQuery.data]
+    [notesQuery.data],
   );
   useEffect(() => {
     if (!insightsNote) return;
@@ -581,15 +581,15 @@ function HomePage() {
   const allNoteIds = useMemo(
     () =>
       notes.map((note) =>
-        typeof note._id === "string" ? note._id : note._id?.toString?.()
+        typeof note._id === "string" ? note._id : note._id?.toString?.(),
       ),
-    [notes]
+    [notes],
   );
   const baseCustomOrder =
     customOrderOverride.length > 0 ? customOrderOverride : layoutOrder;
   const effectiveCustomOrder = useMemo(
     () => mergeOrder(baseCustomOrder, allNoteIds),
-    [baseCustomOrder, allNoteIds]
+    [baseCustomOrder, allNoteIds],
   );
   const customOrderIndex = useMemo(() => {
     const map = new Map();
@@ -622,7 +622,7 @@ function HomePage() {
     queryKey: ["notebook-template-detail", selectedNotebookTemplateId],
     queryFn: async () => {
       const response = await api.get(
-        `/templates/${selectedNotebookTemplateId}`
+        `/templates/${selectedNotebookTemplateId}`,
       );
       return response.data;
     },
@@ -641,7 +641,7 @@ function HomePage() {
     }
 
     const exists = notebookTemplates.some(
-      (template) => template.id === selectedNotebookTemplateId
+      (template) => template.id === selectedNotebookTemplateId,
     );
 
     if (!exists) {
@@ -660,7 +660,7 @@ function HomePage() {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
-    })
+    }),
   );
 
   const dropAnimation = useMemo(
@@ -677,7 +677,7 @@ function HomePage() {
         },
       }),
     }),
-    []
+    [],
   );
 
   const notebooksQuery = useQuery({
@@ -702,7 +702,7 @@ function HomePage() {
     queryKey: ["notebook-saved-queries", activeNotebookId],
     queryFn: async () => {
       const response = await api.get(
-        `/notebooks/${activeNotebookId}/saved-queries`
+        `/notebooks/${activeNotebookId}/saved-queries`,
       );
       const list = Array.isArray(response.data?.queries)
         ? response.data.queries
@@ -726,7 +726,7 @@ function HomePage() {
       if (!savedQueriesEnabled) return null;
       const response = await api.post(
         `/notebooks/${activeNotebookId}/saved-queries`,
-        payload
+        payload,
       );
       return response.data;
     },
@@ -752,7 +752,7 @@ function HomePage() {
     mutationFn: async (queryId) => {
       if (!savedQueriesEnabled || !queryId) return null;
       await api.delete(
-        `/notebooks/${activeNotebookId}/saved-queries/${queryId}`
+        `/notebooks/${activeNotebookId}/saved-queries/${queryId}`,
       );
       return queryId;
     },
@@ -785,13 +785,13 @@ function HomePage() {
 
   const notebooks = useMemo(
     () => notebooksQuery.data?.notebooks ?? [],
-    [notebooksQuery.data]
+    [notebooksQuery.data],
   );
   const uncategorizedNoteCount = notebooksQuery.data?.uncategorizedCount ?? 0;
   const totalNotebookCount = useMemo(() => {
     const notebookTotal = notebooks.reduce(
       (sum, notebook) => sum + (Number(notebook.noteCount) || 0),
-      0
+      0,
     );
     return notebookTotal + (Number(uncategorizedNoteCount) || 0);
   }, [notebooks, uncategorizedNoteCount]);
@@ -845,8 +845,8 @@ function HomePage() {
         const notebookLabel =
           normalizedTarget === "uncategorized"
             ? "Uncategorized"
-            : notebooks.find((entry) => entry.id === normalizedTarget)?.name ??
-              "notebook";
+            : (notebooks.find((entry) => entry.id === normalizedTarget)?.name ??
+              "notebook");
 
         const message =
           ids.length === 1
@@ -856,7 +856,7 @@ function HomePage() {
         toast.success(message);
         setA11yMessage(message);
         setSelectedNoteIds((previous) =>
-          previous.filter((value) => !ids.includes(value))
+          previous.filter((value) => !ids.includes(value)),
         );
 
         await invalidateNotesCaches();
@@ -872,7 +872,7 @@ function HomePage() {
         }
       }
     },
-    [invalidateNotesCaches, notebooks]
+    [invalidateNotesCaches, notebooks],
   );
 
   const handleMoveNoteToNotebook = useCallback(
@@ -887,7 +887,7 @@ function HomePage() {
       });
       closeNoteInsights();
     },
-    [closeNoteInsights, moveNotesToNotebook]
+    [closeNoteInsights, moveNotesToNotebook],
   );
 
   const updateLayoutMutation = useMutation({
@@ -900,7 +900,7 @@ function HomePage() {
       const response = await api.put("/notes/layout", payload);
       const savedIds = Array.isArray(response.data?.noteIds)
         ? response.data.noteIds.map((id) =>
-            typeof id === "string" ? id : id?.toString?.()
+            typeof id === "string" ? id : id?.toString?.(),
           )
         : [];
       return {
@@ -911,7 +911,7 @@ function HomePage() {
     onSuccess: (data) => {
       queryClient.setQueryData(
         ["note-layout", data.contextId ?? "all"],
-        data.noteIds
+        data.noteIds,
       );
     },
     onError: (error) => {
@@ -927,7 +927,7 @@ function HomePage() {
       const activeId =
         typeof active?.id === "string"
           ? active.id
-          : active?.id?.toString?.() ?? null;
+          : (active?.id?.toString?.() ?? null);
       if (!activeId) return;
 
       // Batch state updates in a single frame
@@ -945,7 +945,7 @@ function HomePage() {
         }
       });
     },
-    [selectionMode, selectedNoteIds]
+    [selectionMode, selectedNoteIds],
   );
 
   const handleDragCancel = useCallback(() => {
@@ -958,7 +958,7 @@ function HomePage() {
       const activeId =
         typeof active?.id === "string"
           ? active.id
-          : active?.id?.toString?.() ?? null;
+          : (active?.id?.toString?.() ?? null);
 
       setActiveDragId(null);
       setActiveDragNoteIds([]);
@@ -968,7 +968,9 @@ function HomePage() {
       }
 
       const overId =
-        typeof over?.id === "string" ? over.id : over?.id?.toString?.() ?? null;
+        typeof over?.id === "string"
+          ? over.id
+          : (over?.id?.toString?.() ?? null);
 
       if (overId && overId.startsWith("notebook:")) {
         const targetNotebookId =
@@ -1048,7 +1050,7 @@ function HomePage() {
       moveNotesToNotebook,
       selectionMode,
       selectedNoteIds,
-    ]
+    ],
   );
 
   const tagStatsQuery = useQuery({
@@ -1077,8 +1079,8 @@ function HomePage() {
         new Set(
           tagInsights.tags
             .map((entry) => normalizeTag(entry?._id))
-            .filter(Boolean)
-        )
+            .filter(Boolean),
+        ),
       );
     }
     return [];
@@ -1124,7 +1126,7 @@ function HomePage() {
         name: board.name,
         workspaceName: board.workspaceName ?? "",
       })),
-    [boardOptions]
+    [boardOptions],
   );
 
   const templateWorkspaceOptions = useMemo(
@@ -1135,7 +1137,7 @@ function HomePage() {
             name: workspace.name,
           }))
         : [],
-    [workspacesQuery.data]
+    [workspacesQuery.data],
   );
   useEffect(() => {
     if (hasInitializedFilters.current) return;
@@ -1185,11 +1187,11 @@ function HomePage() {
     const tagList = Array.isArray(tagsSource)
       ? tagsSource
       : typeof tagsSource === "string"
-      ? tagsSource.split(",")
-      : [];
+        ? tagsSource.split(",")
+        : [];
 
     const normalizedTags = Array.from(
-      new Set(tagList.map((tag) => normalizeTag(tag)).filter(Boolean))
+      new Set(tagList.map((tag) => normalizeTag(tag)).filter(Boolean)),
     );
     setSelectedTags(normalizedTags);
 
@@ -1223,7 +1225,7 @@ function HomePage() {
           sortOrder,
           selectedTags,
           activeNotebookId,
-        })
+        }),
       );
     } catch (error) {
       console.warn("Unable to persist filters", error);
@@ -1253,12 +1255,12 @@ function HomePage() {
           new Set(
             appliedSavedQuery.filters.tags
               .map((tag) => normalizeTag(tag))
-              .filter(Boolean)
-          )
+              .filter(Boolean),
+          ),
         )
       : [];
     const currentTags = Array.from(
-      new Set(selectedTags.map((tag) => normalizeTag(tag)).filter(Boolean))
+      new Set(selectedTags.map((tag) => normalizeTag(tag)).filter(Boolean)),
     );
     const tagsMatch =
       savedTags.length === currentTags.length &&
@@ -1305,17 +1307,17 @@ function HomePage() {
         const createdAt = new Date(note.createdAt);
         return Date.now() - createdAt.getTime() <= 604_800_000; // 7 days
       }),
-    [notes]
+    [notes],
   );
 
   const longFormNotes = useMemo(
     () => notes.filter((note) => countWords(note.content) >= 150),
-    [notes]
+    [notes],
   );
 
   const shortNotes = useMemo(
     () => notes.filter((note) => countWords(note.content) <= 60),
-    [notes]
+    [notes],
   );
 
   const tabConfig = [
@@ -1331,10 +1333,10 @@ function HomePage() {
   const notebookFilterActive = activeNotebookId !== "all";
   const hasGeneralFilters = Boolean(
     selectedTags.length > 0 ||
-      searchQuery.trim() ||
-      Number(minWords) > 0 ||
-      sortOrder !== "newest" ||
-      activeTab !== "all"
+    searchQuery.trim() ||
+    Number(minWords) > 0 ||
+    sortOrder !== "newest" ||
+    activeTab !== "all",
   );
   const filtersApplied = notebookFilterActive || hasGeneralFilters;
 
@@ -1386,8 +1388,8 @@ function HomePage() {
         activeNotebookId === "uncategorized"
           ? "Notebook: Uncategorized"
           : activeNotebook?.name
-          ? `Notebook: ${activeNotebook.name}`
-          : "Notebook filter";
+            ? `Notebook: ${activeNotebook.name}`
+            : "Notebook filter";
 
       chips.push({
         key: "notebook",
@@ -1425,7 +1427,7 @@ function HomePage() {
     });
 
     const byWords = bySearch.filter(
-      (note) => countWords(note.content) >= Number(minWords)
+      (note) => countWords(note.content) >= Number(minWords),
     );
 
     const byTags = selectedTags.length
@@ -1509,7 +1511,7 @@ function HomePage() {
 
   const selectedNoteIdSet = useMemo(
     () => new Set(selectedNoteIds),
-    [selectedNoteIds]
+    [selectedNoteIds],
   );
 
   const activeDragNote = useMemo(() => {
@@ -1561,7 +1563,7 @@ function HomePage() {
     setSelectedTags((prev) =>
       prev.includes(normalized)
         ? prev.filter((item) => item !== normalized)
-        : [...prev, normalized]
+        : [...prev, normalized],
     );
   };
 
@@ -1624,7 +1626,7 @@ function HomePage() {
         setSelectionMode(true);
       }
     },
-    [filteredNotes, lastSelectedIndex, noteIndexLookup, selectionMode]
+    [filteredNotes, lastSelectedIndex, noteIndexLookup, selectionMode],
   );
 
   const handleClearSelection = useCallback(() => {
@@ -1681,7 +1683,7 @@ function HomePage() {
         setBulkActionLoading(false);
       }
     },
-    [invalidateNotesCaches, selectedNoteIds, selectionCount]
+    [invalidateNotesCaches, selectedNoteIds, selectionCount],
   );
 
   const handleBulkPin = () => performBulkAction("pin");
@@ -1737,7 +1739,7 @@ function HomePage() {
         targetNotebookId: value,
       });
     },
-    [moveNotesToNotebook, selectedNoteIds]
+    [moveNotesToNotebook, selectedNoteIds],
   );
 
   const confirmBulkDelete = async () => {
@@ -1789,14 +1791,14 @@ function HomePage() {
         const payload = options && typeof options === "object" ? options : {};
         const response = await api.post(
           `/templates/${templateId}/instantiate`,
-          payload
+          payload,
         );
         const createdNotebookId = response.data?.notebookId;
         const createdNotebookName = response.data?.name;
         toast.success(
           createdNotebookName
             ? `Created "${createdNotebookName}" from template`
-            : "Notebook created from template"
+            : "Notebook created from template",
         );
         closeNotebookTemplateGallery();
         if (createdNotebookId) {
@@ -1812,7 +1814,7 @@ function HomePage() {
         setNotebookTemplateImporting(false);
       }
     },
-    [closeNotebookTemplateGallery, queryClient]
+    [closeNotebookTemplateGallery, queryClient],
   );
 
   const handleDeleteNotebookTemplate = useCallback(
@@ -1823,7 +1825,7 @@ function HomePage() {
         await api.delete(`/templates/${templateId}`);
         toast.success("Template deleted");
         setSelectedNotebookTemplateId((previous) =>
-          previous === templateId ? null : previous
+          previous === templateId ? null : previous,
         );
         queryClient.removeQueries({
           queryKey: ["notebook-template-detail", templateId],
@@ -1840,7 +1842,7 @@ function HomePage() {
         setDeletingTemplateId(null);
       }
     },
-    [queryClient, refetchNotebookTemplates]
+    [queryClient, refetchNotebookTemplates],
   );
 
   const openSaveNotebookTemplate = useCallback((notebook) => {
@@ -1903,8 +1905,8 @@ function HomePage() {
             new Set(
               savedQuery.filters.tags
                 .map((tag) => normalizeTag(tag))
-                .filter(Boolean)
-            )
+                .filter(Boolean),
+            ),
           )
         : [];
 
@@ -1948,7 +1950,7 @@ function HomePage() {
       setSortOrder,
       setCustomOrderOverride,
       touchSavedNotebookQueryMutation,
-    ]
+    ],
   );
 
   const handleSavedQuerySubmit = useCallback(
@@ -1979,9 +1981,8 @@ function HomePage() {
       };
 
       try {
-        const created = await createSavedNotebookQueryMutation.mutateAsync(
-          payload
-        );
+        const created =
+          await createSavedNotebookQueryMutation.mutateAsync(payload);
         setSavedQueryDialogOpen(false);
         if (created) {
           handleApplySavedQuery(created);
@@ -1998,7 +1999,7 @@ function HomePage() {
       sortOrder,
       createSavedNotebookQueryMutation,
       handleApplySavedQuery,
-    ]
+    ],
   );
 
   const handleDeleteSavedQuery = useCallback(
@@ -2006,7 +2007,7 @@ function HomePage() {
       if (!queryId) return;
       deleteSavedNotebookQueryMutation.mutate(queryId);
     },
-    [deleteSavedNotebookQueryMutation]
+    [deleteSavedNotebookQueryMutation],
   );
 
   const openCreateNotebook = () => {
@@ -2064,7 +2065,7 @@ function HomePage() {
       if (notebookFormState?.mode === "edit" && notebookFormState?.notebook) {
         response = await api.patch(
           `/notebooks/${notebookFormState.notebook.id}`,
-          payload
+          payload,
         );
         toast.success("Notebook renamed");
       } else {
@@ -2473,7 +2474,7 @@ function HomePage() {
                             activeNotebookId === "all"
                               ? "border-brand-200 bg-brand-50 text-brand-700 shadow-soft"
                               : "border-border-subtle bg-surface-base text-text-muted hover:border-brand-200/70 hover:bg-brand-50/70 hover:text-text-primary",
-                            isOver && "ring-2 ring-brand-300/70"
+                            isOver && "ring-2 ring-brand-300/70",
                           )}
                           onClick={() => handleSelectNotebook("all")}
                         >
@@ -2482,7 +2483,7 @@ function HomePage() {
                             className={cn(
                               "inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-surface-overlay px-2 py-0.5 text-xs font-semibold text-text-muted",
                               activeNotebookId === "all" &&
-                                "bg-brand-500 text-white"
+                                "bg-brand-500 text-white",
                             )}
                           >
                             {totalNotebookCount}
@@ -2505,7 +2506,7 @@ function HomePage() {
                             activeNotebookId === "uncategorized"
                               ? "border-brand-200 bg-brand-50 text-brand-700 shadow-soft"
                               : "border-border-subtle bg-surface-base text-text-muted hover:border-brand-200/70 hover:bg-brand-50/70 hover:text-text-primary",
-                            isOver && "ring-2 ring-brand-300/70"
+                            isOver && "ring-2 ring-brand-300/70",
                           )}
                           onClick={() => handleSelectNotebook("uncategorized")}
                         >
@@ -2516,7 +2517,7 @@ function HomePage() {
                             className={cn(
                               "inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-surface-overlay px-2 py-0.5 text-xs font-semibold text-text-muted",
                               activeNotebookId === "uncategorized" &&
-                                "bg-brand-500 text-white"
+                                "bg-brand-500 text-white",
                             )}
                           >
                             {uncategorizedNoteCount}
@@ -2551,7 +2552,7 @@ function HomePage() {
                                   isActive
                                     ? "border-brand-200 bg-brand-50 text-brand-700 shadow-soft"
                                     : "border-border-subtle bg-surface-base text-text-muted hover:border-brand-200/70 hover:bg-brand-50/70 hover:text-text-primary",
-                                  isOver && "ring-2 ring-brand-300/70"
+                                  isOver && "ring-2 ring-brand-300/70",
                                 )}
                                 onClick={() =>
                                   handleSelectNotebook(notebook.id)
@@ -2583,7 +2584,7 @@ function HomePage() {
                                 <span
                                   className={cn(
                                     "inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-surface-overlay px-2 py-0.5 text-xs font-semibold text-text-muted",
-                                    isActive && "bg-brand-500 text-white"
+                                    isActive && "bg-brand-500 text-white",
                                   )}
                                 >
                                   {notebook.noteCount ?? 0}
@@ -2965,7 +2966,7 @@ function HomePage() {
                           if (Number.isFinite(value) && value >= 0) {
                             const normalized = Math.min(
                               400,
-                              Math.round(value / 10) * 10
+                              Math.round(value / 10) * 10,
                             );
                             setMinWords(normalized);
                           } else {
@@ -3533,7 +3534,7 @@ function HomePage() {
                     checked={notebookDeleteState.mode === "move"}
                     onChange={() =>
                       setNotebookDeleteState((prev) =>
-                        prev ? { ...prev, mode: "move" } : prev
+                        prev ? { ...prev, mode: "move" } : prev,
                       )
                     }
                   />
@@ -3555,7 +3556,7 @@ function HomePage() {
                                 ...prev,
                                 targetNotebookId: event.target.value,
                               }
-                            : prev
+                            : prev,
                         )
                       }
                       disabled={notebookDeleteState.mode !== "move"}
@@ -3564,7 +3565,7 @@ function HomePage() {
                       {notebooks
                         .filter(
                           (entry) =>
-                            entry.id !== notebookDeleteState.notebook?.id
+                            entry.id !== notebookDeleteState.notebook?.id,
                         )
                         .map((entry) => (
                           <option key={entry.id} value={entry.id}>
@@ -3582,7 +3583,7 @@ function HomePage() {
                     checked={notebookDeleteState.mode === "delete"}
                     onChange={() =>
                       setNotebookDeleteState((prev) =>
-                        prev ? { ...prev, mode: "delete" } : prev
+                        prev ? { ...prev, mode: "delete" } : prev,
                       )
                     }
                   />
@@ -3596,7 +3597,7 @@ function HomePage() {
                         type="checkbox"
                         className="checkbox checkbox-sm"
                         checked={Boolean(
-                          notebookDeleteState.deleteCollaborative
+                          notebookDeleteState.deleteCollaborative,
                         )}
                         onChange={(event) =>
                           setNotebookDeleteState((prev) =>
@@ -3605,7 +3606,7 @@ function HomePage() {
                                   ...prev,
                                   deleteCollaborative: event.target.checked,
                                 }
-                              : prev
+                              : prev,
                           )
                         }
                         disabled={notebookDeleteState.mode !== "delete"}

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeftIcon, LoaderIcon, MailIcon } from "lucide-react";
 import { toast } from "sonner";
-import api from "../lib/axios.js";
+import api from "../lib/axios";
 
 const ForgotPasswordPage = () => {
   const [email, setEmail] = useState("");
@@ -29,7 +29,7 @@ const ForgotPasswordPage = () => {
       setSent(true);
       setSubmittedEmail(email);
       toast.success(
-        "If an account exists, you'll receive a reset email shortly."
+        "If an account exists, you'll receive a reset email shortly.",
       );
     } catch (error) {
       const message =

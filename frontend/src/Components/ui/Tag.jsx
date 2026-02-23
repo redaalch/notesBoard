@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { cn } from "../../lib/cn.js";
+import { cn } from "../../lib/cn";
 
 const TAG_VARIANTS = {
   neutral: {
@@ -44,7 +44,7 @@ const Tag = forwardRef(
       className,
       ...props
     },
-    ref
+    ref,
   ) => {
     const Component = asComponent;
     const tagClasses = resolveTagClasses(tone, variant);
@@ -55,7 +55,7 @@ const Tag = forwardRef(
         className={cn(
           "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold tracking-wide",
           tagClasses,
-          className
+          className,
         )}
         {...props}
       >
@@ -69,7 +69,7 @@ const Tag = forwardRef(
         </span>
       </Component>
     );
-  }
+  },
 );
 
 Tag.displayName = "Tag";

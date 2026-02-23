@@ -2,14 +2,14 @@
 
 export type NotebookAnalyticsRange = "7d" | "30d" | "90d" | "365d";
 
-export interface NotebookAnalyticsRangeEntry {
-  days: number;
-  label: string;
-}
+  export interface NotebookAnalyticsRangeEntry {
+    days: number;
+    label: string;
+  }
 
 export interface NotebookAnalyticsRangeMeta {
   key: NotebookAnalyticsRange;
-  days: number;
+  days: number;                       
   start: string;
   end: string;
 }

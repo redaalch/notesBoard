@@ -12,7 +12,7 @@ vi.mock("../../lib/axios.js", () => ({
 }));
 
 import NotebookHistoryDialog from "../NotebookHistoryDialog.jsx";
-import api from "../../lib/axios.js";
+import api from "../../lib/axios";
 
 const renderWithClient = (ui) => {
   const queryClient = new QueryClient({
@@ -22,7 +22,7 @@ const renderWithClient = (ui) => {
     },
   });
   const result = render(
-    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
   );
   return { ...result, queryClient };
 };
@@ -65,7 +65,7 @@ describe("NotebookHistoryDialog", () => {
         open
         onClose={() => {}}
         onUndoSuccess={onUndoSuccess}
-      />
+      />,
     );
 
     await screen.findByText("Updated notebook details");
@@ -75,7 +75,7 @@ describe("NotebookHistoryDialog", () => {
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith("/notebooks/nb1/history/undo", {
         eventId: "event1",
-      })
+      }),
     );
 
     await waitFor(() =>
@@ -84,7 +84,7 @@ describe("NotebookHistoryDialog", () => {
         result: {
           action: "restoreNotebookFields",
         },
-      })
+      }),
     );
   });
 });

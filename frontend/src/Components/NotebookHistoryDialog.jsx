@@ -17,8 +17,8 @@ import {
   XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import api from "../lib/axios.js";
-import { formatDate, formatRelativeTime } from "../lib/Utils.js";
+import api from "../lib/axios";
+import { formatDate, formatRelativeTime } from "../lib/Utils";
 
 const EVENT_ICON_MAP = {
   "notebook.create": NotebookIcon,
@@ -55,13 +55,13 @@ const describeMetadataHighlights = (event) => {
     highlights.push(
       `${metadata.noteCount} note${
         metadata.noteCount === 1 ? "" : "s"
-      } affected`
+      } affected`,
     );
   } else if (Array.isArray(metadata.noteIds)) {
     highlights.push(
       `${metadata.noteIds.length} note${
         metadata.noteIds.length === 1 ? "" : "s"
-      } affected`
+      } affected`,
     );
   }
 
@@ -70,7 +70,7 @@ const describeMetadataHighlights = (event) => {
       `Tags added: ${metadata.tagsAdded
         .slice(0, 3)
         .map((tag) => `#${tag}`)
-        .join(", ")}${metadata.tagsAdded.length > 3 ? "…" : ""}`
+        .join(", ")}${metadata.tagsAdded.length > 3 ? "…" : ""}`,
     );
   }
 
@@ -79,7 +79,7 @@ const describeMetadataHighlights = (event) => {
       `Tags removed: ${metadata.tagsRemoved
         .slice(0, 3)
         .map((tag) => `#${tag}`)
-        .join(", ")}${metadata.tagsRemoved.length > 3 ? "…" : ""}`
+        .join(", ")}${metadata.tagsRemoved.length > 3 ? "…" : ""}`,
     );
   }
 
@@ -94,7 +94,7 @@ function NotebookHistoryDialog({
   onUndoSuccess,
 }) {
   const [selectedNotebookId, setSelectedNotebookId] = useState(
-    notebook?.id ?? null
+    notebook?.id ?? null,
   );
   const [limit, setLimit] = useState(50);
   const [undoingEventId, setUndoingEventId] = useState(null);
@@ -118,7 +118,7 @@ function NotebookHistoryDialog({
         `/notebooks/${effectiveNotebookId}/history`,
         {
           params: { limit },
-        }
+        },
       );
       const events = Array.isArray(response.data?.events)
         ? response.data.events
@@ -137,7 +137,7 @@ function NotebookHistoryDialog({
         `/notebooks/${effectiveNotebookId}/history/undo`,
         {
           eventId,
-        }
+        },
       );
       return response.data;
     },
@@ -147,7 +147,7 @@ function NotebookHistoryDialog({
   const hasMore = Boolean(historyQuery.data?.hasMore);
 
   const undoIsLoading = Boolean(
-    undoMutation.isPending ?? undoMutation.isLoading
+    undoMutation.isPending ?? undoMutation.isLoading,
   );
 
   const selectedNotebook = useMemo(() => {
@@ -197,7 +197,7 @@ function NotebookHistoryDialog({
       onUndoSuccess,
       undoMutation,
       undoIsLoading,
-    ]
+    ],
   );
 
   const handleLoadMore = useCallback(() => {

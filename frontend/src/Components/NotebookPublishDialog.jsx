@@ -11,8 +11,8 @@ import {
   XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import api from "../lib/axios.js";
-import { formatDate, formatRelativeTime } from "../lib/Utils.js";
+import api from "../lib/axios";
+import { formatDate, formatRelativeTime } from "../lib/Utils";
 
 const normalizeSlugInput = (value) => {
   if (typeof value !== "string") return "";
@@ -31,7 +31,7 @@ const buildSuggestedSlug = (name) => {
     return base;
   }
   const fallback = normalizeSlugInput(
-    `${base || "notebook"}-${Math.random().toString(36).slice(2, 10)}`
+    `${base || "notebook"}-${Math.random().toString(36).slice(2, 10)}`,
   );
   return fallback && fallback.length >= 6 ? fallback : "notebook";
 };

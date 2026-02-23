@@ -3,7 +3,7 @@ import {
   initializeOfflineSync,
   subscribeOfflineStatus,
   triggerManualSync,
-} from "../lib/offlineSyncManager.js";
+} from "../lib/offlineSyncManager";
 import OfflineSyncContext from "./offlineSyncContext.js";
 
 export const OfflineSyncProvider = ({ children }) => {
@@ -26,7 +26,7 @@ export const OfflineSyncProvider = ({ children }) => {
       ...status,
       syncNow: triggerManualSync,
     }),
-    [status]
+    [status],
   );
 
   return (

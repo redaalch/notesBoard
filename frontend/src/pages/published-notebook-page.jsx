@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import api from "../lib/axios.js";
+import api from "../lib/axios";
 import Navbar from "../Components/Navbar.jsx";
 import NoteSkeleton from "../Components/NoteSkeleton.jsx";
 
@@ -39,11 +39,11 @@ const PublishedNotebookPage = () => {
   const { publishedAt, updatedAt } = useMemo(
     () => ({
       publishedAt: formatDateTime(
-        data?.publishedAt ?? data?.notebook?.publishedAt
+        data?.publishedAt ?? data?.notebook?.publishedAt,
       ),
       updatedAt: formatDateTime(data?.updatedAt),
     }),
-    [data?.publishedAt, data?.updatedAt, data?.notebook?.publishedAt]
+    [data?.publishedAt, data?.updatedAt, data?.notebook?.publishedAt],
   );
 
   if (isLoading) {

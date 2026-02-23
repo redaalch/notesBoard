@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { cn } from "../../lib/cn.js";
+import { cn } from "../../lib/cn";
 
 const SIZE_MAP = {
   sm: "max-w-3xl", // ~768px
@@ -28,7 +28,7 @@ const Container = forwardRef(
       children,
       ...props
     },
-    ref
+    ref,
   ) => {
     const sizeClass = SIZE_MAP[size] ?? SIZE_MAP.lg;
 
@@ -40,14 +40,14 @@ const Container = forwardRef(
           sizeClass,
           centered && "mx-auto",
           gutters && "px-4 sm:px-6 lg:px-8",
-          className
+          className,
         )}
         {...props}
       >
         {children}
       </Component>
     );
-  }
+  },
 );
 
 Container.displayName = "Container";

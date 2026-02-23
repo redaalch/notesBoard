@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import Navbar from "../Components/Navbar.jsx";
 import WorkspaceMembersCard from "../Components/WorkspaceMembersCard.jsx";
 import useAuth from "../hooks/useAuth.js";
-import { formatDate, formatRelativeTime } from "../lib/Utils.js";
+import { formatDate, formatRelativeTime } from "../lib/Utils";
 
 const emptyPasswordState = {
   currentPassword: "",
@@ -106,7 +106,7 @@ function ProfilePage() {
       const result = await updateProfile(updates);
       const updatedUser = result?.user ?? user;
       setPendingVerification(
-        result?.emailVerificationRequired ?? !updatedUser.emailVerified
+        result?.emailVerificationRequired ?? !updatedUser.emailVerified,
       );
       setProfileForm((prev) => ({
         ...prev,

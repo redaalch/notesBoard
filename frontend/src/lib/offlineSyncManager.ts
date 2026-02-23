@@ -1,4 +1,9 @@
-import api from "./axios.js";
+import type {
+  AxiosError,
+  InternalAxiosRequestConfig,
+  AxiosResponse,
+} from "axios";
+import api from "./axios";
 import {
   cacheMutation,
   cacheResponse,
@@ -14,27 +19,56 @@ import {
   storeNotebooks,
   storeNotes,
   updateMutation,
-} from "./offlineDB.js";
+  type CachedNote,
+  type NotebookSyncPayload,
+  type NotebookSyncMetadata,
+  type OfflineMutation,
+  type SyncOperation,
+} from "./offlineDB";
 import {
   fetchNotebookSyncState,
   pushNotebookSyncState,
-} from "./notebookSyncClient.js";
+} from "./notebookSyncClient";
 
-const STATUS_LISTENERS = new Set();
+// ── Types ────────────────────────────────────────────────────
+
+export interface OfflineStatusSnapshot {
+  isOnline: boolean;
+  queueLength: number;
+  isSyncing: boolean;
+  lastSyncedAt: string | null;
+  lastError: string | null;
+}
+
+export type OfflineStatusListener = (snapshot: OfflineStatusSnapshot) => void;
+
+interface NotebookBucket {
+  entries: OfflineMutation[];
+  operations: SyncOperation[];
+}
+
+// Extend Axios config to carry our custom field
+interface OfflineAxiosConfig extends InternalAxiosRequestConfig {
+  offlineSync?: NotebookSyncPayload | null;
+}
+
+// ── Module state ─────────────────────────────────────────────
+
+const STATUS_LISTENERS = new Set<OfflineStatusListener>();
 let isInitialized = false;
 let isSyncing = false;
 let queueLength = 0;
-let lastSyncedAt = null;
-let lastError = null;
+let lastSyncedAt: string | null = null;
+let lastError: string | null = null;
 
 const PRECACHE_SHELLS = ["/app", "/create", "/profile"];
 
 const NOTE_ID_REGEX = /\/api\/notes\/([0-9a-fA-F]{24})$/u;
 
-const isMongoId = (value) =>
+const isMongoId = (value: unknown): value is string =>
   typeof value === "string" && /^[0-9a-fA-F]{24}$/u.test(value.trim());
 
-const generateOpId = () => {
+const generateOpId = (): string => {
   if (
     typeof crypto !== "undefined" &&
     typeof crypto.randomUUID === "function"
@@ -44,7 +78,7 @@ const generateOpId = () => {
   return `op-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
-const normalizeNotebookId = (value) => {
+const normalizeNotebookId = (value: unknown): string | null => {
   if (!value) return null;
   const normalized = String(value).trim();
   if (normalized === "uncategorized" || normalized === "all") {
@@ -53,8 +87,10 @@ const normalizeNotebookId = (value) => {
   return isMongoId(normalized) ? normalized : null;
 };
 
-const notifyStatus = () => {
-  const snapshot = {
+// ── Notify listeners ─────────────────────────────────────────
+
+const notifyStatus = (): void => {
+  const snapshot: OfflineStatusSnapshot = {
     isOnline: typeof navigator !== "undefined" ? navigator.onLine : true,
     queueLength,
     isSyncing,
@@ -72,14 +108,18 @@ const notifyStatus = () => {
   });
 };
 
-const normalizeUrl = (config) => {
+// ── URL helpers ──────────────────────────────────────────────
+
+const normalizeUrl = (config: InternalAxiosRequestConfig): string => {
   const baseURL =
     config.baseURL ?? api.defaults.baseURL ?? window.location.origin;
   const requestURL = config.url ?? "";
   try {
     const url = new URL(requestURL, baseURL);
     if (config.params) {
-      const params = new URLSearchParams(config.params);
+      const params = new URLSearchParams(
+        config.params as Record<string, string>,
+      );
       params.forEach((value, key) => {
         url.searchParams.set(key, value);
       });
@@ -93,10 +133,12 @@ const normalizeUrl = (config) => {
   }
 };
 
-const toSerializable = (value) => {
+// ── Serialization ────────────────────────────────────────────
+
+const toSerializable = (value: unknown): unknown => {
   if (value === undefined || value === null) return null;
   if (value instanceof FormData) {
-    const entries = {};
+    const entries: Record<string, FormDataEntryValue> = {};
     for (const [key, formValue] of value.entries()) {
       entries[key] = formValue;
     }
@@ -115,13 +157,15 @@ const toSerializable = (value) => {
   }
 };
 
-const recordQueueLength = async () => {
+// ── Queue helpers ────────────────────────────────────────────
+
+const recordQueueLength = async (): Promise<OfflineMutation[]> => {
   const mutations = await listMutations();
   queueLength = mutations.length;
   return mutations;
 };
 
-const precacheShells = () => {
+const precacheShells = (): void => {
   if (!("serviceWorker" in navigator)) return;
   if (!navigator.serviceWorker.controller) return;
   navigator.serviceWorker.controller.postMessage({
@@ -130,7 +174,12 @@ const precacheShells = () => {
   });
 };
 
-const cacheDomainData = async (config, data) => {
+// ── Domain data caching ──────────────────────────────────────
+
+const cacheDomainData = async (
+  config: InternalAxiosRequestConfig,
+  data: Record<string, unknown>,
+): Promise<void> => {
   let path = "";
   try {
     path = new URL(normalizeUrl(config)).pathname;
@@ -141,43 +190,67 @@ const cacheDomainData = async (config, data) => {
     return;
   }
   if (path.startsWith("/notebooks")) {
-    if (Array.isArray(data?.notebooks)) {
+    const notebooks = data?.notebooks;
+    if (Array.isArray(notebooks)) {
       await storeNotebooks(
-        data.notebooks.map((notebook) => ({
+        notebooks.map((notebook: Record<string, unknown>) => ({
           ...notebook,
-          revision: notebook.updatedAt ?? notebook.id,
-        }))
+          id: notebook.id as string,
+          revision: (notebook.updatedAt ?? notebook.id) as string,
+        })),
       );
     } else if (data?.id) {
-      await storeNotebooks([{ ...data, revision: data.updatedAt ?? data.id }]);
+      await storeNotebooks([
+        {
+          ...data,
+          id: data.id as string,
+          revision: (data.updatedAt ?? data.id) as string,
+        },
+      ]);
     }
   }
   if (path.startsWith("/notes")) {
-    if (Array.isArray(data?.notes)) {
+    const notes = data?.notes;
+    if (Array.isArray(notes)) {
       await storeNotes(
-        data.notes.map((note) => ({
+        notes.map((note: Record<string, unknown>) => ({
           ...note,
-          revision: note.updatedAt ?? note.id,
-        }))
+          id: note.id as string,
+          notebookId: (note.notebookId as string) ?? null,
+          revision: (note.updatedAt ?? note.id) as string,
+        })),
       );
     } else if (data?.id) {
-      await storeNotes([{ ...data, revision: data.updatedAt ?? data.id }]);
+      await storeNotes([
+        {
+          ...data,
+          id: data.id as string,
+          notebookId: (data.notebookId as string) ?? null,
+          revision: (data.updatedAt ?? data.id) as string,
+        },
+      ]);
     }
   }
 };
 
-const normalizeTagsArray = (tags) => {
+// ── Tag normalization ────────────────────────────────────────
+
+const normalizeTagsArray = (tags: unknown): string[] => {
   if (!Array.isArray(tags)) return [];
   return tags
     .map((tag) =>
       typeof tag === "string"
         ? tag.trim().toLowerCase().replace(/\s+/g, " ")
-        : ""
+        : "",
     )
     .filter(Boolean);
 };
 
-const buildNotebookSyncMetadata = async (config) => {
+// ── Notebook sync metadata builder ───────────────────────────
+
+const buildNotebookSyncMetadata = async (
+  config: InternalAxiosRequestConfig,
+): Promise<NotebookSyncPayload | null> => {
   const method = (config.method ?? "get").toLowerCase();
   if (method === "get") {
     return null;
@@ -190,7 +263,7 @@ const buildNotebookSyncMetadata = async (config) => {
     if (import.meta.env.DEV) {
       console.warn(
         "[offline] buildNotebookSyncMetadata path parse failed",
-        error
+        error,
       );
     }
     return null;
@@ -202,7 +275,9 @@ const buildNotebookSyncMetadata = async (config) => {
 
   if (method === "post" && path === "/api/notes") {
     const payload =
-      config.data && typeof config.data === "object" ? config.data : {};
+      config.data && typeof config.data === "object"
+        ? (config.data as Record<string, unknown>)
+        : {};
     const notebookId = normalizeNotebookId(payload.notebookId);
     if (!notebookId) {
       return null;
@@ -260,25 +335,27 @@ const buildNotebookSyncMetadata = async (config) => {
 
   if (method === "put") {
     const overrides =
-      config.data && typeof config.data === "object" ? config.data : {};
+      config.data && typeof config.data === "object"
+        ? (config.data as Record<string, unknown>)
+        : {};
 
     const title =
       typeof overrides.title === "string"
         ? overrides.title
-        : cachedNote.title ?? "";
+        : (cachedNote.title ?? "");
 
     const content =
       typeof overrides.content === "string"
         ? overrides.content
-        : cachedNote.content ?? "";
+        : (cachedNote.content ?? "");
 
     const contentText =
       typeof overrides.contentText === "string"
         ? overrides.contentText
-        : cachedNote.contentText ?? content;
+        : (cachedNote.contentText ?? content);
 
     const tags = normalizeTagsArray(
-      Array.isArray(overrides.tags) ? overrides.tags : cachedNote.tags
+      Array.isArray(overrides.tags) ? overrides.tags : cachedNote.tags,
     );
 
     const pinned =
@@ -310,8 +387,19 @@ const buildNotebookSyncMetadata = async (config) => {
   return null;
 };
 
-const ensureNotebookSyncSession = async (notebookId) => {
-  let metadata = (await getNotebookSyncMetadata(notebookId)) ?? {};
+// ── Notebook sync session ────────────────────────────────────
+
+const ensureNotebookSyncSession = async (
+  notebookId: string,
+): Promise<NotebookSyncMetadata | null> => {
+  let metadata: NotebookSyncMetadata = (await getNotebookSyncMetadata(
+    notebookId,
+  )) ?? {
+    clientId: "",
+    revision: 0,
+    snapshotHash: null,
+    lastSyncedAt: null,
+  };
   let mutated = false;
 
   if (!metadata.clientId) {
@@ -347,7 +435,10 @@ const ensureNotebookSyncSession = async (notebookId) => {
   return metadata;
 };
 
-const refreshNotebookSnapshot = async (notebookId, clientId) => {
+const refreshNotebookSnapshot = async (
+  notebookId: string,
+  clientId: string,
+): Promise<NotebookSyncMetadata | null> => {
   try {
     const state = await fetchNotebookSyncState(notebookId, {
       clientId,
@@ -358,12 +449,14 @@ const refreshNotebookSnapshot = async (notebookId, clientId) => {
       await storeNotes(
         state.notes.map((note) => ({
           ...note,
-          revision: note.updatedAt ?? note.id,
-        }))
+          id: note.id as string,
+          notebookId: (note.notebookId as string) ?? null,
+          revision: (note.updatedAt ?? note.id) as string,
+        })),
       );
     }
 
-    const metadata = {
+    const metadata: NotebookSyncMetadata = {
       clientId,
       revision: state?.revision ?? 0,
       snapshotHash: state?.snapshotHash ?? null,
@@ -382,7 +475,9 @@ const refreshNotebookSnapshot = async (notebookId, clientId) => {
   }
 };
 
-const flushQueue = async () => {
+// ── Queue flush ──────────────────────────────────────────────
+
+const flushQueue = async (): Promise<void> => {
   const mutations = await recordQueueLength();
   if (!mutations.length) {
     isSyncing = false;
@@ -402,8 +497,8 @@ const flushQueue = async () => {
   isSyncing = true;
   notifyStatus();
 
-  const regularMutations = [];
-  const notebookMutations = new Map();
+  const regularMutations: OfflineMutation[] = [];
+  const notebookMutations = new Map<string, NotebookBucket>();
 
   for (const entry of mutations) {
     if (entry?.sync?.type === "notebook" && entry.sync?.notebookId) {
@@ -433,21 +528,22 @@ const flushQueue = async () => {
         url: entry.url,
         data: entry.data,
         headers: {
-          ...entry.headers,
+          ...(entry.headers as Record<string, string>),
           "x-offline-replay": "1",
           "x-offline-revision": entry.versionStamp ?? undefined,
         },
       };
       await api.request(requestConfig);
-      await removeMutation(entry.id);
+      await removeMutation(entry.id!);
       lastError = null;
     } catch (error) {
-      await updateMutation(entry.id, {
+      const err = error as Error;
+      await updateMutation(entry.id!, {
         attempts: (entry.attempts ?? 0) + 1,
-        lastError: error?.message ?? "Unknown error",
+        lastError: err?.message ?? "Unknown error",
         lastAttemptAt: new Date().toISOString(),
       });
-      lastError = error?.message ?? "Sync failed";
+      lastError = err?.message ?? "Sync failed";
       failure = true;
       break;
     }
@@ -457,7 +553,7 @@ const flushQueue = async () => {
     for (const [notebookId, bucket] of notebookMutations.entries()) {
       if (!bucket.operations.length) {
         for (const entry of bucket.entries) {
-          await removeMutation(entry.id);
+          await removeMutation(entry.id!);
         }
         continue;
       }
@@ -472,21 +568,22 @@ const flushQueue = async () => {
               url: entry.url,
               data: entry.data,
               headers: {
-                ...entry.headers,
+                ...(entry.headers as Record<string, string>),
                 "x-offline-replay": "1",
                 "x-offline-revision": entry.versionStamp ?? undefined,
               },
             };
             await api.request(requestConfig);
-            await removeMutation(entry.id);
+            await removeMutation(entry.id!);
             lastError = null;
           } catch (error) {
-            await updateMutation(entry.id, {
+            const err = error as Error;
+            await updateMutation(entry.id!, {
               attempts: (entry.attempts ?? 0) + 1,
-              lastError: error?.message ?? "Unknown error",
+              lastError: err?.message ?? "Unknown error",
               lastAttemptAt: new Date().toISOString(),
             });
-            lastError = error?.message ?? "Sync failed";
+            lastError = err?.message ?? "Sync failed";
             failure = true;
             break;
           }
@@ -505,27 +602,32 @@ const flushQueue = async () => {
         };
 
         const response = await pushNotebookSyncState(notebookId, payload);
-        const nextMetadata = {
+        const nextMetadata: NotebookSyncMetadata = {
           clientId: session.clientId,
-          revision: response?.revision ?? session.revision ?? 0,
-          snapshotHash: response?.snapshotHash ?? session.snapshotHash ?? null,
-          lastSyncedAt: response?.serverTime ?? new Date().toISOString(),
+          revision: (response?.revision as number) ?? session.revision ?? 0,
+          snapshotHash:
+            (response?.snapshotHash as string) ?? session.snapshotHash ?? null,
+          lastSyncedAt:
+            (response?.serverTime as string) ?? new Date().toISOString(),
         };
         await setNotebookSyncMetadata(notebookId, nextMetadata);
 
         await refreshNotebookSnapshot(notebookId, session.clientId);
 
         for (const entry of bucket.entries) {
-          await removeMutation(entry.id);
+          await removeMutation(entry.id!);
         }
         lastError = null;
       } catch (error) {
+        const axiosErr = error as AxiosError<{ message?: string }>;
         const errorMessage =
-          error?.response?.data?.message ?? error?.message ?? "Unknown error";
+          axiosErr?.response?.data?.message ??
+          axiosErr?.message ??
+          "Unknown error";
         const timestamp = new Date().toISOString();
 
         for (const entry of bucket.entries) {
-          await updateMutation(entry.id, {
+          await updateMutation(entry.id!, {
             attempts: (entry.attempts ?? 0) + 1,
             lastError: errorMessage,
             lastAttemptAt: timestamp,
@@ -534,7 +636,7 @@ const flushQueue = async () => {
 
         lastError = errorMessage;
 
-        if (error?.response?.status === 409) {
+        if (axiosErr?.response?.status === 409) {
           await refreshNotebookSnapshot(notebookId, session.clientId);
         }
 
@@ -554,17 +656,23 @@ const flushQueue = async () => {
   notifyStatus();
 };
 
-const queueMutation = async (config) => {
+// ── Queue mutation ───────────────────────────────────────────
+
+const queueMutation = async (
+  config: OfflineAxiosConfig,
+): Promise<OfflineMutation | null> => {
   const mutation = await cacheMutation({
     method: (config.method ?? "get").toLowerCase(),
     url: normalizeUrl(config),
     data: toSerializable(config.data),
-    headers: toSerializable(config.headers),
+    headers: toSerializable(config.headers) as Record<string, string>,
     versionStamp:
-      config.headers?.["x-revision"] ??
-      config.headers?.["if-match"] ??
+      (config.headers as Record<string, string>)?.["x-revision"] ??
+      (config.headers as Record<string, string>)?.["if-match"] ??
       (typeof config.data === "object" && config.data
-        ? config.data.updatedAt ?? config.data.revision ?? null
+        ? (((config.data as Record<string, unknown>).updatedAt as string) ??
+          ((config.data as Record<string, unknown>).revision as string) ??
+          null)
         : null),
     sync: config.offlineSync ?? null,
   });
@@ -574,16 +682,22 @@ const queueMutation = async (config) => {
   return mutation;
 };
 
-const handleOnline = () => {
+// ── Online/offline handlers ──────────────────────────────────
+
+const handleOnline = (): void => {
   notifyStatus();
   flushQueue();
 };
 
-const handleOffline = () => {
+const handleOffline = (): void => {
   notifyStatus();
 };
 
-export const subscribeOfflineStatus = (listener) => {
+// ── Public API ───────────────────────────────────────────────
+
+export const subscribeOfflineStatus = (
+  listener: OfflineStatusListener,
+): (() => void) => {
   STATUS_LISTENERS.add(listener);
   listener({
     isOnline: typeof navigator !== "undefined" ? navigator.onLine : true,
@@ -597,12 +711,12 @@ export const subscribeOfflineStatus = (listener) => {
   };
 };
 
-export const triggerManualSync = async () => {
+export const triggerManualSync = async (): Promise<void> => {
   if (!navigator.onLine) return;
   await flushQueue();
 };
 
-export const resetOfflineCache = async () => {
+export const resetOfflineCache = async (): Promise<void> => {
   await clearDatabase();
   const mutations = await recordQueueLength();
   queueLength = mutations.length;
@@ -610,7 +724,7 @@ export const resetOfflineCache = async () => {
   notifyStatus();
 };
 
-export const initializeOfflineSync = () => {
+export const initializeOfflineSync = (): void => {
   if (isInitialized) {
     return;
   }
@@ -621,11 +735,13 @@ export const initializeOfflineSync = () => {
   window.addEventListener("online", handleOnline);
   window.addEventListener("offline", handleOffline);
 
-  api.interceptors.request.use(async (config) => {
+  api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+    const offlineConfig = config as OfflineAxiosConfig;
+
     try {
       const notebookSync = await buildNotebookSyncMetadata(config);
       if (notebookSync) {
-        config.offlineSync = notebookSync;
+        offlineConfig.offlineSync = notebookSync;
       }
     } catch (error) {
       if (import.meta.env.DEV) {
@@ -635,7 +751,7 @@ export const initializeOfflineSync = () => {
 
     if (!navigator.onLine) {
       if ((config.method ?? "get").toLowerCase() !== "get") {
-        const queued = await queueMutation(config);
+        const queued = await queueMutation(offlineConfig);
         config.adapter = () =>
           Promise.resolve({
             data: {
@@ -648,7 +764,7 @@ export const initializeOfflineSync = () => {
             headers: { "x-offline": "queued" },
             config,
             request: undefined,
-          });
+          } as AxiosResponse);
         return config;
       }
 
@@ -662,26 +778,29 @@ export const initializeOfflineSync = () => {
             headers: { "x-offline": "cached" },
             config,
             request: undefined,
-          });
+          } as AxiosResponse);
         return config;
       }
     }
 
-    delete config.offlineSync;
+    delete offlineConfig.offlineSync;
 
     return config;
   });
 
   api.interceptors.response.use(
-    async (response) => {
+    async (response: AxiosResponse) => {
       try {
         const { config, data } = response;
         if ((config.method ?? "get").toLowerCase() === "get") {
           await cacheResponse(normalizeUrl(config), data);
-          await cacheDomainData(config, data);
+          await cacheDomainData(config, data as Record<string, unknown>);
         }
-        if ((config.method ?? "get").toLowerCase() !== "get" && data?.id) {
-          await cacheDomainData(config, data);
+        if (
+          (config.method ?? "get").toLowerCase() !== "get" &&
+          (data as Record<string, unknown>)?.id
+        ) {
+          await cacheDomainData(config, data as Record<string, unknown>);
         }
         if (navigator.onLine) {
           queueLength = (await listMutations()).length;
@@ -694,17 +813,17 @@ export const initializeOfflineSync = () => {
       }
       return response;
     },
-    async (error) => {
+    async (error: AxiosError) => {
       if (!navigator.onLine) {
         notifyStatus();
       }
       return Promise.reject(error);
-    }
+    },
   );
 
   recordQueueLength().then(() => notifyStatus());
 
-  getMetadata("lastSyncedAt").then((value) => {
+  getMetadata<string>("lastSyncedAt").then((value) => {
     if (value) {
       lastSyncedAt = value;
       notifyStatus();
@@ -712,7 +831,7 @@ export const initializeOfflineSync = () => {
   });
 };
 
-export const persistLastSyncedAt = async (timestamp) => {
+export const persistLastSyncedAt = async (timestamp: string): Promise<void> => {
   lastSyncedAt = timestamp;
   await setMetadata("lastSyncedAt", timestamp);
   notifyStatus();

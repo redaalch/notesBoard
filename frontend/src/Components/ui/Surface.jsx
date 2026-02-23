@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { cn } from "../../lib/cn.js";
+import { cn } from "../../lib/cn";
 
 const VARIANT_CLASSES = {
   base: "surface-base",
@@ -41,7 +41,7 @@ const Surface = forwardRef(
       children,
       ...props
     },
-    ref
+    ref,
   ) => {
     const variantClass = VARIANT_CLASSES[variant] ?? VARIANT_CLASSES.base;
     const paddingClass = PADDING[padding] ?? PADDING.md;
@@ -57,14 +57,14 @@ const Surface = forwardRef(
           radiusClass,
           !shadow && "shadow-none",
           !border && "border-none",
-          className
+          className,
         )}
         {...props}
       >
         {children}
       </Component>
     );
-  }
+  },
 );
 
 Surface.displayName = "Surface";
