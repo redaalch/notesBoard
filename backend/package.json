@@ -5,14 +5,16 @@
   "main": "src/server.js",
   "scripts": {
     "test": "vitest run",
-    "dev": "nodemon src/server.js",
-    "start": "node src/server.js",
-    "bootstrap-owner": "node src/scripts/bootstrapOwner.js",
-    "backfill-notebook-members": "node src/scripts/backfillNotebookMembers.js",
-    "analytics-snapshots": "node src/scripts/generateNotebookAnalyticsSnapshots.js",
-    "seed-analytics-fixtures": "node src/scripts/seedNotebookAnalyticsFixtures.js",
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "bootstrap-owner": "tsx src/scripts/bootstrapOwner.ts",
+    "backfill-notebook-members": "tsx src/scripts/backfillNotebookMembers.ts",
+    "analytics-snapshots": "tsx src/scripts/generateNotebookAnalyticsSnapshots.ts",
+    "seed-analytics-fixtures": "tsx src/scripts/seedNotebookAnalyticsFixtures.ts",
     "test:analytics": "vitest run tests/notebook.analytics.*.test.js",
-    "collab": "node src/collab/server.js"
+    "collab": "tsx src/collab/server.ts"
   },
   "keywords": [],
   "author": "",
@@ -33,18 +35,25 @@
     "helmet": "^7.2.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.14.3",
-    "node-cron": "^3.0.3",
     "node-cache": "^5.1.2",
+    "node-cron": "^3.0.3",
     "nodemailer": "^6.9.15",
     "yjs": "^13.6.14"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^25.3.0",
+    "@types/nodemailer": "^7.0.11",
     "@types/supertest": "^2.0.16",
     "mongodb-memory-server": "^10.1.4",
     "nodemon": "^3.1.10",
     "supertest": "^7.1.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   }
 }
