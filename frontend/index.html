@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" data-theme="notesLight">
   <head>
     <meta charset="UTF-8" />
@@ -32,8 +32,8 @@
           const resolvedTheme = SUPPORTED_THEMES.includes(stored)
             ? stored
             : prefersDark
-            ? DARK_THEME
-            : DEFAULT_THEME;
+              ? DARK_THEME
+              : DEFAULT_THEME;
 
           ensureTheme(resolvedTheme);
         } catch {
@@ -44,6 +44,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
