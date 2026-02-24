@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { LoaderIcon, UserPlusIcon } from "lucide-react";
@@ -16,12 +16,13 @@ const RegisterPage = () => {
 
   useEffect(() => {
     if (!initializing && user) {
-      const redirectTo = location.state?.from ?? "/app";
+      const redirectTo =
+        (location.state as Record<string, string> | null)?.from ?? "/app";
       navigate(redirectTo, { replace: true });
     }
   }, [user, initializing, navigate, location.state]);
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (loading) return;
     const normalizedEmail = email.trim().toLowerCase();
@@ -42,7 +43,10 @@ const RegisterPage = () => {
     try {
       await register({ name: trimmedName, email: normalizedEmail, password });
       const nextPath =
-        typeof location.state?.from === "string" ? location.state.from : "/app";
+        typeof (location.state as Record<string, string> | null)?.from ===
+        "string"
+          ? (location.state as Record<string, string>).from
+          : "/app";
       const params = new URLSearchParams({ email: normalizedEmail });
       if (nextPath) {
         params.set("next", nextPath);

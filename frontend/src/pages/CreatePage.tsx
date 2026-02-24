@@ -1,3 +1,4 @@
+import { type FormEvent } from "react";
 import { ArrowLeftIcon, SparklesIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,11 +14,11 @@ const CreatePage = () => {
   const location = useLocation();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [tags, setTags] = useState([]);
+  const [tags, setTags] = useState<string[]>([]);
   const [pinned, setPinned] = useState(false);
   const [loading, setLoading] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
-  const [activeTemplate, setActiveTemplate] = useState(null);
+  const [activeTemplate, setActiveTemplate] = useState<any>(null);
   const [selectedNotebookId, setSelectedNotebookId] = useState(() => {
     const candidate = location.state?.notebookId;
     if (
@@ -34,14 +35,14 @@ const CreatePage = () => {
   const queryClient = useQueryClient();
   const { registerCommands } = useCommandPalette();
 
-  const applyTemplate = useCallback((template) => {
+  const applyTemplate = useCallback((template: any) => {
     if (!template) return;
 
     setTitle(template.title ?? "");
     setContent(template.content ?? "");
     setTags(
       Array.isArray(template.tags)
-        ? template.tags.map((tag) => normalizeTag(tag)).filter(Boolean)
+        ? template.tags.map((tag: string) => normalizeTag(tag)).filter(Boolean)
         : [],
     );
     setPinned(Boolean(template.pinned));
@@ -95,13 +96,13 @@ const CreatePage = () => {
     return cleanup;
   }, [registerCommands]);
 
-  const handleTemplateSelect = (template) => {
+  const handleTemplateSelect = (template: any) => {
     if (!template) return;
     setTemplateModalOpen(false);
     applyTemplate(template);
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!title.trim() || !content.trim()) {
@@ -150,7 +151,7 @@ const CreatePage = () => {
         }
         // Don't await - let it happen in background
         Promise.all(invalidateTasks).catch(console.error);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error creating note", error);
         if (error.response?.status === 429) {
           toast.error("Slow down! You're creating notes too fast", {
@@ -257,7 +258,7 @@ const CreatePage = () => {
                         ? "Loading notebooks..."
                         : "All notes"}
                     </option>
-                    {notebooks.map((notebook) => (
+                    {notebooks.map((notebook: any) => (
                       <option key={notebook.id} value={notebook.id}>
                         {notebook.name}
                       </option>

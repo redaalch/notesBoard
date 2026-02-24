@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import {
   BadgeAlertIcon,
   BadgeCheckIcon,
@@ -68,14 +68,14 @@ function ProfilePage() {
     return null;
   }
 
-  const handleProfileSubmit = async (event) => {
+  const handleProfileSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (profileLoading) return;
 
     const trimmedName = profileForm.name.trim();
     const trimmedEmail = profileForm.email.trim();
     const currentEmail = user.email ?? "";
-    const updates = {};
+    const updates: Record<string, string> = {};
 
     if (trimmedName && trimmedName !== user.name) {
       updates.name = trimmedName;
@@ -119,7 +119,7 @@ function ProfilePage() {
     }
   };
 
-  const handlePasswordSubmit = async (event) => {
+  const handlePasswordSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (passwordLoading) return;
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { LogInIcon, LoaderIcon, MailCheckIcon } from "lucide-react";
 import useAuth from "../hooks/useAuth";
@@ -9,20 +9,22 @@ const LoginPage = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [pendingVerificationEmail, setPendingVerificationEmail] =
-    useState(null);
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<
+    string | null
+  >(null);
   const [resendLoading, setResendLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
     if (!initializing && user) {
-      const redirectTo = location.state?.from ?? "/app";
+      const redirectTo =
+        (location.state as Record<string, string> | null)?.from ?? "/app";
       navigate(redirectTo, { replace: true });
     }
   }, [user, initializing, navigate, location.state]);
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (loading) return;
     setErrorMessage("");
@@ -30,9 +32,10 @@ const LoginPage = () => {
     setLoading(true);
     try {
       await login({ email, password });
-      const redirectTo = location.state?.from ?? "/app";
+      const redirectTo =
+        (location.state as Record<string, string> | null)?.from ?? "/app";
       navigate(redirectTo, { replace: true });
-    } catch (error) {
+    } catch (error: any) {
       const message =
         error?.response?.data?.message ?? "Invalid email or password.";
       setErrorMessage(message);

@@ -55,7 +55,7 @@ import {
   Share2Icon,
   HistoryIcon,
 } from "lucide-react";
-import { NOTEBOOK_COLORS, NOTEBOOK_ICONS } from "@shared/notebookOptions.js";
+import { NOTEBOOK_COLORS, NOTEBOOK_ICONS } from "@shared/notebookOptions";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../Components/Navbar";
 import RateLimitedUI from "../Components/RateLimitedUI";
@@ -64,7 +64,7 @@ import { toast } from "sonner";
 import NoteCard from "../Components/NoteCard";
 import NotesNotFound from "../Components/NotesNotFound";
 import NoteSkeleton from "../Components/NoteSkeleton";
-import NotesStats from "../Components/NotesStats";
+import NotesStats, { type TagStats } from "../Components/NotesStats";
 import { countWords, formatTagLabel, normalizeTag } from "../lib/Utils";
 import TemplateGalleryModal from "../Components/TemplateGalleryModal";
 import NotebookTemplateGalleryModal from "../Components/NotebookTemplateGalleryModal";
@@ -86,15 +86,17 @@ const FILTER_STORAGE_KEY = "notesboard-filters-v1";
 const NOTEBOOK_ANALYTICS_ENABLED =
   (import.meta.env.VITE_ENABLE_NOTEBOOK_ANALYTICS ?? "false") === "true";
 
-const mergeOrder = (primary = [], fallback = []) => {
+const mergeOrder = (primary: any[] = [], fallback: any[] = []) => {
   const fallbackStrings = new Set(
     fallback
-      .map((id) => (typeof id === "string" ? id : (id?.toString?.() ?? null)))
+      .map((id: any) =>
+        typeof id === "string" ? id : (id?.toString?.() ?? null),
+      )
       .filter(Boolean),
   );
 
-  const result = [];
-  const seen = new Set();
+  const result: string[] = [];
+  const seen = new Set<string>();
 
   primary.forEach((id) => {
     const strId = typeof id === "string" ? id : id?.toString?.();
@@ -140,7 +142,7 @@ function SortableNoteCard({
     isDragging,
   } = useSortable({ id });
 
-  const style = {
+  const style: any = {
     transform: CSS.Transform.toString(transform),
     transition:
       transition ??
@@ -291,7 +293,7 @@ function DraggableBoardNote({
       disabled,
     });
 
-  const dragStyleRaw = transform
+  const dragStyleRaw: any = transform
     ? {
         transform: CSS.Transform.toString(transform),
       }
@@ -328,59 +330,68 @@ function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [minWords, setMinWords] = useState(0);
   const [sortOrder, setSortOrder] = useState("newest");
-  const [selectedTags, setSelectedTags] = useState([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedNoteIds, setSelectedNoteIds] = useState([]);
+  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [tagModalOpen, setTagModalOpen] = useState(false);
   const [moveModalOpen, setMoveModalOpen] = useState(false);
-  const [bulkTags, setBulkTags] = useState([]);
+  const [bulkTags, setBulkTags] = useState<string[]>([]);
   const [selectedBoardId, setSelectedBoardId] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [customizeMode, setCustomizeMode] = useState(false);
-  const [customOrderOverride, setCustomOrderOverride] = useState([]);
-  const [activeDragId, setActiveDragId] = useState(null);
+  const [customOrderOverride, setCustomOrderOverride] = useState<string[]>([]);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [activeNotebookId, setActiveNotebookId] = useState("all");
-  const [notebookFormState, setNotebookFormState] = useState(null);
+  const [notebookFormState, setNotebookFormState] = useState<any>(null);
   const [notebookNameInput, setNotebookNameInput] = useState("");
-  const [notebookColorInput, setNotebookColorInput] = useState(null);
-  const [notebookIconInput, setNotebookIconInput] = useState(null);
-  const [notebookDeleteState, setNotebookDeleteState] = useState(null);
+  const [notebookColorInput, setNotebookColorInput] = useState<string | null>(
+    null,
+  );
+  const [notebookIconInput, setNotebookIconInput] = useState<string | null>(
+    null,
+  );
+  const [notebookDeleteState, setNotebookDeleteState] = useState<any>(null);
   const [moveNotebookModalOpen, setMoveNotebookModalOpen] = useState(false);
   const [selectedNotebookTargetId, setSelectedNotebookTargetId] =
     useState("uncategorized");
   const [notebookFormLoading, setNotebookFormLoading] = useState(false);
   const [notebookDeleteLoading, setNotebookDeleteLoading] = useState(false);
-  const [lastSelectedIndex, setLastSelectedIndex] = useState(null);
-  const [activeDragNoteIds, setActiveDragNoteIds] = useState([]);
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(
+    null,
+  );
+  const [activeDragNoteIds, setActiveDragNoteIds] = useState<string[]>([]);
   const [a11yMessage, setA11yMessage] = useState("");
-  const [shareNotebookState, setShareNotebookState] = useState(null);
-  const [analyticsNotebook, setAnalyticsNotebook] = useState(null);
+  const [shareNotebookState, setShareNotebookState] = useState<any>(null);
+  const [analyticsNotebook, setAnalyticsNotebook] = useState<any>(null);
   const [notebookTemplateModalOpen, setNotebookTemplateModalOpen] =
     useState(false);
-  const [selectedNotebookTemplateId, setSelectedNotebookTemplateId] =
-    useState(null);
-  const [saveTemplateState, setSaveTemplateState] = useState({
+  const [selectedNotebookTemplateId, setSelectedNotebookTemplateId] = useState<
+    string | null
+  >(null);
+  const [saveTemplateState, setSaveTemplateState] = useState<any>({
     open: false,
     notebook: null,
   });
   const [notebookTemplateImporting, setNotebookTemplateImporting] =
     useState(false);
-  const [deletingTemplateId, setDeletingTemplateId] = useState(null);
+  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(
+    null,
+  );
   const [saveTemplateSubmitting, setSaveTemplateSubmitting] = useState(false);
   const [savedQueryDialogOpen, setSavedQueryDialogOpen] = useState(false);
-  const [appliedSavedQuery, setAppliedSavedQuery] = useState(null);
-  const [publishNotebook, setPublishNotebook] = useState(null);
-  const [historyNotebook, setHistoryNotebook] = useState(null);
-  const [insightsNote, setInsightsNote] = useState(null);
+  const [appliedSavedQuery, setAppliedSavedQuery] = useState<any>(null);
+  const [publishNotebook, setPublishNotebook] = useState<any>(null);
+  const [historyNotebook, setHistoryNotebook] = useState<any>(null);
+  const [insightsNote, setInsightsNote] = useState<any>(null);
   const [searchParams, setSearchParams] = useSearchParams();
-  const filterPanelRef = useRef(null);
+  const filterPanelRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedFilters = useRef(false);
-  const searchInputRef = useRef(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const previousSortRef = useRef("newest");
-  const liveMessageTimeoutRef = useRef(null);
-  const layoutMutationTimeoutRef = useRef(null);
+  const liveMessageTimeoutRef = useRef<any>(null);
+  const layoutMutationTimeoutRef = useRef<any>(null);
   const lastLayoutMutationRef = useRef(0);
   const applyingSavedQueryRef = useRef(false);
   const queryClient = useQueryClient();
@@ -419,7 +430,7 @@ function HomePage() {
     setInsightsNote(null);
   }, []);
   const handlePublishingChange = useCallback(
-    async ({ notebookId: updatedNotebookId } = {}) => {
+    async ({ notebookId: updatedNotebookId }: any = {}) => {
       await invalidateNotesCaches();
       if (updatedNotebookId) {
         await queryClient.invalidateQueries({
@@ -430,7 +441,7 @@ function HomePage() {
     [invalidateNotesCaches, queryClient],
   );
   const handleHistoryUndo = useCallback(
-    async ({ notebookId: historyNotebookId } = {}) => {
+    async ({ notebookId: historyNotebookId }: any = {}) => {
       await invalidateNotesCaches();
       await queryClient.invalidateQueries({
         predicate: ({ queryKey }) =>
@@ -470,7 +481,7 @@ function HomePage() {
     [closeNoteInsights, handleSelectNotebook],
   );
   const handleApplySmartView = useCallback(
-    ({ search = "", matchedTag = null, tags = [], noteCount = null }) => {
+    ({ search = "", matchedTag = null, tags = [], noteCount = null }: any) => {
       const normalizedTags = Array.isArray(tags)
         ? tags
         : matchedTag
@@ -518,30 +529,33 @@ function HomePage() {
       const payload = Array.isArray(res.data) ? res.data : [];
       return payload;
     },
-    retry: (failureCount, error) => {
+    retry: (failureCount, error: any) => {
       if (error?.response?.status === 429) {
         return false;
       }
       return failureCount < 1;
     },
-    onSuccess: () => {
-      setIsRateLimited(false);
-    },
-    onError: (error) => {
-      console.error("Error fetching notes", error);
-      if (error?.response?.status === 429) {
-        setIsRateLimited(true);
-      } else if (
-        error?.response?.status === 404 &&
-        activeNotebookId !== "all"
-      ) {
-        toast.error("Notebook not found. Showing all notes.");
-        setActiveNotebookId("all");
-      } else {
-        toast.error("Failed to load Notes");
-      }
-    },
   });
+
+  useEffect(() => {
+    if (notesQuery.isSuccess) {
+      setIsRateLimited(false);
+    }
+  }, [notesQuery.isSuccess]);
+
+  useEffect(() => {
+    if (!notesQuery.isError) return;
+    const error = notesQuery.error as any;
+    console.error("Error fetching notes", error);
+    if (error?.response?.status === 429) {
+      setIsRateLimited(true);
+    } else if (error?.response?.status === 404 && activeNotebookId !== "all") {
+      toast.error("Notebook not found. Showing all notes.");
+      setActiveNotebookId("all");
+    } else {
+      toast.error("Failed to load Notes");
+    }
+  }, [notesQuery.isError, notesQuery.error, activeNotebookId]);
 
   const layoutQuery = useQuery({
     queryKey: ["note-layout", activeNotebookId],
@@ -722,7 +736,7 @@ function HomePage() {
   }, [savedNotebookQueriesQuery.data, savedQueriesEnabled]);
 
   const createSavedNotebookQueryMutation = useMutation({
-    mutationFn: async (payload) => {
+    mutationFn: async (payload: any) => {
       if (!savedQueriesEnabled) return null;
       const response = await api.post(
         `/notebooks/${activeNotebookId}/saved-queries`,
@@ -740,7 +754,7 @@ function HomePage() {
         toast.success("Saved view created");
       }
     },
-    onError: (error) => {
+    onError: (error: any) => {
       const message =
         error?.response?.data?.message ??
         "Unable to save this view. Try a different name.";
@@ -749,7 +763,7 @@ function HomePage() {
   });
 
   const deleteSavedNotebookQueryMutation = useMutation({
-    mutationFn: async (queryId) => {
+    mutationFn: async (queryId: any) => {
       if (!savedQueriesEnabled || !queryId) return null;
       await api.delete(
         `/notebooks/${activeNotebookId}/saved-queries/${queryId}`,
@@ -765,7 +779,7 @@ function HomePage() {
       }
       toast.success("Saved view deleted");
     },
-    onError: (error) => {
+    onError: (error: any) => {
       const message =
         error?.response?.data?.message ?? "Unable to delete this saved view";
       toast.error(message);
@@ -773,12 +787,12 @@ function HomePage() {
   });
 
   const touchSavedNotebookQueryMutation = useMutation({
-    mutationFn: async ({ notebookId, queryId }) => {
+    mutationFn: async ({ notebookId, queryId }: any) => {
       if (!notebookId || !queryId) return null;
       await api.post(`/notebooks/${notebookId}/saved-queries/${queryId}/use`);
       return queryId;
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.warn("Failed to update saved query usage", error);
     },
   });
@@ -860,7 +874,7 @@ function HomePage() {
         );
 
         await invalidateNotesCaches();
-      } catch (error) {
+      } catch (error: any) {
         const message =
           error?.response?.data?.message ??
           "Failed to move notes to the selected notebook";
@@ -891,8 +905,8 @@ function HomePage() {
   );
 
   const updateLayoutMutation = useMutation({
-    mutationFn: async ({ noteIds, contextId }) => {
-      const payload = { noteIds };
+    mutationFn: async ({ noteIds, contextId }: any) => {
+      const payload: any = { noteIds };
       if (contextId && contextId !== "all") {
         payload.notebookId = contextId;
       }
@@ -914,7 +928,7 @@ function HomePage() {
         data.noteIds,
       );
     },
-    onError: (error) => {
+    onError: (error: any) => {
       const message =
         error?.response?.data?.message ?? "Failed to save note layout";
       toast.error(message);
@@ -1053,9 +1067,9 @@ function HomePage() {
     ],
   );
 
-  const tagStatsQuery = useQuery({
+  const tagStatsQuery = useQuery<TagStats>({
     queryKey: ["tag-stats"],
-    queryFn: async () => {
+    queryFn: async (): Promise<TagStats> => {
       const response = await api.get("/notes/tags/stats");
       const tags = response.data?.tags ?? [];
       return {
@@ -1067,12 +1081,15 @@ function HomePage() {
     enabled: notes.length > 0 && !isRateLimited && !notesQuery.isError,
     staleTime: 300_000,
     retry: 1,
-    onError: (error) => {
-      console.error("Error fetching tag stats", error);
-    },
   });
 
-  const tagInsights = tagStatsQuery.data ?? null;
+  useEffect(() => {
+    if (tagStatsQuery.isError) {
+      console.error("Error fetching tag stats", tagStatsQuery.error);
+    }
+  }, [tagStatsQuery.isError, tagStatsQuery.error]);
+
+  const tagInsights = tagStatsQuery.data ?? undefined;
   const availableTags = useMemo(() => {
     if (tagInsights?.tags?.length) {
       return Array.from(
@@ -1144,13 +1161,13 @@ function HomePage() {
     if (typeof window === "undefined") return;
 
     const params = Object.fromEntries(searchParams.entries());
-    let storedFilters = {};
+    let storedFilters: any = {};
     try {
       const raw = localStorage.getItem(FILTER_STORAGE_KEY);
       if (raw) {
         storedFilters = JSON.parse(raw);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.warn("Unable to read stored filters", error);
     }
 
@@ -1202,7 +1219,7 @@ function HomePage() {
     if (!hasInitializedFilters.current) return;
     if (typeof window === "undefined") return;
 
-    const params = {};
+    const params: Record<string, string> = {};
     const trimmedQuery = searchQuery.trim();
     if (trimmedQuery) params.q = trimmedQuery;
     if (Number(minWords) > 0) params.minWords = String(minWords);
@@ -1227,7 +1244,7 @@ function HomePage() {
           activeNotebookId,
         }),
       );
-    } catch (error) {
+    } catch (error: any) {
       console.warn("Unable to persist filters", error);
     }
   }, [
@@ -1251,17 +1268,17 @@ function HomePage() {
     }
 
     const savedTags = Array.isArray(appliedSavedQuery?.filters?.tags)
-      ? Array.from(
+      ? (Array.from(
           new Set(
             appliedSavedQuery.filters.tags
               .map((tag) => normalizeTag(tag))
               .filter(Boolean),
           ),
-        )
+        ) as string[])
       : [];
     const currentTags = Array.from(
       new Set(selectedTags.map((tag) => normalizeTag(tag)).filter(Boolean)),
-    );
+    ) as string[];
     const tagsMatch =
       savedTags.length === currentTags.length &&
       savedTags.every((tag) => currentTags.includes(tag));
@@ -1341,7 +1358,7 @@ function HomePage() {
   const filtersApplied = notebookFilterActive || hasGeneralFilters;
 
   const activeFilterChips = useMemo(() => {
-    const chips = [];
+    const chips: any[] = [];
     if (appliedSavedQuery) {
       chips.push({
         key: "saved-query",
@@ -1458,29 +1475,37 @@ function HomePage() {
             }
 
             const fallback =
-              new Date(b.updatedAt ?? b.createdAt) -
-              new Date(a.updatedAt ?? a.createdAt);
+              new Date(b.updatedAt ?? b.createdAt).getTime() -
+              new Date(a.updatedAt ?? a.createdAt).getTime();
             if (fallback !== 0) {
               return fallback;
             }
-            return new Date(b.createdAt) - new Date(a.createdAt);
+            return (
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
           })
         : [...byTags].sort((a, b) => {
             const pinPriority = Number(!!b.pinned) - Number(!!a.pinned);
             if (pinPriority !== 0) return pinPriority;
             if (sortOrder === "newest") {
-              return new Date(b.createdAt) - new Date(a.createdAt);
+              return (
+                new Date(b.createdAt).getTime() -
+                new Date(a.createdAt).getTime()
+              );
             }
             if (sortOrder === "oldest") {
-              return new Date(a.createdAt) - new Date(b.createdAt);
+              return (
+                new Date(a.createdAt).getTime() -
+                new Date(b.createdAt).getTime()
+              );
             }
             if (sortOrder === "alphabetical") {
               return a.title.localeCompare(b.title);
             }
             if (sortOrder === "updated") {
               return (
-                new Date(b.updatedAt ?? b.createdAt) -
-                new Date(a.updatedAt ?? a.createdAt)
+                new Date(b.updatedAt ?? b.createdAt).getTime() -
+                new Date(a.updatedAt ?? a.createdAt).getTime()
               );
             }
             return 0;
@@ -1549,7 +1574,7 @@ function HomePage() {
     if (availableTags.length) {
       return Array.from(new Set(availableTags)).sort();
     }
-    const tagSet = new Set();
+    const tagSet = new Set<string>();
     notes.forEach((note) => {
       if (Array.isArray(note.tags)) {
         note.tags.forEach((tag) => tagSet.add(normalizeTag(tag)));
@@ -1585,7 +1610,7 @@ function HomePage() {
   const selectionCount = selectedNoteIds.length;
 
   const handleNoteSelectionChange = useCallback(
-    (noteId, checked, meta = {}) => {
+    (noteId, checked, meta: any = {}) => {
       const shiftKey = Boolean(meta?.event?.shiftKey || meta?.shiftKey);
       const noteIndex = noteIndexLookup.get(noteId);
 
@@ -1674,7 +1699,7 @@ function HomePage() {
         setSelectedNoteIds([]);
         setSelectionMode(false);
         await invalidateNotesCaches();
-      } catch (error) {
+      } catch (error: any) {
         console.error("Bulk action failed", error);
         const message =
           error.response?.data?.message ?? "Failed to update selected notes";
@@ -1806,7 +1831,7 @@ function HomePage() {
         }
         await queryClient.invalidateQueries({ queryKey: ["notebooks"] });
         await queryClient.invalidateQueries({ queryKey: ["notes"] });
-      } catch (error) {
+      } catch (error: any) {
         const message =
           error.response?.data?.message ?? "Failed to use notebook template";
         toast.error(message);
@@ -1834,7 +1859,7 @@ function HomePage() {
           queryKey: ["notebook-templates"],
         });
         await refetchNotebookTemplates();
-      } catch (error) {
+      } catch (error: any) {
         const message =
           error.response?.data?.message ?? "Failed to delete template";
         toast.error(message);
@@ -1879,7 +1904,7 @@ function HomePage() {
       if (response.data?.id) {
         setSelectedNotebookTemplateId(response.data.id);
       }
-    } catch (error) {
+    } catch (error: any) {
       const message =
         error.response?.data?.message ?? "Failed to save notebook template";
       toast.error(message);
@@ -1901,13 +1926,13 @@ function HomePage() {
     (savedQuery) => {
       if (!savedQuery) return;
       const normalizedTags = Array.isArray(savedQuery?.filters?.tags)
-        ? Array.from(
+        ? (Array.from(
             new Set(
               savedQuery.filters.tags
                 .map((tag) => normalizeTag(tag))
                 .filter(Boolean),
             ),
-          )
+          ) as string[])
         : [];
 
       const savedMinWords = Number(savedQuery?.filters?.minWords) || 0;
@@ -1960,7 +1985,7 @@ function HomePage() {
       const trimmedName = name.trim();
       if (!trimmedName) return;
 
-      const filters = {};
+      const filters: any = {};
       const normalizedSelectedTags = selectedTags
         .map((tag) => normalizeTag(tag))
         .filter(Boolean);
@@ -2084,7 +2109,7 @@ function HomePage() {
       }
 
       closeNotebookForm();
-    } catch (error) {
+    } catch (error: any) {
       const message =
         error?.response?.data?.message ?? "Unable to save notebook";
       toast.error(message);
@@ -2116,7 +2141,7 @@ function HomePage() {
     const { notebook, mode, targetNotebookId, deleteCollaborative } =
       notebookDeleteState;
 
-    const payload = { mode, deleteCollaborative };
+    const payload: any = { mode, deleteCollaborative };
     if (mode === "move") {
       if (targetNotebookId && targetNotebookId !== "uncategorized") {
         payload.targetNotebookId = targetNotebookId;
@@ -2138,7 +2163,7 @@ function HomePage() {
       await invalidateNotesCaches();
 
       closeNotebookDelete();
-    } catch (error) {
+    } catch (error: any) {
       const message =
         error?.response?.data?.message ?? "Failed to delete notebook";
       toast.error(message);
@@ -2402,8 +2427,7 @@ function HomePage() {
                 </div>
                 <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                   <Button
-                    tone="primary"
-                    variant="solid"
+                    variant="primary"
                     size="sm"
                     icon={
                       <FolderPlusIcon className="size-4" aria-hidden="true" />
@@ -2414,7 +2438,6 @@ function HomePage() {
                     New notebook
                   </Button>
                   <Button
-                    tone="primary"
                     variant="subtle"
                     size="sm"
                     icon={

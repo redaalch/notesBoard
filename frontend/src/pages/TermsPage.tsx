@@ -49,7 +49,7 @@ function TermsPage() {
             </h2>
             <p>
               We may update these terms as NotesBoard evolves. When changes
-              occur we’ll highlight them in the product and provide a summary.
+              occur we'll highlight them in the product and provide a summary.
             </p>
           </section>
         </div>

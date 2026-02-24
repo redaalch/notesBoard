@@ -1,21 +1,21 @@
 import { Route, Routes } from "react-router-dom";
 
-import HomePage from "./pages/HomePage.jsx";
-import CreatePage from "./pages/CreatePage.jsx";
-import NoteDetailPage from "./pages/NoteDetailPage.jsx";
-import LoginPage from "./pages/LoginPage.jsx";
-import RegisterPage from "./pages/RegisterPage.jsx";
-import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
-import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
+import HomePage from "./pages/HomePage";
+import CreatePage from "./pages/CreatePage";
+import NoteDetailPage from "./pages/NoteDetailPage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import RequireAuth from "./Components/RequireAuth";
-import LandingPage from "./pages/LandingPage.jsx";
-import PrivacyPage from "./pages/PrivacyPage.jsx";
-import TermsPage from "./pages/TermsPage.jsx";
-import VerifyEmailPage from "./pages/VerifyEmailPage.jsx";
-import ProfilePage from "./pages/ProfilePage.jsx";
+import LandingPage from "./pages/LandingPage";
+import PrivacyPage from "./pages/PrivacyPage";
+import TermsPage from "./pages/TermsPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
+import ProfilePage from "./pages/ProfilePage";
 import SkipToContent from "./Components/SkipToContent";
-import NotebookInvitePage from "./pages/NotebookInvitePage.jsx";
-import PublishedNotebookPage from "./pages/published-notebook-page.jsx";
+import NotebookInvitePage from "./pages/NotebookInvitePage";
+import PublishedNotebookPage from "./pages/published-notebook-page";
 
 const App = () => {
   return (

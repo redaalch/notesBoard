@@ -10,13 +10,20 @@ import {
 import { toast } from "sonner";
 import api from "../lib/axios";
 
-const STATUS_COPY = {
+type InviteStatus = "loading" | "success" | "expired" | "error";
+
+interface StatusCopy {
+  title: string;
+  description: string;
+}
+
+const STATUS_COPY: Record<InviteStatus, StatusCopy> = {
   loading: {
     title: "Accepting invitation…",
-    description: "We’re validating your invite and preparing the notebook.",
+    description: "We're validating your invite and preparing the notebook.",
   },
   success: {
-    title: "You’re in!",
+    title: "You're in!",
     description:
       "Your access has been activated. Head to the notebook to start collaborating.",
   },
@@ -28,7 +35,7 @@ const STATUS_COPY = {
   error: {
     title: "Something went wrong",
     description:
-      "We couldn’t accept this invitation. Try again or contact the notebook owner.",
+      "We couldn't accept this invitation. Try again or contact the notebook owner.",
   },
 };
 
@@ -37,9 +44,13 @@ function NotebookInvitePage() {
   const token = searchParams.get("token");
   const notebookIdFromUrl = searchParams.get("notebookId");
   const navigate = useNavigate();
-  const [status, setStatus] = useState(token ? "loading" : "error");
+  const [status, setStatus] = useState<InviteStatus>(
+    token ? "loading" : "error",
+  );
   const [message, setMessage] = useState("");
-  const [notebookId, setNotebookId] = useState(notebookIdFromUrl ?? null);
+  const [notebookId, setNotebookId] = useState<string | null>(
+    notebookIdFromUrl ?? null,
+  );
 
   useEffect(() => {
     if (!token) {
@@ -62,17 +73,17 @@ function NotebookInvitePage() {
         setStatus("success");
         const body = response?.data ?? {};
         if (body.message) {
-          setMessage(body.message);
+          setMessage(body.message as string);
         }
         if (body.notebookId) {
-          setNotebookId(body.notebookId);
+          setNotebookId(body.notebookId as string);
         }
         toast.success("Notebook invitation accepted");
-      } catch (error) {
+      } catch (error: any) {
         if (cancelled) return;
         const errorMessage =
           error?.response?.data?.message ??
-          "We couldn’t accept this invitation.";
+          "We couldn't accept this invitation.";
         if (error?.response?.status === 410) {
           setStatus("expired");
         } else {

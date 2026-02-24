@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { CheckCircleIcon, LoaderIcon, LockIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -14,7 +14,7 @@ const ResetPasswordPage = () => {
 
   const tokenMissing = !token;
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (loading) return;
 
@@ -35,7 +35,7 @@ const ResetPasswordPage = () => {
       setPassword("");
       setConfirmPassword("");
       toast.success("Password updated. You can now sign in.");
-    } catch (error) {
+    } catch (error: any) {
       const message =
         error?.response?.data?.message ??
         "We couldn't reset your password. Please request a new link.";

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeftIcon, LoaderIcon, MailIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -10,7 +10,7 @@ const ForgotPasswordPage = () => {
   const [sent, setSent] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState("");
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (loading) return;
 
@@ -31,7 +31,7 @@ const ForgotPasswordPage = () => {
       toast.success(
         "If an account exists, you'll receive a reset email shortly.",
       );
-    } catch (error) {
+    } catch (error: any) {
       const message =
         error?.response?.data?.message ??
         "We couldn't send the reset email. Please try again.";
