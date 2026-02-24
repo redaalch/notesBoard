@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-vi.mock("../../lib/axios.js", () => ({
+vi.mock("../../lib/axios", () => ({
   default: {
     get: vi.fn(),
     post: vi.fn(),
@@ -14,7 +14,13 @@ vi.mock("../../lib/axios.js", () => ({
 import NotebookInsightsDrawer from "../NotebookInsightsDrawer";
 import api from "../../lib/axios";
 
-const renderWithClient = (ui) => {
+const mockedApi = api as unknown as {
+  get: Mock;
+  post: Mock;
+  delete: Mock;
+};
+
+const renderWithClient = (ui: React.ReactElement) => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false, gcTime: Infinity },
@@ -29,15 +35,15 @@ const renderWithClient = (ui) => {
 
 describe("NotebookInsightsDrawer", () => {
   beforeEach(() => {
-    api.get.mockReset();
-    api.post.mockReset();
-    api.delete.mockReset();
+    mockedApi.get.mockReset();
+    mockedApi.post.mockReset();
+    mockedApi.delete.mockReset();
   });
 
   it("moves a note using recommendation and refetches suggestions", async () => {
-    const onMoveNote = vi.fn().mockResolvedValue();
+    const onMoveNote = vi.fn().mockResolvedValue(undefined);
 
-    api.get.mockResolvedValue({
+    mockedApi.get.mockResolvedValue({
       data: {
         recommendations: [
           {
@@ -74,6 +80,6 @@ describe("NotebookInsightsDrawer", () => {
       expect(onMoveNote).toHaveBeenCalledWith("note1", "rec1"),
     );
 
-    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockedApi.get).toHaveBeenCalledTimes(2));
   });
 });

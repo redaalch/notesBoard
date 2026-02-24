@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-vi.mock("../../lib/axios.js", () => ({
+vi.mock("../../lib/axios", () => ({
   default: {
     get: vi.fn(),
     post: vi.fn(),
@@ -14,7 +14,13 @@ vi.mock("../../lib/axios.js", () => ({
 import NotebookPublishDialog from "../NotebookPublishDialog";
 import api from "../../lib/axios";
 
-const renderWithClient = (ui) => {
+const mockedApi = api as unknown as {
+  get: Mock;
+  post: Mock;
+  delete: Mock;
+};
+
+const renderWithClient = (ui: React.ReactElement) => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false, gcTime: Infinity },
@@ -29,22 +35,22 @@ const renderWithClient = (ui) => {
 
 describe("NotebookPublishDialog", () => {
   beforeEach(() => {
-    api.get.mockReset();
-    api.post.mockReset();
-    api.delete.mockReset();
+    mockedApi.get.mockReset();
+    mockedApi.post.mockReset();
+    mockedApi.delete.mockReset();
   });
 
   it("publishes the notebook and notifies the parent with normalized slug", async () => {
     const onUpdated = vi.fn();
 
-    api.get.mockResolvedValueOnce({
+    mockedApi.get.mockResolvedValueOnce({
       data: {
         isPublic: false,
         slug: null,
         metadata: {},
       },
     });
-    api.get.mockResolvedValue({
+    mockedApi.get.mockResolvedValue({
       data: {
         isPublic: true,
         slug: "launch-plannew-slug-123",
@@ -52,7 +58,7 @@ describe("NotebookPublishDialog", () => {
       },
     });
 
-    api.post.mockResolvedValueOnce({
+    mockedApi.post.mockResolvedValueOnce({
       data: {
         isPublic: true,
         slug: "launch-plannew-slug-123",
@@ -80,7 +86,7 @@ describe("NotebookPublishDialog", () => {
     await userEvent.click(publishButton);
 
     await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith("/notebooks/nb1/publish", {
+      expect(mockedApi.post).toHaveBeenCalledWith("/notebooks/nb1/publish", {
         slug: "launch-plannew-slug-123",
         metadata: null,
       }),

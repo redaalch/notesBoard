@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-vi.mock("../../lib/axios.js", () => ({
+vi.mock("../../lib/axios", () => ({
   default: {
     get: vi.fn(),
     post: vi.fn(),
@@ -14,7 +14,13 @@ vi.mock("../../lib/axios.js", () => ({
 import NotebookHistoryDialog from "../NotebookHistoryDialog";
 import api from "../../lib/axios";
 
-const renderWithClient = (ui) => {
+const mockedApi = api as unknown as {
+  get: Mock;
+  post: Mock;
+  delete: Mock;
+};
+
+const renderWithClient = (ui: React.ReactElement) => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false, gcTime: Infinity },
@@ -29,16 +35,16 @@ const renderWithClient = (ui) => {
 
 describe("NotebookHistoryDialog", () => {
   beforeEach(() => {
-    api.get.mockReset();
-    api.post.mockReset();
-    api.delete.mockReset();
+    mockedApi.get.mockReset();
+    mockedApi.post.mockReset();
+    mockedApi.delete.mockReset();
   });
 
   it("calls onUndoSuccess with notebook context", async () => {
     const onUndoSuccess = vi.fn();
     const createdAt = new Date().toISOString();
 
-    api.get.mockResolvedValueOnce({
+    mockedApi.get.mockResolvedValueOnce({
       data: {
         events: [
           {
@@ -52,7 +58,7 @@ describe("NotebookHistoryDialog", () => {
       },
     });
 
-    api.post.mockResolvedValueOnce({
+    mockedApi.post.mockResolvedValueOnce({
       data: {
         action: "restoreNotebookFields",
       },
@@ -73,9 +79,12 @@ describe("NotebookHistoryDialog", () => {
     await userEvent.click(await screen.findByRole("button", { name: /undo/i }));
 
     await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith("/notebooks/nb1/history/undo", {
-        eventId: "event1",
-      }),
+      expect(mockedApi.post).toHaveBeenCalledWith(
+        "/notebooks/nb1/history/undo",
+        {
+          eventId: "event1",
+        },
+      ),
     );
 
     await waitFor(() =>
