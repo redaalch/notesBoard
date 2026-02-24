@@ -5,11 +5,9 @@ import { useSwipeable } from "react-swipeable";
 import {
   BookmarkIcon,
   BookmarkPlusIcon,
-  CalendarClockIcon,
   EyeIcon,
   GripVerticalIcon,
   LoaderIcon,
-  NotebookPenIcon,
   PinIcon,
   PinOffIcon,
   TrashIcon,
@@ -17,12 +15,7 @@ import {
   SparklesIcon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import {
-  formatDate,
-  formatRelativeTime,
-  formatTagLabel,
-  normalizeTag,
-} from "../lib/Utils";
+import { formatRelativeTime, formatTagLabel, normalizeTag } from "../lib/Utils";
 import api from "../lib/axios";
 import { toast } from "sonner";
 import ConfirmDialog from "./ConfirmDialog";
@@ -111,10 +104,13 @@ function NoteCard({
   };
 
   const updateNotesCache = (updater: (prev: NoteObject[]) => NoteObject[]) => {
-    queryClient.setQueryData(["notes"], (previous: NoteObject[] | undefined) => {
-      if (!Array.isArray(previous)) return previous;
-      return updater(previous);
-    });
+    queryClient.setQueryData(
+      ["notes"],
+      (previous: NoteObject[] | undefined) => {
+        if (!Array.isArray(previous)) return previous;
+        return updater(previous);
+      },
+    );
   };
 
   const invalidateNotesQueries = () =>
@@ -304,16 +300,18 @@ function NoteCard({
               : "hover:border-primary/30"
           } ${dragging ? "opacity-80 shadow-2xl ring-1 ring-primary/50" : ""}`}
           onClick={
-            selectionMode ? (event: React.MouseEvent) => toggleSelection(event) : undefined
+            selectionMode
+              ? (event: React.MouseEvent) => toggleSelection(event)
+              : undefined
           }
           role="group"
           aria-pressed={selectionMode ? selected : undefined}
         >
-          <div className="card-body space-y-5 flex flex-col h-full">
-            <header className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
+          <div className="card-body gap-3 p-4 flex flex-col h-full">
+            <header className="flex items-start justify-between gap-2">
+              <div className="flex items-start gap-2 min-w-0">
                 {selectionMode && !customizeMode && (
-                  <div className="pt-1">
+                  <div className="pt-0.5 shrink-0">
                     <input
                       type="checkbox"
                       className="checkbox checkbox-primary checkbox-sm"
@@ -326,171 +324,139 @@ function NoteCard({
                     />
                   </div>
                 )}
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-lg md:text-xl font-semibold text-base-content">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <h3 className="text-base font-semibold text-base-content truncate">
                       {note.title || "Untitled note"}
                     </h3>
                     {isRecentlyUpdated && (
-                      <span className="badge badge-success badge-sm">New</span>
+                      <span className="badge badge-success badge-xs">New</span>
                     )}
                     {note.pinned && (
-                      <span className="badge badge-warning badge-sm">
+                      <span className="badge badge-warning badge-xs">
                         Pinned
                       </span>
                     )}
                     {notebookBadgeLabel ? (
-                      <span className="badge badge-info badge-sm gap-1">
-                        <UsersIcon className="size-3" />
+                      <span className="badge badge-info badge-xs gap-0.5">
+                        <UsersIcon className="size-2.5" />
                         {notebookBadgeLabel}
                       </span>
                     ) : null}
                     {isViewOnly ? (
-                      <span className="badge badge-outline badge-sm">
+                      <span className="badge badge-outline badge-xs">
                         View only
                       </span>
                     ) : null}
                   </div>
-                  <p className="text-xs md:text-sm text-base-content/70 flex items-center gap-1">
-                    <CalendarClockIcon className="size-4" />
-                    Updated {formatRelativeTime(updatedAt)}
-                  </p>
                 </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                {customizeMode ? (
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm btn-circle cursor-grab active:cursor-grabbing"
-                    aria-label="Drag note"
-                    ref={dragHandleRef as React.Ref<HTMLButtonElement>}
-                    {...(dragHandleProps ?? {})}
-                  >
-                    <GripVerticalIcon className="size-4" />
-                  </button>
-                ) : (
-                  !selectionMode && (
-                    <>
-                      <div
-                        className="tooltip tooltip-left"
-                        data-tip={note.pinned ? "Unpin note" : "Pin note"}
-                      >
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm"
-                          onClick={handleTogglePin}
-                          disabled={pinning}
-                          aria-label={note.pinned ? "Unpin note" : "Pin note"}
-                        >
-                          {pinning ? (
-                            <LoaderIcon className="size-4 animate-spin" />
-                          ) : note.pinned ? (
-                            <BookmarkIcon className="size-4" />
-                          ) : (
-                            <BookmarkPlusIcon className="size-4" />
-                          )}
-                        </button>
-                      </div>
-                      <div
-                        className="tooltip tooltip-left"
-                        data-tip="Open note details"
-                      >
-                        <Link
-                          to={`/note/${note._id}`}
-                          className="btn btn-ghost btn-sm"
-                        >
-                          <NotebookPenIcon className="size-4" />
-                        </Link>
-                      </div>
-                    </>
-                  )
-                )}
-              </div>
+              {customizeMode && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs btn-circle cursor-grab active:cursor-grabbing shrink-0"
+                  aria-label="Drag note"
+                  ref={dragHandleRef as React.Ref<HTMLButtonElement>}
+                  {...(dragHandleProps ?? {})}
+                >
+                  <GripVerticalIcon className="size-4" />
+                </button>
+              )}
             </header>
 
-            <div className="rounded-lg bg-base-200/40 p-4 border border-base-200/60 flex-grow">
-              <p className="text-sm md:text-base leading-relaxed text-base-content/80 whitespace-pre-line line-clamp-6">
+            <div className="rounded-lg bg-base-200/40 px-3 py-2.5 border border-base-200/60 flex-grow">
+              <p className="text-sm leading-relaxed text-base-content/80 whitespace-pre-line line-clamp-4">
                 {note.content?.trim() ||
                   "No content yet. Tap to open and start writing."}
               </p>
             </div>
 
-            <div className="min-h-[2rem]">
-              {Array.isArray(note.tags) && note.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {note.tags.map((tag) => {
-                    const normalized = normalizeTag(tag);
-                    const isActive = selectedTags.includes(normalized);
+            {Array.isArray(note.tags) && note.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {note.tags.map((tag) => {
+                  const normalized = normalizeTag(tag);
+                  const isActive = selectedTags.includes(normalized);
 
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        className={`badge badge-sm gap-1 transition ${
-                          isActive
-                            ? "badge-primary"
-                            : "badge-outline hover:bg-base-200"
-                        }`}
-                        onClick={() => onTagClick?.(normalized)}
-                        aria-pressed={isActive}
-                        aria-label={`Filter by tag ${formatTagLabel(tag)}`}
-                      >
-                        {formatTagLabel(tag)}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <footer className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mt-auto">
-              <div className="text-xs text-base-content/60 space-y-1">
-                <p>Created {formatRelativeTime(createdAt)}</p>
-                <p className="hidden sm:block">
-                  Last updated {formatDate(updatedAt)}
-                </p>
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      className={`badge badge-xs gap-0.5 transition ${
+                        isActive
+                          ? "badge-primary"
+                          : "badge-outline hover:bg-base-200"
+                      }`}
+                      onClick={() => onTagClick?.(normalized)}
+                      aria-pressed={isActive}
+                      aria-label={`Filter by tag ${formatTagLabel(tag)}`}
+                    >
+                      {formatTagLabel(tag)}
+                    </button>
+                  );
+                })}
               </div>
+            )}
+
+            <footer className="flex items-center justify-between gap-2 mt-auto pt-1 border-t border-base-200/50">
+              <span className="text-[11px] text-base-content/50 whitespace-nowrap">
+                {note.updatedAt
+                  ? `Updated ${formatRelativeTime(updatedAt)}`
+                  : `Created ${formatRelativeTime(createdAt)}`}
+              </span>
               {!selectionMode && !customizeMode && (
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-0.5 shrink-0">
                   {typeof onOpenInsights === "function" ? (
                     <div
                       className="tooltip tooltip-bottom"
-                      data-tip="Recommendations & smart view"
+                      data-tip="Smart view"
                     >
                       <button
-                        className="btn btn-outline btn-sm flex-shrink-0"
+                        className="btn btn-ghost btn-xs btn-circle"
                         onClick={(event) => {
                           event.preventDefault();
                           onOpenInsights(note);
                         }}
                         aria-label="Open recommendations and smart view"
                       >
-                        <SparklesIcon className="size-4" />
+                        <SparklesIcon className="size-3.5" />
                       </button>
                     </div>
                   ) : null}
                   <div
                     className="tooltip tooltip-bottom"
-                    data-tip="Open note details"
-                  >
-                    <Link
-                      to={`/note/${note._id}`}
-                      className="btn btn-primary btn-sm gap-2 whitespace-nowrap"
-                    >
-                      <EyeIcon className="size-4 flex-shrink-0" />
-                      <span>View note</span>
-                    </Link>
-                  </div>
-                  <div
-                    className="tooltip tooltip-bottom"
-                    data-tip="Delete note"
+                    data-tip={note.pinned ? "Unpin" : "Pin"}
                   >
                     <button
-                      className="btn btn-outline btn-error btn-sm flex-shrink-0"
+                      className="btn btn-ghost btn-xs btn-circle"
+                      onClick={handleTogglePin}
+                      disabled={pinning}
+                      aria-label={note.pinned ? "Unpin note" : "Pin note"}
+                    >
+                      {pinning ? (
+                        <LoaderIcon className="size-3.5 animate-spin" />
+                      ) : note.pinned ? (
+                        <BookmarkIcon className="size-3.5" />
+                      ) : (
+                        <BookmarkPlusIcon className="size-3.5" />
+                      )}
+                    </button>
+                  </div>
+                  <div className="tooltip tooltip-bottom" data-tip="View note">
+                    <Link
+                      to={`/note/${note._id}`}
+                      className="btn btn-ghost btn-xs btn-circle"
+                      aria-label="View note"
+                    >
+                      <EyeIcon className="size-3.5" />
+                    </Link>
+                  </div>
+                  <div className="tooltip tooltip-bottom" data-tip="Delete">
+                    <button
+                      className="btn btn-ghost btn-xs btn-circle text-error/70 hover:text-error hover:bg-error/10"
                       onClick={openConfirm}
                       aria-label="Delete note"
                     >
-                      <TrashIcon className="size-4" />
+                      <TrashIcon className="size-3.5" />
                     </button>
                   </div>
                 </div>
