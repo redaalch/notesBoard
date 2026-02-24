@@ -49,7 +49,10 @@ function FilterPopover({
       setOpen(false);
     };
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
     };
     document.addEventListener("mousedown", handleClick);
     document.addEventListener("keydown", handleEscape);
