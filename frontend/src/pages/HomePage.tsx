@@ -19,52 +19,39 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   AlertTriangleIcon,
-  BarChart3Icon,
   BookmarkIcon,
   BrainIcon,
   BriefcaseBusinessIcon,
   CalendarIcon,
   CheckIcon,
-  ChevronDownIcon,
   FilterIcon,
-  FolderIcon,
-  FolderPlusIcon,
-  GlobeIcon,
   LightbulbIcon,
-  ListChecksIcon,
   ListTodoIcon,
-  MoveIcon,
-  MoreVerticalIcon,
   NotebookIcon,
   NotebookPenIcon,
   PaletteIcon,
-  PencilLineIcon,
   PlusIcon,
-  RefreshCwIcon,
   RocketIcon,
-  SearchIcon,
   SparklesIcon,
   StarIcon,
   TagIcon,
   TargetIcon,
-  Trash2Icon,
   WorkflowIcon,
-  XIcon,
   BookOpenIcon,
   LayersIcon,
-  Share2Icon,
-  HistoryIcon,
 } from "lucide-react";
 import { NOTEBOOK_COLORS, NOTEBOOK_ICONS } from "@shared/notebookOptions";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../Components/Navbar";
+import Sidebar from "../Components/Sidebar";
+import Toolbar from "../Components/Toolbar";
 import RateLimitedUI from "../Components/RateLimitedUI";
 import api from "../lib/axios";
 import { toast } from "sonner";
 import NoteCard from "../Components/NoteCard";
 import NotesNotFound from "../Components/NotesNotFound";
 import NoteSkeleton from "../Components/NoteSkeleton";
-import NotesStats, { type TagStats } from "../Components/NotesStats";
+import { type TagStats } from "../Components/NotesStats";
 import { countWords, formatTagLabel, normalizeTag } from "../lib/Utils";
 import TemplateGalleryModal from "../Components/TemplateGalleryModal";
 import NotebookTemplateGalleryModal from "../Components/NotebookTemplateGalleryModal";
@@ -79,8 +66,6 @@ import SavedNotebookQueryDialog from "../Components/SavedNotebookQueryDialog";
 import NotebookPublishDialog from "../Components/NotebookPublishDialog";
 import NotebookHistoryDialog from "../Components/NotebookHistoryDialog";
 import NotebookInsightsDrawer from "../Components/NotebookInsightsDrawer";
-import { Button, Surface, Chip } from "../Components/ui";
-import { cn } from "../lib/cn";
 
 const FILTER_STORAGE_KEY = "notesboard-filters-v1";
 const NOTEBOOK_ANALYTICS_ENABLED =
@@ -326,6 +311,7 @@ function DraggableBoardNote({
 function HomePage() {
   const [isRateLimited, setIsRateLimited] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [minWords, setMinWords] = useState(0);
@@ -1570,6 +1556,16 @@ function HomePage() {
       notesQuery.isError ||
       hasGeneralFilters);
 
+  const pinnedCount = useMemo(
+    () => notes.filter((n) => n.pinned).length,
+    [notes],
+  );
+  const avgWords = useMemo(() => {
+    if (!notes.length) return 0;
+    const total = notes.reduce((sum, n) => sum + countWords(n.content), 0);
+    return Math.round(total / notes.length);
+  }, [notes]);
+
   const tagOptions = useMemo(() => {
     if (availableTags.length) {
       return Array.from(new Set(availableTags)).sort();
@@ -2370,745 +2366,104 @@ function HomePage() {
   ]);
 
   return (
-    <div className="drawer">
-      <input
-        id="notes-filters"
-        type="checkbox"
-        className="drawer-toggle"
-        checked={drawerOpen}
-        onChange={(event) => setDrawerOpen(event.target.checked)}
+    <div className="flex min-h-screen flex-col">
+      <Navbar
+        onMobileSidebarClick={() => setMobileSidebarOpen(true)}
+        defaultNotebookId={
+          activeNotebookId &&
+          activeNotebookId !== "all" &&
+          activeNotebookId !== "uncategorized"
+            ? activeNotebookId
+            : null
+        }
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchInputRef={searchInputRef}
+        onOpenTemplates={openTemplateGallery}
       />
-      <div className="drawer-content flex min-h-screen flex-col">
-        <Navbar
-          onMobileFilterClick={openDrawer}
-          defaultNotebookId={
-            activeNotebookId &&
-            activeNotebookId !== "all" &&
-            activeNotebookId !== "uncategorized"
-              ? activeNotebookId
-              : null
+
+      {isRateLimited && (
+        <RateLimitedUI onDismiss={() => setIsRateLimited(false)} />
+      )}
+
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {a11yMessage}
+      </div>
+
+      <div className="flex flex-1">
+        {/* Sidebar */}
+        <Sidebar
+          activeNotebookId={activeNotebookId}
+          onSelectNotebook={handleSelectNotebook}
+          notebooks={notebooks}
+          uncategorizedCount={uncategorizedNoteCount}
+          totalCount={totalNotebookCount}
+          loading={notebooksLoading}
+          error={notebooksError}
+          onCreateNotebook={openCreateNotebook}
+          onBrowseTemplates={openNotebookTemplateGallery}
+          onShareNotebook={openShareNotebook}
+          onPublishNotebook={openPublishNotebook}
+          onHistoryNotebook={openHistoryNotebook}
+          onAnalyticsNotebook={
+            NOTEBOOK_ANALYTICS_ENABLED ? setAnalyticsNotebook : undefined
           }
+          onRenameNotebook={openRenameNotebook}
+          onSaveAsTemplate={openSaveNotebookTemplate}
+          onDeleteNotebook={openDeleteNotebook}
+          analyticsEnabled={NOTEBOOK_ANALYTICS_ENABLED}
+          savedQueriesEnabled={savedQueriesEnabled}
+          savedQueries={savedNotebookQueries}
+          savedQueriesLoading={savedNotebookQueriesQuery.isLoading}
+          appliedSavedQuery={appliedSavedQuery}
+          onApplySavedQuery={handleApplySavedQuery}
+          onDeleteSavedQuery={handleDeleteSavedQuery}
+          onSaveCurrentView={openSavedQueryDialog}
+          savingView={createSavedNotebookQueryMutation.isPending}
+          noteCount={notes.length}
+          pinnedCount={pinnedCount}
+          avgWords={avgWords}
+          mobileOpen={mobileSidebarOpen}
+          onMobileClose={() => setMobileSidebarOpen(false)}
+          renderNotebookDropZone={(notebookId, children) => (
+            <NotebookDropZone notebookId={notebookId} disabled={customizeMode}>
+              {children}
+            </NotebookDropZone>
+          )}
+          dragDisabled={customizeMode}
         />
 
-        {isRateLimited && (
-          <RateLimitedUI onDismiss={() => setIsRateLimited(false)} />
-        )}
-
-        <div aria-live="polite" aria-atomic="true" className="sr-only">
-          {a11yMessage}
-        </div>
-
-        <main id="main-content" tabIndex={-1} className="flex-1 w-full">
-          <div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-8">
-            <NotesStats
-              notes={notes}
-              loading={loading || isFetchingNotes}
-              tagStats={tagInsights}
+        {/* Main content */}
+        <main id="main-content" tabIndex={-1} className="flex-1 min-w-0 w-full">
+          <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 lg:px-8">
+            {/* Toolbar */}
+            <Toolbar
+              tabs={tabConfig}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              filterProps={{
+                minWords,
+                onMinWordsChange: setMinWords,
+                sortOrder,
+                onSortOrderChange: setSortOrder,
+                tagOptions,
+                selectedTags,
+                onToggleTag: toggleTagSelection,
+                filtersActive: filtersApplied,
+                onClearAll: resetFilters,
+              }}
+              selectionMode={selectionMode}
+              onToggleSelection={toggleSelectionMode}
+              customizeMode={customizeMode}
+              onToggleCustomize={handleToggleCustomize}
+              customizeDisabled={customizeDisabled}
+              filterChips={activeFilterChips}
+              selectedTags={selectedTags}
+              onRemoveTag={removeSelectedTag}
+              onResetFilters={resetFilters}
+              filtersApplied={filtersApplied}
+              savingOrder={updateLayoutMutation.isPending}
             />
-
-            <Surface
-              variant="raised"
-              padding="md"
-              className="space-y-6 shadow-soft"
-            >
-              <div className="flex flex-col gap-4 md:flex-row md:flex-wrap md:items-center md:justify-between">
-                <div className="flex items-start gap-3">
-                  <span className="inline-flex size-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
-                    <FolderIcon className="size-5" aria-hidden="true" />
-                  </span>
-                  <div className="space-y-1">
-                    <h2 className="typ-subtitle text-text-primary">
-                      Notebooks
-                    </h2>
-                    <p className="text-sm text-subtle">
-                      Organize notes into folders and switch views quickly.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    icon={
-                      <FolderPlusIcon className="size-4" aria-hidden="true" />
-                    }
-                    className="w-full sm:w-auto"
-                    onClick={openCreateNotebook}
-                  >
-                    New notebook
-                  </Button>
-                  <Button
-                    variant="subtle"
-                    size="sm"
-                    icon={
-                      <SparklesIcon className="size-4" aria-hidden="true" />
-                    }
-                    className="w-full sm:w-auto"
-                    onClick={openNotebookTemplateGallery}
-                  >
-                    Browse templates
-                  </Button>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                {notebooksLoading ? (
-                  <div className="flex flex-wrap gap-3">
-                    {Array.from({ length: 4 }).map((_, index) => (
-                      <div
-                        key={`notebook-skeleton-${index}`}
-                        className="h-10 w-32 animate-pulse rounded-full border border-border-subtle/50 bg-surface-base"
-                      />
-                    ))}
-                  </div>
-                ) : notebooksError ? (
-                  <Surface
-                    variant="inset"
-                    padding="sm"
-                    className="flex items-center gap-3 text-sm text-error"
-                  >
-                    <AlertTriangleIcon className="size-5" aria-hidden="true" />
-                    <span>Unable to load notebooks. Try refreshing.</span>
-                  </Surface>
-                ) : notebooks.length === 0 && !uncategorizedNoteCount ? (
-                  <Surface
-                    variant="inset"
-                    padding="sm"
-                    className="text-sm text-subtle"
-                  >
-                    You haven&apos;t created any notebooks yet. Create one to
-                    start grouping related notes.
-                  </Surface>
-                ) : (
-                  <div
-                    className="flex flex-wrap gap-2"
-                    role="tablist"
-                    aria-label="Notebooks"
-                  >
-                    <NotebookDropZone notebookId="all" disabled={customizeMode}>
-                      {({ setNodeRef, isOver }) => (
-                        <button
-                          type="button"
-                          role="tab"
-                          ref={setNodeRef}
-                          aria-selected={activeNotebookId === "all"}
-                          className={cn(
-                            "group flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-2 text-sm font-semibold transition sm:w-auto sm:justify-start",
-                            activeNotebookId === "all"
-                              ? "border-brand-200 bg-brand-50 text-brand-700 shadow-soft"
-                              : "border-border-subtle bg-surface-base text-text-muted hover:border-brand-200/70 hover:bg-brand-50/70 hover:text-text-primary",
-                            isOver && "ring-2 ring-brand-300/70",
-                          )}
-                          onClick={() => handleSelectNotebook("all")}
-                        >
-                          <span className="whitespace-nowrap">All notes</span>
-                          <span
-                            className={cn(
-                              "inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-surface-overlay px-2 py-0.5 text-xs font-semibold text-text-muted",
-                              activeNotebookId === "all" &&
-                                "bg-brand-500 text-white",
-                            )}
-                          >
-                            {totalNotebookCount}
-                          </span>
-                        </button>
-                      )}
-                    </NotebookDropZone>
-                    <NotebookDropZone
-                      notebookId="uncategorized"
-                      disabled={customizeMode}
-                    >
-                      {({ setNodeRef, isOver }) => (
-                        <button
-                          type="button"
-                          role="tab"
-                          ref={setNodeRef}
-                          aria-selected={activeNotebookId === "uncategorized"}
-                          className={cn(
-                            "group flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-2 text-sm font-semibold transition sm:w-auto sm:justify-start",
-                            activeNotebookId === "uncategorized"
-                              ? "border-brand-200 bg-brand-50 text-brand-700 shadow-soft"
-                              : "border-border-subtle bg-surface-base text-text-muted hover:border-brand-200/70 hover:bg-brand-50/70 hover:text-text-primary",
-                            isOver && "ring-2 ring-brand-300/70",
-                          )}
-                          onClick={() => handleSelectNotebook("uncategorized")}
-                        >
-                          <span className="whitespace-nowrap">
-                            Uncategorized
-                          </span>
-                          <span
-                            className={cn(
-                              "inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-surface-overlay px-2 py-0.5 text-xs font-semibold text-text-muted",
-                              activeNotebookId === "uncategorized" &&
-                                "bg-brand-500 text-white",
-                            )}
-                          >
-                            {uncategorizedNoteCount}
-                          </span>
-                        </button>
-                      )}
-                    </NotebookDropZone>
-                    {notebooks.map((notebook) => {
-                      const isActive = activeNotebookId === notebook.id;
-                      const hasColor =
-                        typeof notebook.color === "string" &&
-                        notebook.color.length > 0;
-                      const IconComponent =
-                        (notebook.icon &&
-                          notebookIconComponents[notebook.icon]) ??
-                        NotebookIcon;
-                      return (
-                        <NotebookDropZone
-                          key={notebook.id}
-                          notebookId={notebook.id}
-                          disabled={customizeMode}
-                        >
-                          {({ setNodeRef, isOver }) => (
-                            <div className="relative w-full flex-shrink-0 sm:w-auto">
-                              <button
-                                type="button"
-                                role="tab"
-                                ref={setNodeRef}
-                                aria-selected={isActive}
-                                className={cn(
-                                  "group flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-2 pr-12 text-sm font-semibold transition sm:w-auto sm:justify-start",
-                                  isActive
-                                    ? "border-brand-200 bg-brand-50 text-brand-700 shadow-soft"
-                                    : "border-border-subtle bg-surface-base text-text-muted hover:border-brand-200/70 hover:bg-brand-50/70 hover:text-text-primary",
-                                  isOver && "ring-2 ring-brand-300/70",
-                                )}
-                                onClick={() =>
-                                  handleSelectNotebook(notebook.id)
-                                }
-                              >
-                                <span className="flex items-center gap-2">
-                                  {hasColor ? (
-                                    <span
-                                      className="size-2.5 rounded-full border border-white/80 shadow-sm"
-                                      style={{
-                                        backgroundColor: notebook.color,
-                                      }}
-                                      aria-hidden="true"
-                                    />
-                                  ) : null}
-                                  <IconComponent
-                                    className="size-4"
-                                    style={
-                                      hasColor
-                                        ? { color: notebook.color }
-                                        : undefined
-                                    }
-                                    aria-hidden="true"
-                                  />
-                                  <span className="max-w-[8rem] truncate text-left">
-                                    {notebook.name}
-                                  </span>
-                                </span>
-                                <span
-                                  className={cn(
-                                    "inline-flex min-w-[2.5rem] items-center justify-center rounded-full bg-surface-overlay px-2 py-0.5 text-xs font-semibold text-text-muted",
-                                    isActive && "bg-brand-500 text-white",
-                                  )}
-                                >
-                                  {notebook.noteCount ?? 0}
-                                </span>
-                              </button>
-                              <div className="dropdown dropdown-end dropdown-top absolute right-1 top-1 z-20">
-                                <button
-                                  type="button"
-                                  tabIndex={0}
-                                  className="btn btn-ghost btn-xs btn-circle hover:bg-base-200/80"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <MoreVerticalIcon className="size-4" />
-                                </button>
-                                <ul className="dropdown-content z-30 mb-2 min-w-[13rem] space-y-0.5 rounded-xl border border-base-300/80 bg-base-100 p-1.5 shadow-xl">
-                                  <li>
-                                    <button
-                                      type="button"
-                                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors duration-150 hover:bg-base-200/80"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        openShareNotebook(notebook);
-                                      }}
-                                    >
-                                      <Share2Icon className="size-4 flex-shrink-0 text-base-content/70" />
-                                      <span>Share & members</span>
-                                    </button>
-                                  </li>
-                                  <li>
-                                    <button
-                                      type="button"
-                                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors duration-150 hover:bg-base-200/80"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        openPublishNotebook(notebook);
-                                      }}
-                                    >
-                                      <GlobeIcon className="size-4 flex-shrink-0 text-base-content/70" />
-                                      <span>Publish notebook</span>
-                                    </button>
-                                  </li>
-                                  <li>
-                                    <button
-                                      type="button"
-                                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors duration-150 hover:bg-base-200/80"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        openHistoryNotebook(notebook);
-                                      }}
-                                    >
-                                      <HistoryIcon className="size-4 flex-shrink-0 text-base-content/70" />
-                                      <span>History & undo</span>
-                                    </button>
-                                  </li>
-                                  {NOTEBOOK_ANALYTICS_ENABLED ? (
-                                    <li>
-                                      <button
-                                        type="button"
-                                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors duration-150 hover:bg-base-200/80"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setAnalyticsNotebook(notebook);
-                                        }}
-                                      >
-                                        <BarChart3Icon className="size-4 flex-shrink-0 text-base-content/70" />
-                                        <span>View analytics</span>
-                                      </button>
-                                    </li>
-                                  ) : null}
-                                  <li>
-                                    <button
-                                      type="button"
-                                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors duration-150 hover:bg-base-200/80"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        openRenameNotebook(notebook);
-                                      }}
-                                    >
-                                      <PencilLineIcon className="size-4 flex-shrink-0 text-base-content/70" />
-                                      <span>Rename</span>
-                                    </button>
-                                  </li>
-                                  <li>
-                                    <button
-                                      type="button"
-                                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors duration-150 hover:bg-base-200/80"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        openSaveNotebookTemplate(notebook);
-                                      }}
-                                    >
-                                      <SparklesIcon className="size-4 flex-shrink-0 text-base-content/70" />
-                                      <span>Save as template</span>
-                                    </button>
-                                  </li>
-                                  <div className="my-1 h-px bg-base-300/50" />
-                                  <li>
-                                    <button
-                                      type="button"
-                                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-error transition-colors duration-150 hover:bg-error/10"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        openDeleteNotebook(notebook);
-                                      }}
-                                    >
-                                      <Trash2Icon className="size-4 flex-shrink-0" />
-                                      <span>Delete</span>
-                                    </button>
-                                  </li>
-                                </ul>
-                              </div>
-                            </div>
-                          )}
-                        </NotebookDropZone>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {savedQueriesEnabled ? (
-                <div className="mt-6 space-y-4 rounded-2xl border border-base-300/60 bg-base-100/80 p-4 shadow-sm backdrop-blur supports-[backdrop-filter:blur(0px)]:bg-base-100/70">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-start gap-3">
-                      <BookmarkIcon className="size-5 text-secondary" />
-                      <div>
-                        <h3 className="text-sm font-semibold text-base-content">
-                          Saved views
-                        </h3>
-                        <p className="text-xs text-base-content/60">
-                          Reapply this notebook&apos;s filters and searches
-                          instantly.
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm gap-2 sm:w-auto"
-                      onClick={openSavedQueryDialog}
-                      disabled={createSavedNotebookQueryMutation.isPending}
-                    >
-                      <BookmarkIcon className="size-4" />
-                      Save current view
-                    </button>
-                  </div>
-
-                  {savedNotebookQueriesQuery.isLoading ? (
-                    <div className="space-y-1">
-                      {[1, 2].map((key) => (
-                        <div
-                          key={key}
-                          className="h-10 w-full animate-pulse rounded-xl bg-base-200/80"
-                        />
-                      ))}
-                    </div>
-                  ) : savedNotebookQueries.length ? (
-                    <ul className="space-y-2">
-                      {savedNotebookQueries.map((query) => {
-                        const active = appliedSavedQuery?.id === query.id;
-                        return (
-                          <li
-                            key={query.id}
-                            className="flex flex-col gap-2 rounded-2xl border border-base-300/50 bg-base-100/80 p-3 sm:flex-row sm:items-center sm:justify-between"
-                          >
-                            <div className="flex flex-col gap-1">
-                              <button
-                                type="button"
-                                className={`text-left text-sm font-semibold text-base-content transition-colors hover:text-primary ${
-                                  active ? "text-primary" : ""
-                                }`}
-                                onClick={() => handleApplySavedQuery(query)}
-                              >
-                                {query.name}
-                              </button>
-                              <div className="flex flex-wrap items-center gap-2 text-xs text-base-content/60">
-                                {query.query ? (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-base-200 px-2 py-0.5">
-                                    <SearchIcon className="size-3" />
-                                    <span>{query.query}</span>
-                                  </span>
-                                ) : null}
-                                {Array.isArray(query?.filters?.tags) &&
-                                query.filters.tags.length
-                                  ? query.filters.tags
-                                      .slice(0, 3)
-                                      .map((tag) => (
-                                        <span
-                                          key={tag}
-                                          className="inline-flex items-center gap-1 rounded-full bg-base-200 px-2 py-0.5"
-                                        >
-                                          <TagIcon className="size-3" />
-                                          <span>{formatTagLabel(tag)}</span>
-                                        </span>
-                                      ))
-                                  : null}
-                                {query.filters?.minWords ? (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-base-200 px-2 py-0.5">
-                                    <ListTodoIcon className="size-3" />
-                                    <span>{`≥ ${query.filters.minWords} words`}</span>
-                                  </span>
-                                ) : null}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {savedNotebookQueriesQuery.isFetching ? (
-                                <span className="loading loading-spinner loading-xs text-primary" />
-                              ) : null}
-                              {active ? (
-                                <span className="badge badge-outline badge-sm border-primary/50 text-primary">
-                                  Active
-                                </span>
-                              ) : null}
-                              <button
-                                type="button"
-                                className="btn btn-ghost btn-xs text-error"
-                                onClick={() => handleDeleteSavedQuery(query.id)}
-                                disabled={
-                                  deleteSavedNotebookQueryMutation.isPending
-                                }
-                                aria-label={`Delete saved view ${query.name}`}
-                              >
-                                <Trash2Icon className="size-4" />
-                              </button>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : (
-                    <div className="rounded-xl bg-base-200/70 px-4 py-3 text-xs text-base-content/70">
-                      Save a set of filters to reopen them with one click.
-                    </div>
-                  )}
-                </div>
-              ) : null}
-            </Surface>
-
-            <div className="sticky top-4 z-10 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-base-300/60 bg-base-200/70 px-4 py-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm gap-2"
-                    onClick={openTemplateGallery}
-                  >
-                    <SparklesIcon className="size-4" />
-                    New note from...
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn btn-sm gap-2 ${
-                      selectionMode ? "btn-primary" : "btn-outline"
-                    }`}
-                    onClick={toggleSelectionMode}
-                  >
-                    <ListChecksIcon className="size-4" />
-                    {selectionMode ? "Exit multi-select" : "Multi-select"}
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn btn-sm gap-2 ${
-                      customizeMode ? "btn-primary" : "btn-outline"
-                    }`}
-                    onClick={handleToggleCustomize}
-                    disabled={customizeDisabled}
-                    aria-pressed={customizeMode}
-                  >
-                    <MoveIcon className="size-4" />
-                    {customizeMode ? "Finish arranging" : "Customize order"}
-                  </button>
-                </div>
-                <div className="text-xs text-base-content/60">
-                  {selectionMode
-                    ? "Tap notes to select them for bulk actions."
-                    : "Filter, search, or group your notes quickly."}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-base-300/60 bg-base-100/80 p-4 shadow-sm backdrop-blur supports-[backdrop-filter:blur(0px)]:bg-base-100/70">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div
-                    className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-2"
-                    role="tablist"
-                  >
-                    {tabConfig.map((tab) => (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        role="tab"
-                        className={`btn btn-sm h-auto min-h-[2.5rem] flex-1 sm:flex-initial ${
-                          activeTab === tab.id ? "btn-primary" : "btn-outline"
-                        }`}
-                        onClick={() => setActiveTab(tab.id)}
-                      >
-                        <span className="flex items-center justify-center gap-2">
-                          <span className="whitespace-nowrap">{tab.label}</span>
-                          <span
-                            className={`badge badge-sm flex-shrink-0 ${
-                              activeTab === tab.id
-                                ? "!bg-white/25 !text-white !border-0"
-                                : ""
-                            }`}
-                          >
-                            {tab.badge}
-                          </span>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-                    <button
-                      type="button"
-                      className="btn btn-outline gap-2 sm:w-auto lg:hidden"
-                      onClick={openDrawer}
-                      data-drawer-toggle="filters"
-                    >
-                      <FilterIcon className="size-4" />
-                      Filters
-                    </button>
-                    <div className="join w-full sm:w-auto">
-                      <label className="join-item input input-bordered flex items-center gap-3 flex-1 min-w-0 rounded-full bg-base-200/70 shadow-sm transition focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/40">
-                        <SearchIcon className="size-4 text-base-content/60" />
-                        <input
-                          type="search"
-                          value={searchQuery}
-                          ref={searchInputRef}
-                          onChange={(event) =>
-                            setSearchQuery(event.target.value)
-                          }
-                          placeholder="Search notes..."
-                          className="w-full bg-transparent text-sm sm:text-base outline-none"
-                          aria-label="Search notes"
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        className="btn btn-outline join-item shrink-0 rounded-full sm:rounded-l-none"
-                        onClick={resetFilters}
-                        disabled={!filtersApplied}
-                        aria-disabled={!filtersApplied}
-                        title={
-                          filtersApplied
-                            ? "Reset filters"
-                            : "No filters applied"
-                        }
-                      >
-                        <RefreshCwIcon className="size-4" />
-                        Reset
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="hidden lg:grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-                  <div className="form-control">
-                    <span className="label">
-                      <span className="label-text text-sm font-medium">
-                        Minimum words
-                      </span>
-                      <span className="label-text-alt text-xs text-base-content/60">
-                        {minWords > 0 ? `${minWords}+` : "All"}
-                      </span>
-                    </span>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="range"
-                        className="range range-primary range-sm flex-1"
-                        min="0"
-                        max="400"
-                        step="20"
-                        value={minWords}
-                        onChange={(event) =>
-                          setMinWords(Number(event.target.value))
-                        }
-                        aria-label="Minimum words filter"
-                      />
-                      <input
-                        type="number"
-                        min="0"
-                        step="10"
-                        value={minWords}
-                        onChange={(event) => {
-                          const value = Number(event.target.value);
-                          if (Number.isFinite(value) && value >= 0) {
-                            const normalized = Math.min(
-                              400,
-                              Math.round(value / 10) * 10,
-                            );
-                            setMinWords(normalized);
-                          } else {
-                            setMinWords(0);
-                          }
-                        }}
-                        className="input input-bordered input-sm w-20"
-                        aria-label="Minimum words value"
-                      />
-                    </div>
-                  </div>
-                  <label className="form-control max-w-xs">
-                    <span className="label">
-                      <span className="label-text text-sm font-medium">
-                        Sort notes
-                      </span>
-                    </span>
-                    <select
-                      className="select select-bordered select-sm"
-                      value={sortOrder}
-                      onChange={(event) => setSortOrder(event.target.value)}
-                    >
-                      <option value="newest">Newest first</option>
-                      <option value="oldest">Oldest first</option>
-                      <option value="alphabetical">Alphabetical</option>
-                      <option value="updated">Recently updated</option>
-                      <option value="custom">Custom order</option>
-                    </select>
-                  </label>
-                  <div className="flex items-end justify-end">
-                    <button
-                      type="button"
-                      className="btn btn-outline gap-2"
-                      onClick={openDrawer}
-                      data-drawer-toggle="filters"
-                    >
-                      <FilterIcon className="size-4" />
-                      Advanced filters
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {selectionMode && selectionCount > 0 && (
-                <BulkActionsBar
-                  selectedCount={selectionCount}
-                  onClearSelection={handleClearSelection}
-                  onPinSelected={handleBulkPin}
-                  onUnpinSelected={handleBulkUnpin}
-                  onAddTags={handleBulkAddTags}
-                  onMove={handleBulkMove}
-                  onMoveNotebook={handleBulkMoveNotebook}
-                  onDelete={handleBulkDelete}
-                  busy={bulkActionLoading}
-                  notebookOptions={notebooks}
-                  onQuickMoveNotebook={handleQuickMoveNotebook}
-                />
-              )}
-
-              {filtersApplied && (
-                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-base-300/60 bg-base-200/70 px-4 py-3">
-                  {activeFilterChips.map(({ key, label, onClear }) => (
-                    <button
-                      key={key}
-                      type="button"
-                      className="badge badge-outline gap-1 px-3 py-2 text-xs font-medium"
-                      onClick={onClear}
-                      aria-label={`Clear ${label}`}
-                    >
-                      <span>{label}</span>
-                      <XIcon className="size-3" />
-                    </button>
-                  ))}
-                  {selectedTags.map((tag) => (
-                    <button
-                      key={`tag-${tag}`}
-                      type="button"
-                      className="badge badge-primary badge-outline gap-1 px-3 py-2 text-xs font-medium"
-                      onClick={() => removeSelectedTag(tag)}
-                      aria-label={`Remove tag ${tag}`}
-                    >
-                      <span>{formatTagLabel(tag)}</span>
-                      <XIcon className="size-3" />
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-xs"
-                    onClick={resetFilters}
-                  >
-                    Clear all
-                  </button>
-                </div>
-              )}
-
-              {customizeMode && (
-                <div className="alert alert-info border border-primary/30 bg-primary/5 shadow-sm">
-                  <MoveIcon className="size-5" />
-                  <div>
-                    <h3 className="font-semibold">Arrange your notes</h3>
-                    <p className="text-sm text-base-content/70">
-                      Drag cards to reorder. Changes save automatically when you
-                      drop a note.
-                    </p>
-                  </div>
-                  {updateLayoutMutation.isPending && (
-                    <span className="text-xs font-medium text-primary">
-                      Saving order...
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
 
             {loading && <NoteSkeleton />}
 
@@ -3223,164 +2578,34 @@ function HomePage() {
               )}
           </div>
         </main>
-
-        {!drawerOpen && (
-          <Link
-            to="/create"
-            state={createPageState}
-            className="btn btn-primary btn-circle fixed bottom-6 right-4 z-40 shadow-lg shadow-primary/30 lg:hidden"
-            aria-label="Create a new note"
-          >
-            <PlusIcon className="size-6" />
-          </Link>
-        )}
       </div>
 
-      <div className="drawer-side z-50">
-        <label
-          htmlFor="notes-filters"
-          className="drawer-overlay"
-          onClick={closeDrawer}
+      {/* Mobile FAB */}
+      <Link
+        to="/create"
+        state={createPageState}
+        className="btn btn-primary btn-circle fixed bottom-6 right-4 z-40 shadow-lg shadow-primary/30 lg:hidden"
+        aria-label="Create a new note"
+      >
+        <PlusIcon className="size-6" />
+      </Link>
+
+      {/* Bulk actions bar */}
+      {selectionMode && selectionCount > 0 && (
+        <BulkActionsBar
+          selectedCount={selectionCount}
+          onClearSelection={handleClearSelection}
+          onPinSelected={handleBulkPin}
+          onUnpinSelected={handleBulkUnpin}
+          onAddTags={handleBulkAddTags}
+          onMove={handleBulkMove}
+          onMoveNotebook={handleBulkMoveNotebook}
+          onDelete={handleBulkDelete}
+          busy={bulkActionLoading}
+          notebookOptions={notebooks}
+          onQuickMoveNotebook={handleQuickMoveNotebook}
         />
-        <div
-          ref={filterPanelRef}
-          className="menu h-full w-80 gap-6 overflow-y-auto bg-base-200 p-6"
-        >
-          <div className="flex items-center justify-between gap-2 flex-nowrap">
-            <div className="flex items-center gap-2 min-w-0 flex-shrink">
-              <SparklesIcon className="size-5 text-primary flex-shrink-0" />
-              <h2 className="text-lg font-semibold truncate">Filters</h2>
-            </div>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm btn-circle flex-shrink-0"
-              onClick={closeDrawer}
-              data-drawer-toggle="filters"
-              aria-label="Close filters"
-            >
-              <XIcon className="size-4" />
-            </button>
-          </div>
-
-          <label className="form-control w-full">
-            <span className="label">
-              <span className="label-text">Search</span>
-            </span>
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search by title or content"
-              className="input input-bordered w-full"
-            />
-          </label>
-
-          <label className="form-control w-full">
-            <span className="label">
-              <span className="label-text">Minimum words ({minWords})</span>
-            </span>
-            <input
-              type="range"
-              className="range range-primary"
-              min="0"
-              max="400"
-              step="20"
-              value={minWords}
-              onChange={(event) => setMinWords(Number(event.target.value))}
-            />
-            <div className="flex w-full justify-between text-xs px-1">
-              {[0, 100, 200, 300, 400].map((marker) => (
-                <span key={marker}>{marker}</span>
-              ))}
-            </div>
-          </label>
-
-          <label className="form-control w-full">
-            <span className="label">
-              <span className="label-text">Sort notes</span>
-            </span>
-            <select
-              className="select select-bordered"
-              value={sortOrder}
-              onChange={(event) => setSortOrder(event.target.value)}
-            >
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-              <option value="alphabetical">Alphabetical</option>
-              <option value="updated">Recently updated</option>
-              <option value="custom">Custom order</option>
-            </select>
-          </label>
-
-          <div className="form-control w-full">
-            <span className="label">
-              <span className="label-text">Filter by tags</span>
-              <span className="label-text-alt text-base-content/60">
-                Select multiple
-              </span>
-            </span>
-            {tagOptions.length ? (
-              <div className="space-y-2">
-                {tagOptions.map((tag) => (
-                  <label
-                    key={tag}
-                    className="label cursor-pointer justify-start gap-2 px-0"
-                  >
-                    <input
-                      type="checkbox"
-                      className="checkbox checkbox-sm"
-                      checked={selectedTags.includes(tag)}
-                      onChange={() => toggleTagSelection(tag)}
-                    />
-                    <span className="label-text">{formatTagLabel(tag)}</span>
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <p className="rounded-lg bg-base-100 px-3 py-2 text-sm text-base-content/60">
-                Tags you add to notes will appear here for quick filtering.
-              </p>
-            )}
-          </div>
-
-          <div className="divider" data-content="Helpful tips" />
-          <div className="space-y-2">
-            {filterTips.map(({ title, description, icon, tone }) => {
-              const IconComponent = icon;
-
-              return (
-                <details
-                  key={title}
-                  className="rounded-xl border border-base-300 bg-base-100/90 shadow-sm group"
-                >
-                  <summary className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 text-left text-base font-semibold list-none">
-                    <span className="flex items-center gap-3">
-                      <IconComponent
-                        className={`size-5 ${
-                          tipToneClasses[tone] ?? "text-primary"
-                        }`}
-                      />
-                      <span>{title}</span>
-                    </span>
-                    <ChevronDownIcon className="size-5 transition-transform duration-200 group-open:rotate-180" />
-                  </summary>
-                  <div className="px-4 pb-4 text-sm text-base-content/70">
-                    <p className="leading-relaxed">{description}</p>
-                  </div>
-                </details>
-              );
-            })}
-          </div>
-
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={closeDrawer}
-          >
-            Close filters
-          </button>
-        </div>
-      </div>
+      )}
 
       {notebookFormState && (
         <div
