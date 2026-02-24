@@ -241,8 +241,9 @@ function Navbar({
                     onChange={(e) => onSearchChange(e.target.value)}
                     placeholder="Search notes…"
                     className="grow bg-transparent text-sm placeholder:text-base-content/40"
+                    aria-label="Search notes"
                   />
-                  {searchQuery && (
+                  {searchQuery ? (
                     <button
                       type="button"
                       onClick={() => onSearchChange("")}
@@ -251,20 +252,32 @@ function Navbar({
                     >
                       <XIcon className="size-3" />
                     </button>
+                  ) : (
+                    <kbd className="hidden lg:inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded border border-base-300/60 bg-base-200/60 px-1 text-[10px] font-semibold text-base-content/40">
+                      /
+                    </kbd>
                   )}
                 </label>
               </div>
             )}
 
             <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
-              <button
-                type="button"
-                className="btn btn-circle btn-ghost btn-sm"
-                onClick={openPalette}
-                aria-label="Open command palette"
+              <div
+                className="tooltip tooltip-bottom"
+                data-tip="Command palette (⌘K)"
               >
-                <CommandIcon className="size-4 sm:size-5" />
-              </button>
+                <button
+                  type="button"
+                  className="btn btn-circle btn-ghost btn-sm relative"
+                  onClick={openPalette}
+                  aria-label="Open command palette (⌘K)"
+                >
+                  <CommandIcon className="size-4 sm:size-5" />
+                  <kbd className="hidden lg:inline-flex absolute -bottom-1 -right-1 h-4 min-w-[1rem] items-center justify-center rounded bg-base-300/80 px-1 text-[9px] font-semibold text-base-content/60">
+                    K
+                  </kbd>
+                </button>
+              </div>
 
               {/* Create note dropdown */}
               <div className="dropdown dropdown-end hidden lg:block">

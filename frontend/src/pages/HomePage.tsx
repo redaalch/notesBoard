@@ -1,5 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  memo,
+} from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   DndContext,
   PointerSensor,
@@ -53,19 +63,39 @@ import NotesNotFound from "../Components/NotesNotFound";
 import NoteSkeleton from "../Components/NoteSkeleton";
 import { type TagStats } from "../Components/NotesStats";
 import { countWords, formatTagLabel, normalizeTag } from "../lib/Utils";
-import TemplateGalleryModal from "../Components/TemplateGalleryModal";
-import NotebookTemplateGalleryModal from "../Components/NotebookTemplateGalleryModal";
-import SaveNotebookTemplateDialog from "../Components/SaveNotebookTemplateDialog";
-import BulkActionsBar from "../Components/BulkActionsBar";
-import TagInput from "../Components/TagInput";
-import ConfirmDialog from "../Components/ConfirmDialog";
 import { useCommandPalette } from "../contexts/CommandPaletteContext";
-import NotebookShareDialog from "../Components/NotebookShareDialog";
-import NotebookAnalyticsDialog from "../Components/NotebookAnalyticsDialog";
-import SavedNotebookQueryDialog from "../Components/SavedNotebookQueryDialog";
-import NotebookPublishDialog from "../Components/NotebookPublishDialog";
-import NotebookHistoryDialog from "../Components/NotebookHistoryDialog";
-import NotebookInsightsDrawer from "../Components/NotebookInsightsDrawer";
+
+// ── Lazy-loaded heavy dialogs (code-split) ────────────────────────────
+const TemplateGalleryModal = lazy(
+  () => import("../Components/TemplateGalleryModal"),
+);
+const NotebookTemplateGalleryModal = lazy(
+  () => import("../Components/NotebookTemplateGalleryModal"),
+);
+const SaveNotebookTemplateDialog = lazy(
+  () => import("../Components/SaveNotebookTemplateDialog"),
+);
+const BulkActionsBar = lazy(() => import("../Components/BulkActionsBar"));
+const TagInput = lazy(() => import("../Components/TagInput"));
+const ConfirmDialog = lazy(() => import("../Components/ConfirmDialog"));
+const NotebookShareDialog = lazy(
+  () => import("../Components/NotebookShareDialog"),
+);
+const NotebookAnalyticsDialog = lazy(
+  () => import("../Components/NotebookAnalyticsDialog"),
+);
+const SavedNotebookQueryDialog = lazy(
+  () => import("../Components/SavedNotebookQueryDialog"),
+);
+const NotebookPublishDialog = lazy(
+  () => import("../Components/NotebookPublishDialog"),
+);
+const NotebookHistoryDialog = lazy(
+  () => import("../Components/NotebookHistoryDialog"),
+);
+const NotebookInsightsDrawer = lazy(
+  () => import("../Components/NotebookInsightsDrawer"),
+);
 
 const FILTER_STORAGE_KEY = "notesboard-filters-v1";
 const NOTEBOOK_ANALYTICS_ENABLED =
@@ -110,12 +140,12 @@ const getNoteId = (note) => {
   return typeof rawId === "string" ? rawId : (rawId?.toString?.() ?? null);
 };
 
-function SortableNoteCard({
+const SortableNoteCard = memo(function SortableNoteCard({
   note,
   selectedTags,
   onTagClick,
   onOpenNoteInsights,
-}) {
+}: any) {
   const id = getNoteId(note);
   const {
     attributes,
@@ -155,7 +185,7 @@ function SortableNoteCard({
       onOpenInsights={onOpenNoteInsights}
     />
   );
-}
+});
 
 const sortLabelMap = {
   newest: "Newest first",
@@ -259,7 +289,7 @@ function NotebookDropZone({ notebookId, disabled = false, children }) {
   });
 }
 
-function DraggableBoardNote({
+const DraggableBoardNote = memo(function DraggableBoardNote({
   note,
   selectionMode,
   customizeMode,
@@ -268,7 +298,7 @@ function DraggableBoardNote({
   onTagClick,
   selectedTags,
   onOpenNoteInsights,
-}) {
+}: any) {
   const noteId = getNoteId(note);
   const disabled = customizeMode;
   const { attributes, listeners, setNodeRef, transform, isDragging } =
@@ -306,7 +336,7 @@ function DraggableBoardNote({
       onOpenInsights={onOpenNoteInsights}
     />
   );
-}
+});
 
 function HomePage() {
   const [isRateLimited, setIsRateLimited] = useState(false);
@@ -1323,12 +1353,15 @@ function HomePage() {
     [notes],
   );
 
-  const tabConfig = [
-    { id: "all", label: "All notes", badge: notes.length },
-    { id: "recent", label: "Recent", badge: recentNotes.length },
-    { id: "long", label: "Long form", badge: longFormNotes.length },
-    { id: "short", label: "Short & sweet", badge: shortNotes.length },
-  ];
+  const tabConfig = useMemo(
+    () => [
+      { id: "all", label: "All notes", badge: notes.length },
+      { id: "recent", label: "Recent", badge: recentNotes.length },
+      { id: "long", label: "Long form", badge: longFormNotes.length },
+      { id: "short", label: "Short & sweet", badge: shortNotes.length },
+    ],
+    [notes.length, recentNotes.length, longFormNotes.length, shortNotes.length],
+  );
 
   const activeTabLabel =
     tabConfig.find((tab) => tab.id === activeTab)?.label ?? "All notes";
@@ -2168,35 +2201,6 @@ function HomePage() {
     }
   };
 
-  const filterTips = [
-    {
-      title: "Use search shortcuts",
-      description:
-        "Filter by keywords, then adjust the word slider to focus on short summaries or long-form notes.",
-      icon: FilterIcon,
-      tone: "primary",
-    },
-    {
-      title: "Switch tabs quickly",
-      description:
-        "Tabs let you jump between recent captures, long reads, or quick thoughts without losing your place.",
-      icon: SparklesIcon,
-      tone: "secondary",
-    },
-    {
-      title: "Tag your topics",
-      description:
-        "Add tags like project names or priorities, then use the tag filters to surface notes instantly.",
-      icon: TagIcon,
-      tone: "primary",
-    },
-  ];
-
-  const tipToneClasses = {
-    primary: "text-primary",
-    secondary: "text-secondary",
-  };
-
   useEffect(() => {
     if (!drawerOpen) return undefined;
 
@@ -2237,6 +2241,25 @@ function HomePage() {
     const handleKeyDown = (event) => {
       if (isInteractiveElement(event.target)) return;
 
+      // / → focus search input
+      if (event.key === "/" && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+
+      // n → navigate to create note (unless modifier keys)
+      if (
+        event.key === "n" &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey
+      ) {
+        event.preventDefault();
+        navigate("/create");
+        return;
+      }
+
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
         if (!filteredNotes.length) return;
         event.preventDefault();
@@ -2250,6 +2273,11 @@ function HomePage() {
       }
 
       if (event.key === "Escape") {
+        if (mobileSidebarOpen) {
+          event.preventDefault();
+          setMobileSidebarOpen(false);
+          return;
+        }
         if (selectionMode || selectedNoteIds.length) {
           event.preventDefault();
           setSelectedNoteIds([]);
@@ -2261,7 +2289,13 @@ function HomePage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [filteredNotes, selectionMode, selectedNoteIds.length]);
+  }, [
+    filteredNotes,
+    selectionMode,
+    selectedNoteIds.length,
+    mobileSidebarOpen,
+    navigate,
+  ]);
 
   useEffect(() => {
     if (customizeMode && sortOrder !== "custom") {
@@ -2434,7 +2468,13 @@ function HomePage() {
         />
 
         {/* Main content */}
-        <main id="main-content" tabIndex={-1} className="flex-1 min-w-0 w-full">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="flex-1 min-w-0 w-full"
+          role="main"
+          aria-label="Notes dashboard"
+        >
           <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 lg:px-8">
             {/* Toolbar */}
             <Toolbar
@@ -2465,10 +2505,26 @@ function HomePage() {
               savingOrder={updateLayoutMutation.isPending}
             />
 
-            {loading && <NoteSkeleton />}
+            <AnimatePresence mode="wait">
+              {loading && (
+                <motion.div
+                  key="skeleton"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <NoteSkeleton />
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {notesQuery.isError && !isRateLimited && (
-              <div className="alert alert-error">
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="alert alert-error"
+              >
                 <AlertTriangleIcon className="size-5" />
                 <div>
                   <h3 className="font-bold">
@@ -2478,7 +2534,7 @@ function HomePage() {
                     Please refresh or try again in a moment.
                   </p>
                 </div>
-              </div>
+              </motion.div>
             )}
 
             {!loading && !isFetchingNotes && filteredNotes.length > 0 && (
@@ -2495,7 +2551,7 @@ function HomePage() {
                       .filter(Boolean)}
                     strategy={rectSortingStrategy}
                   >
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
                       {filteredNotes.map((note) => {
                         const id = getNoteId(note);
                         if (!id) return null;
@@ -2512,28 +2568,53 @@ function HomePage() {
                     </div>
                   </SortableContext>
                 ) : (
-                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  <motion.div
+                    initial="hidden"
+                    animate="visible"
+                    variants={{
+                      hidden: {},
+                      visible: {
+                        transition: { staggerChildren: 0.04 },
+                      },
+                    }}
+                    className="grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-3"
+                  >
                     {filteredNotes.map((note) => {
                       const id = getNoteId(note);
                       if (!id) return null;
                       const isSelected = selectedNoteIdSet.has(id);
                       return (
-                        <DraggableBoardNote
+                        <motion.div
                           key={id}
-                          note={note}
-                          selectionMode={selectionMode}
-                          customizeMode={customizeMode}
-                          selected={isSelected}
-                          onSelectionChange={handleNoteSelectionChange}
-                          onTagClick={
-                            selectionMode ? undefined : toggleTagSelection
-                          }
-                          selectedTags={selectedTags}
-                          onOpenNoteInsights={openNoteInsights}
-                        />
+                          variants={{
+                            hidden: { opacity: 0, y: 16 },
+                            visible: {
+                              opacity: 1,
+                              y: 0,
+                              transition: {
+                                type: "spring",
+                                stiffness: 300,
+                                damping: 24,
+                              },
+                            },
+                          }}
+                        >
+                          <DraggableBoardNote
+                            note={note}
+                            selectionMode={selectionMode}
+                            customizeMode={customizeMode}
+                            selected={isSelected}
+                            onSelectionChange={handleNoteSelectionChange}
+                            onTagClick={
+                              selectionMode ? undefined : toggleTagSelection
+                            }
+                            selectedTags={selectedTags}
+                            onOpenNoteInsights={openNoteInsights}
+                          />
+                        </motion.div>
                       );
                     })}
-                  </div>
+                  </motion.div>
                 )}
                 <DragOverlay dropAnimation={dropAnimation}>
                   {activeDragNote ? (
@@ -2556,18 +2637,37 @@ function HomePage() {
               </DndContext>
             )}
 
-            {showFilterEmptyState && (
-              <div className="alert alert-info shadow-lg">
-                <FilterIcon className="size-5" />
-                <div>
-                  <h3 className="font-bold">No notes match your filters</h3>
-                  <div className="text-sm">
-                    Try adjusting the search, tab, or word count slider to see
-                    more notes.
+            <AnimatePresence>
+              {showFilterEmptyState && (
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.25 }}
+                  className="flex flex-col items-center gap-4 rounded-2xl border border-info/20 bg-info/5 px-6 py-10 text-center"
+                >
+                  <div className="rounded-full bg-info/10 p-3">
+                    <FilterIcon className="size-6 text-info" />
                   </div>
-                </div>
-              </div>
-            )}
+                  <div className="max-w-sm space-y-1">
+                    <h3 className="text-base font-semibold text-base-content">
+                      No notes match your filters
+                    </h3>
+                    <p className="text-sm text-base-content/60">
+                      Try adjusting the search, tab, or word count slider to
+                      broaden your results.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="btn btn-outline btn-sm"
+                  >
+                    Clear all filters
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {!loading &&
               !isFetchingNotes &&
@@ -2581,30 +2681,39 @@ function HomePage() {
       </div>
 
       {/* Mobile FAB */}
-      <Link
-        to="/create"
-        state={createPageState}
-        className="btn btn-primary btn-circle fixed bottom-6 right-4 z-40 shadow-lg shadow-primary/30 lg:hidden"
-        aria-label="Create a new note"
+      <motion.div
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: 0.3, type: "spring", stiffness: 400, damping: 20 }}
+        className="fixed bottom-6 right-4 z-40 lg:hidden"
       >
-        <PlusIcon className="size-6" />
-      </Link>
+        <Link
+          to="/create"
+          state={createPageState}
+          className="btn btn-primary btn-circle shadow-lg shadow-primary/30"
+          aria-label="Create a new note"
+        >
+          <PlusIcon className="size-6" />
+        </Link>
+      </motion.div>
 
       {/* Bulk actions bar */}
       {selectionMode && selectionCount > 0 && (
-        <BulkActionsBar
-          selectedCount={selectionCount}
-          onClearSelection={handleClearSelection}
-          onPinSelected={handleBulkPin}
-          onUnpinSelected={handleBulkUnpin}
-          onAddTags={handleBulkAddTags}
-          onMove={handleBulkMove}
-          onMoveNotebook={handleBulkMoveNotebook}
-          onDelete={handleBulkDelete}
-          busy={bulkActionLoading}
-          notebookOptions={notebooks}
-          onQuickMoveNotebook={handleQuickMoveNotebook}
-        />
+        <Suspense fallback={null}>
+          <BulkActionsBar
+            selectedCount={selectionCount}
+            onClearSelection={handleClearSelection}
+            onPinSelected={handleBulkPin}
+            onUnpinSelected={handleBulkUnpin}
+            onAddTags={handleBulkAddTags}
+            onMove={handleBulkMove}
+            onMoveNotebook={handleBulkMoveNotebook}
+            onDelete={handleBulkDelete}
+            busy={bulkActionLoading}
+            notebookOptions={notebooks}
+            onQuickMoveNotebook={handleQuickMoveNotebook}
+          />
+        </Suspense>
       )}
 
       {notebookFormState && (
@@ -2897,42 +3006,50 @@ function HomePage() {
       )}
 
       {publishNotebook ? (
-        <NotebookPublishDialog
-          notebook={publishNotebook}
-          open
-          onClose={closePublishNotebook}
-          onUpdated={handlePublishingChange}
-        />
+        <Suspense fallback={null}>
+          <NotebookPublishDialog
+            notebook={publishNotebook}
+            open
+            onClose={closePublishNotebook}
+            onUpdated={handlePublishingChange}
+          />
+        </Suspense>
       ) : null}
 
       {historyNotebook ? (
-        <NotebookHistoryDialog
-          notebook={historyNotebook}
-          notebooks={notebooks}
-          open
-          onClose={closeHistoryNotebook}
-          onUndoSuccess={handleHistoryUndo}
-        />
+        <Suspense fallback={null}>
+          <NotebookHistoryDialog
+            notebook={historyNotebook}
+            notebooks={notebooks}
+            open
+            onClose={closeHistoryNotebook}
+            onUndoSuccess={handleHistoryUndo}
+          />
+        </Suspense>
       ) : null}
 
-      <NotebookInsightsDrawer
-        open={Boolean(insightsNote)}
-        note={insightsNote}
-        onClose={closeNoteInsights}
-        onMoveNote={handleMoveNoteToNotebook}
-        onViewNotebook={handleViewNotebookFromInsights}
-        onApplySmartView={handleApplySmartView}
-        notebooks={notebooks}
-        savedQueries={savedNotebookQueries}
-        activeNotebookId={activeNotebookId}
-      />
+      <Suspense fallback={null}>
+        <NotebookInsightsDrawer
+          open={Boolean(insightsNote)}
+          note={insightsNote}
+          onClose={closeNoteInsights}
+          onMoveNote={handleMoveNoteToNotebook}
+          onViewNotebook={handleViewNotebookFromInsights}
+          onApplySmartView={handleApplySmartView}
+          notebooks={notebooks}
+          savedQueries={savedNotebookQueries}
+          activeNotebookId={activeNotebookId}
+        />
+      </Suspense>
 
       {shareNotebookState ? (
-        <NotebookShareDialog
-          notebook={shareNotebookState}
-          open
-          onClose={closeShareNotebook}
-        />
+        <Suspense fallback={null}>
+          <NotebookShareDialog
+            notebook={shareNotebookState}
+            open
+            onClose={closeShareNotebook}
+          />
+        </Suspense>
       ) : null}
 
       {moveNotebookModalOpen && (
@@ -2990,56 +3107,66 @@ function HomePage() {
       )}
 
       {NOTEBOOK_ANALYTICS_ENABLED && analyticsNotebook ? (
-        <NotebookAnalyticsDialog
-          notebook={analyticsNotebook}
-          open
-          onClose={closeNotebookAnalytics}
-        />
+        <Suspense fallback={null}>
+          <NotebookAnalyticsDialog
+            notebook={analyticsNotebook}
+            open
+            onClose={closeNotebookAnalytics}
+          />
+        </Suspense>
       ) : null}
 
-      <SavedNotebookQueryDialog
-        open={savedQueryDialogOpen}
-        onClose={closeSavedQueryDialog}
-        onSubmit={handleSavedQuerySubmit}
-        submitting={createSavedNotebookQueryMutation.isPending}
-        defaultName={
-          appliedSavedQuery?.name ??
-          (searchQuery.trim() ||
-            (activeNotebook?.name ? `${activeNotebook.name} view` : ""))
-        }
-      />
+      <Suspense fallback={null}>
+        <SavedNotebookQueryDialog
+          open={savedQueryDialogOpen}
+          onClose={closeSavedQueryDialog}
+          onSubmit={handleSavedQuerySubmit}
+          submitting={createSavedNotebookQueryMutation.isPending}
+          defaultName={
+            appliedSavedQuery?.name ??
+            (searchQuery.trim() ||
+              (activeNotebook?.name ? `${activeNotebook.name} view` : ""))
+          }
+        />
+      </Suspense>
 
-      <NotebookTemplateGalleryModal
-        open={notebookTemplateModalOpen}
-        templates={notebookTemplates}
-        isLoading={notebookTemplatesLoading || notebookTemplatesFetching}
-        selectedTemplateId={selectedNotebookTemplateId}
-        onSelectTemplate={handleNotebookTemplateSelect}
-        detail={notebookTemplateDetail}
-        detailLoading={notebookTemplateDetailLoading}
-        workspaceOptions={templateWorkspaceOptions}
-        boardOptions={templateBoardOptions}
-        onDeleteTemplate={handleDeleteNotebookTemplate}
-        deletingTemplateId={deletingTemplateId}
-        onImport={handleNotebookTemplateImport}
-        importing={notebookTemplateImporting}
-        onClose={closeNotebookTemplateGallery}
-        onRefresh={refetchNotebookTemplates}
-      />
+      <Suspense fallback={null}>
+        <NotebookTemplateGalleryModal
+          open={notebookTemplateModalOpen}
+          templates={notebookTemplates}
+          isLoading={notebookTemplatesLoading || notebookTemplatesFetching}
+          selectedTemplateId={selectedNotebookTemplateId}
+          onSelectTemplate={handleNotebookTemplateSelect}
+          detail={notebookTemplateDetail}
+          detailLoading={notebookTemplateDetailLoading}
+          workspaceOptions={templateWorkspaceOptions}
+          boardOptions={templateBoardOptions}
+          onDeleteTemplate={handleDeleteNotebookTemplate}
+          deletingTemplateId={deletingTemplateId}
+          onImport={handleNotebookTemplateImport}
+          importing={notebookTemplateImporting}
+          onClose={closeNotebookTemplateGallery}
+          onRefresh={refetchNotebookTemplates}
+        />
+      </Suspense>
 
-      <SaveNotebookTemplateDialog
-        open={saveTemplateState.open}
-        notebook={saveTemplateState.notebook}
-        submitting={saveTemplateSubmitting}
-        onClose={closeSaveNotebookTemplate}
-        onSubmit={handleSaveNotebookTemplate}
-      />
+      <Suspense fallback={null}>
+        <SaveNotebookTemplateDialog
+          open={saveTemplateState.open}
+          notebook={saveTemplateState.notebook}
+          submitting={saveTemplateSubmitting}
+          onClose={closeSaveNotebookTemplate}
+          onSubmit={handleSaveNotebookTemplate}
+        />
+      </Suspense>
 
-      <TemplateGalleryModal
-        open={templateModalOpen}
-        onClose={() => setTemplateModalOpen(false)}
-        onSelect={handleTemplateSelect}
-      />
+      <Suspense fallback={null}>
+        <TemplateGalleryModal
+          open={templateModalOpen}
+          onClose={() => setTemplateModalOpen(false)}
+          onSelect={handleTemplateSelect}
+        />
+      </Suspense>
 
       {tagModalOpen && (
         <div
@@ -3060,7 +3187,13 @@ function HomePage() {
               per note.
             </p>
             <div className="mt-4">
-              <TagInput value={bulkTags} onChange={setBulkTags} />
+              <Suspense
+                fallback={
+                  <div className="h-10 animate-pulse rounded bg-base-200" />
+                }
+              >
+                <TagInput value={bulkTags} onChange={setBulkTags} />
+              </Suspense>
             </div>
             <div className="mt-6 flex items-center justify-end gap-2">
               <button
@@ -3152,17 +3285,19 @@ function HomePage() {
         </div>
       )}
 
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        title="Delete selected notes?"
-        description="This permanently removes the selected notes and their collaborative history."
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        tone="error"
-        confirmLoading={bulkActionLoading}
-        onCancel={cancelBulkDelete}
-        onConfirm={confirmBulkDelete}
-      />
+      <Suspense fallback={null}>
+        <ConfirmDialog
+          open={deleteDialogOpen}
+          title="Delete selected notes?"
+          description="This permanently removes the selected notes and their collaborative history."
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          tone="error"
+          confirmLoading={bulkActionLoading}
+          onCancel={cancelBulkDelete}
+          onConfirm={confirmBulkDelete}
+        />
+      </Suspense>
     </div>
   );
 }

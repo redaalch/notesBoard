@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useMemo } from "react";
+import { type ReactNode, useCallback, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BookmarkIcon,
@@ -403,7 +403,28 @@ function SidebarContent({
             Unable to load notebooks.
           </p>
         ) : (
-          <nav className="space-y-0.5" aria-label="Notebooks">
+          <nav
+            className="space-y-0.5"
+            aria-label="Notebooks"
+            onKeyDown={(e) => {
+              if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+              e.preventDefault();
+              const buttons = Array.from(
+                e.currentTarget.querySelectorAll<HTMLButtonElement>(
+                  ":scope > div > .relative > button, :scope > div > button, :scope > button",
+                ),
+              );
+              const idx = buttons.indexOf(
+                document.activeElement as HTMLButtonElement,
+              );
+              if (idx === -1) return;
+              const next =
+                e.key === "ArrowDown"
+                  ? buttons[(idx + 1) % buttons.length]
+                  : buttons[(idx - 1 + buttons.length) % buttons.length];
+              next?.focus();
+            }}
+          >
             {renderItem("all", "All notes", totalCount)}
             {renderItem("uncategorized", "Uncategorized", uncategorizedCount)}
             {notebooks.map((nb) => {
@@ -506,11 +527,15 @@ function SidebarContent({
 
       {/* ── Compact stats footer ─────────────────────────────────── */}
       <div className="border-t border-base-300/40 px-4 py-3">
-        <div className="flex items-center justify-between text-xs text-base-content/50">
+        <div className="flex items-center justify-between text-xs text-base-content/50 tabular-nums">
           <span>{noteCount} notes</span>
-          <span className="text-base-content/30">·</span>
+          <span className="text-base-content/20" aria-hidden="true">
+            ·
+          </span>
           <span>{pinnedCount} pinned</span>
-          <span className="text-base-content/30">·</span>
+          <span className="text-base-content/20" aria-hidden="true">
+            ·
+          </span>
           <span>{avgWords} avg words</span>
         </div>
       </div>
