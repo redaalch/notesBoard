@@ -4,10 +4,22 @@
 @import "tippy.js/dist/tippy.css";
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   :root {
     color-scheme: light;
-    font-family: "Inter", "Segoe UI", system-ui, -apple-system,
-      BlinkMacSystemFont, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    font-family:
+      "Inter",
+      "Segoe UI",
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Helvetica Neue",
+      Arial,
+      "Noto Sans",
+      sans-serif;
     line-height: 1.6;
     font-size: 16px;
     text-rendering: optimizeLegibility;
@@ -106,13 +118,14 @@
 
     /* Enhanced shadow system */
     --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08),
-      0 2px 4px -2px rgb(0 0 0 / 0.08);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08),
-      0 4px 6px -4px rgb(0 0 0 / 0.08);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.08),
-      0 8px 10px -6px rgb(0 0 0 / 0.08);
+    --shadow-sm:
+      0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08);
+    --shadow-md:
+      0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.08);
+    --shadow-lg:
+      0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.08);
+    --shadow-xl:
+      0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.08);
     --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.15);
     --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
     --shadow-glow: 0 0 24px rgb(75 107 251 / 0.25);
@@ -161,12 +174,12 @@
     /* Enhanced shadows for dark mode */
     --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.2);
     --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.3);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.35),
-      0 2px 4px -2px rgb(0 0 0 / 0.35);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4),
-      0 4px 6px -4px rgb(0 0 0 / 0.4);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.45),
-      0 8px 10px -6px rgb(0 0 0 / 0.45);
+    --shadow-md:
+      0 4px 6px -1px rgb(0 0 0 / 0.35), 0 2px 4px -2px rgb(0 0 0 / 0.35);
+    --shadow-lg:
+      0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+    --shadow-xl:
+      0 20px 25px -5px rgb(0 0 0 / 0.45), 0 8px 10px -6px rgb(0 0 0 / 0.45);
     --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.5);
     --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.2);
     --shadow-glow: 0 0 24px rgb(147 180 255 / 0.3);
@@ -193,8 +206,16 @@
   h4,
   h5,
   h6 {
-    font-family: "Inter", "Segoe UI", system-ui, -apple-system,
-      BlinkMacSystemFont, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    font-family:
+      "Inter",
+      "Segoe UI",
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Helvetica Neue",
+      Arial,
+      "Noto Sans",
+      sans-serif;
     font-weight: 700;
     line-height: var(--line-height-tight);
     letter-spacing: -0.02em;
@@ -252,7 +273,9 @@
     z-index: 1000;
     clip-path: inset(0 0 100% 0);
     opacity: 0;
-    transition: opacity 120ms ease, clip-path 120ms ease;
+    transition:
+      opacity 120ms ease,
+      clip-path 120ms ease;
   }
 
   .skip-link:focus,
@@ -440,11 +463,8 @@
   }
 
   .gradient-mesh {
-    background: radial-gradient(
-        at 40% 20%,
-        hsla(var(--p), 0.15) 0px,
-        transparent 50%
-      ),
+    background:
+      radial-gradient(at 40% 20%, hsla(var(--p), 0.15) 0px, transparent 50%),
       radial-gradient(at 80% 0%, hsla(var(--s), 0.15) 0px, transparent 50%),
       radial-gradient(at 0% 50%, hsla(var(--a), 0.15) 0px, transparent 50%);
   }
@@ -706,7 +726,9 @@ html.theme-changing *::after {
   color: var(--normal-text) !important;
   padding: 16px 20px !important;
   border-radius: 16px !important;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(0, 0, 0, 0.05) !important;
   font-size: 15px !important;
   font-weight: 500 !important;
   min-width: 320px !important;
@@ -718,7 +740,8 @@ html.theme-changing *::after {
   background: var(--success-bg) !important;
   border-color: var(--success-border) !important;
   color: var(--success-text) !important;
-  box-shadow: 0 10px 40px hsla(var(--su) / 0.3),
+  box-shadow:
+    0 10px 40px hsla(var(--su) / 0.3),
     0 0 0 4px hsla(var(--su) / 0.15) !important;
 }
 
@@ -726,7 +749,8 @@ html.theme-changing *::after {
   background: var(--error-bg) !important;
   border-color: var(--error-border) !important;
   color: var(--error-text) !important;
-  box-shadow: 0 10px 40px hsla(var(--er) / 0.3),
+  box-shadow:
+    0 10px 40px hsla(var(--er) / 0.3),
     0 0 0 4px hsla(var(--er) / 0.15) !important;
 }
 
@@ -734,7 +758,8 @@ html.theme-changing *::after {
   background: var(--info-bg) !important;
   border-color: var(--info-border) !important;
   color: var(--info-text) !important;
-  box-shadow: 0 10px 40px hsla(var(--in) / 0.3),
+  box-shadow:
+    0 10px 40px hsla(var(--in) / 0.3),
     0 0 0 4px hsla(var(--in) / 0.15) !important;
 }
 
@@ -742,7 +767,8 @@ html.theme-changing *::after {
   background: var(--warning-bg) !important;
   border-color: var(--warning-border) !important;
   color: var(--warning-text) !important;
-  box-shadow: 0 10px 40px hsla(var(--wa) / 0.3),
+  box-shadow:
+    0 10px 40px hsla(var(--wa) / 0.3),
     0 0 0 4px hsla(var(--wa) / 0.15) !important;
 }
 
