@@ -2904,7 +2904,13 @@ function HomePage() {
                       >
                         <span className="flex items-center justify-center gap-2">
                           <span className="whitespace-nowrap">{tab.label}</span>
-                          <span className="badge badge-sm flex-shrink-0">
+                          <span
+                            className={`badge badge-sm flex-shrink-0 ${
+                              activeTab === tab.id
+                                ? "!bg-white/25 !text-white !border-0"
+                                : ""
+                            }`}
+                          >
                             {tab.badge}
                           </span>
                         </span>

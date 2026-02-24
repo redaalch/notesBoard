@@ -206,7 +206,7 @@ function CommandPalette() {
                             type="button"
                             className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left text-sm transition focus:outline-none focus:ring-2 focus:ring-primary/50 ${
                               highlighted
-                                ? "bg-primary/10 text-primary-content"
+                                ? "bg-primary/10 text-base-content"
                                 : "bg-transparent hover:bg-base-200/70"
                             }`}
                             onClick={() => handleSelect(command)}
