@@ -56,7 +56,7 @@ function Toolbar({
   savingOrder,
 }: ToolbarProps) {
   return (
-    <div className="space-y-2">
+    <div className="relative z-20 space-y-2">
       {/* Main toolbar row */}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-base-300/40 bg-base-100/80 px-3 py-2 shadow-sm backdrop-blur">
         {/* Tabs */}
