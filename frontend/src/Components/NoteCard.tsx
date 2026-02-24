@@ -231,7 +231,7 @@ function NoteCard({
 
   return (
     <>
-      <div className="relative overflow-hidden h-full">
+      <div className="relative h-full">
         {/* Swipe action buttons (behind card) */}
         {showActions && (
           <motion.div
@@ -285,19 +285,11 @@ function NoteCard({
             x: swipeOffset,
           }}
           exit={{ opacity: 0, scale: 0.95 }}
-          whileHover={
-            !dragging && !selectionMode
-              ? {
-                  y: -4,
-                  boxShadow: "0 12px 24px -8px rgba(0,0,0,0.15)",
-                }
-              : {}
-          }
           transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          className={`card bg-base-100/90 backdrop-blur border border-base-200/70 shadow-md h-full relative z-10 ${
+          className={`card bg-base-100/90 backdrop-blur border border-base-200/70 shadow-sm h-full relative z-10 transition-shadow duration-200 ${
             selected
               ? "border-primary/60 ring-1 ring-primary/40"
-              : "hover:border-primary/30"
+              : "hover:border-primary/30 hover:shadow-md"
           } ${dragging ? "opacity-80 shadow-2xl ring-1 ring-primary/50" : ""}`}
           onClick={
             selectionMode
