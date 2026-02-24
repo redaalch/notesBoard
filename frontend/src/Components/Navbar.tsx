@@ -7,6 +7,10 @@ import {
   CommandIcon,
   Wand2Icon,
   XIcon,
+  SearchIcon,
+  ChevronDownIcon,
+  LayoutTemplateIcon,
+  FolderOpenIcon,
 } from "lucide-react";
 import {
   useCallback,
@@ -31,8 +35,15 @@ export interface ThemeOption {
 
 export interface NavbarProps {
   onMobileFilterClick?: () => void;
+  onMobileSidebarClick?: () => void;
   defaultNotebookId?: string | null;
   hideAuthLinks?: boolean;
+  /** Search (rendered in the navbar) */
+  searchQuery?: string;
+  onSearchChange?: (value: string) => void;
+  searchInputRef?: React.RefObject<HTMLInputElement | null>;
+  /** Template gallery trigger */
+  onOpenTemplates?: () => void;
 }
 
 const THEME_OPTIONS: ThemeOption[] = [
@@ -111,8 +122,13 @@ const getPreferredTheme = (): string => {
 
 function Navbar({
   onMobileFilterClick = () => {},
+  onMobileSidebarClick,
   defaultNotebookId = null,
   hideAuthLinks = false,
+  searchQuery,
+  onSearchChange,
+  searchInputRef,
+  onOpenTemplates,
 }: NavbarProps) {
   const [theme, setTheme] = useState<string>(getPreferredTheme);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -200,7 +216,45 @@ function Navbar({
               >
                 <Logo className="transition-transform duration-200 group-hover:scale-105" />
               </Link>
+
+              {/* Mobile sidebar toggle */}
+              {onMobileSidebarClick && (
+                <button
+                  onClick={onMobileSidebarClick}
+                  className="btn btn-circle btn-ghost btn-sm lg:hidden"
+                  aria-label="Open sidebar"
+                >
+                  <FolderOpenIcon className="size-5" />
+                </button>
+              )}
             </div>
+
+            {/* Search bar — centre of navbar */}
+            {onSearchChange && (
+              <div className="order-last flex-1 md:order-none md:mx-4 md:max-w-sm lg:max-w-md w-full md:w-auto">
+                <label className="input input-bordered input-sm flex items-center gap-2 rounded-xl bg-base-100/60 focus-within:bg-base-100 transition-colors">
+                  <SearchIcon className="size-4 text-base-content/40" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery ?? ""}
+                    onChange={(e) => onSearchChange(e.target.value)}
+                    placeholder="Search notes…"
+                    className="grow bg-transparent text-sm placeholder:text-base-content/40"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => onSearchChange("")}
+                      className="btn btn-circle btn-ghost btn-xs"
+                      aria-label="Clear search"
+                    >
+                      <XIcon className="size-3" />
+                    </button>
+                  )}
+                </label>
+              </div>
+            )}
 
             <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
               <button
@@ -212,14 +266,45 @@ function Navbar({
                 <CommandIcon className="size-4 sm:size-5" />
               </button>
 
-              <Link
-                to="/create"
-                state={createLinkState}
-                className="btn btn-primary hidden items-center gap-2 rounded-2xl border-0 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 lg:inline-flex px-6"
-              >
-                <PlusCircleIcon className="size-5" />
-                <span className="font-semibold">Create note</span>
-              </Link>
+              {/* Create note dropdown */}
+              <div className="dropdown dropdown-end hidden lg:block">
+                <button
+                  type="button"
+                  tabIndex={0}
+                  className="btn btn-primary items-center gap-2 rounded-2xl border-0 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 px-5"
+                >
+                  <PlusCircleIcon className="size-5" />
+                  <span className="font-semibold">Create</span>
+                  <ChevronDownIcon className="size-4 opacity-70" />
+                </button>
+                <ul
+                  tabIndex={0}
+                  className="menu dropdown-content z-50 mt-2 w-52 rounded-xl border border-base-content/10 bg-base-200/95 p-2 shadow-xl backdrop-blur"
+                >
+                  <li>
+                    <Link
+                      to="/create"
+                      state={createLinkState}
+                      className="gap-2"
+                    >
+                      <PlusCircleIcon className="size-4" />
+                      Blank note
+                    </Link>
+                  </li>
+                  {onOpenTemplates && (
+                    <li>
+                      <button
+                        type="button"
+                        onClick={onOpenTemplates}
+                        className="gap-2"
+                      >
+                        <LayoutTemplateIcon className="size-4" />
+                        From template…
+                      </button>
+                    </li>
+                  )}
+                </ul>
+              </div>
 
               <div className="dropdown dropdown-end hidden lg:block">
                 <button
