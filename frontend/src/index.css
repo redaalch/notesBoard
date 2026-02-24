@@ -260,6 +260,15 @@
 }
 
 @layer components {
+  /* Fix DaisyUI v4 btn-primary hover contrast — force readable text */
+  .btn-primary {
+    color: #fff !important;
+  }
+  .btn-primary:hover {
+    background-color: oklch(from oklch(var(--p)) calc(l - 0.08) c h);
+    color: #fff !important;
+  }
+
   .skip-link {
     position: fixed;
     top: var(--space-4);
@@ -350,12 +359,12 @@
 }
 
 @layer utilities {
-  /* Color utilities */
-  .text-primary {
+  /* Color utilities — prefixed to avoid DaisyUI .text-primary collision */
+  .text-content-primary {
     color: rgb(var(--color-text-primary));
   }
 
-  .text-secondary {
+  .text-content-secondary {
     color: rgb(var(--color-text-secondary));
   }
 

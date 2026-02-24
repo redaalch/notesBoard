@@ -215,7 +215,7 @@ function Navbar({
               <Link
                 to="/create"
                 state={createLinkState}
-                className="btn hidden items-center gap-2 rounded-2xl bg-primary hover:bg-primary-focus text-primary-content border-0 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 lg:inline-flex px-6"
+                className="btn btn-primary hidden items-center gap-2 rounded-2xl border-0 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 lg:inline-flex px-6"
               >
                 <PlusCircleIcon className="size-5" />
                 <span className="font-semibold">Create note</span>

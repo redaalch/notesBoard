@@ -176,7 +176,7 @@ function LandingPage() {
                 )}
               </div>
 
-              <p className="text-sm text-slate-400">
+              <p className="text-sm text-slate-500">
                 Free forever &middot; No credit card &middot; Unlimited notes
               </p>
             </div>
@@ -189,7 +189,7 @@ function LandingPage() {
                   <span className="size-3 rounded-full bg-slate-200" />
                   <span className="size-3 rounded-full bg-slate-200" />
                   <span className="size-3 rounded-full bg-slate-200" />
-                  <span className="ml-4 flex-1 rounded-md bg-slate-100 px-3 py-1 text-center text-xs text-slate-400">
+                  <span className="ml-4 flex-1 rounded-md bg-slate-100 px-3 py-1 text-center text-xs text-slate-500">
                     notesboard.xyz/app
                   </span>
                 </div>
@@ -363,10 +363,10 @@ function LandingPage() {
                   className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5 text-left"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-slate-600">
                       {tag}
                     </span>
-                    <Icon className="size-4 text-slate-400" />
+                    <Icon className="size-4 text-slate-500" />
                   </div>
                   <h3 className="text-base font-semibold">{title}</h3>
                   <p className="text-sm leading-relaxed text-slate-500">
@@ -423,24 +423,24 @@ function LandingPage() {
 
       {/* ── Footer ── */}
       <footer className="border-t border-slate-200">
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-8 text-sm text-slate-400 md:flex-row md:items-center md:justify-between">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-8 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
           <span>&copy; {new Date().getFullYear()} NotesBoard</span>
           <div className="flex items-center gap-4">
             <Link
               to="/privacy"
-              className="transition-colors hover:text-slate-600"
+              className="transition-colors hover:text-slate-900"
             >
               Privacy
             </Link>
             <Link
               to="/terms"
-              className="transition-colors hover:text-slate-600"
+              className="transition-colors hover:text-slate-900"
             >
               Terms
             </Link>
             <a
               href="mailto:hello@notesboard.xyz"
-              className="transition-colors hover:text-slate-600"
+              className="transition-colors hover:text-slate-900"
             >
               Support
             </a>
