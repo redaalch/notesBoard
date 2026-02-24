@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -22,7 +29,9 @@ import { TiptapTransformer } from "@hocuspocus/transformer";
 import api from "../lib/axios";
 import ConfirmDialog from "../Components/ConfirmDialog";
 import TagInput from "../Components/TagInput";
-import CollaborativeEditor from "../Components/CollaborativeEditor";
+import CollaborativeEditor, {
+  type CollaborativeEditorUser,
+} from "../Components/CollaborativeEditor";
 import PresenceAvatars from "../Components/PresenceAvatars";
 import TypingIndicator from "../Components/TypingIndicator";
 import NoteCollaboratorsCard from "../Components/NoteCollaboratorsCard";
@@ -36,12 +45,12 @@ const HISTORY_REFRESH_MS = 15_000;
 const MAX_HISTORY_RESULTS = 100;
 const TAG_LIMIT = 8;
 
-const computeStats = (text) => ({
+const computeStats = (text: string) => ({
   wordCount: countWords(text ?? ""),
   characterCount: text?.length ?? 0,
 });
 
-const mapCollabStatus = (status, participantCount) => {
+const mapCollabStatus = (status: string, participantCount: number) => {
   switch (status) {
     case "connected":
       return {
@@ -67,7 +76,7 @@ const mapCollabStatus = (status, participantCount) => {
   }
 };
 
-const formatRoleLabel = (role) => {
+const formatRoleLabel = (role: string) => {
   switch (role) {
     case "owner":
       return "Owner";
@@ -87,27 +96,29 @@ function NoteDetailPage() {
   const { user } = useAuth();
 
   const [title, setTitle] = useState("");
-  const [tags, setTags] = useState([]);
+  const [tags, setTags] = useState<string[]>([]);
   const [pinned, setPinned] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pinning, setPinning] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-  const [lastSavedAt, setLastSavedAt] = useState(null);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [contentStats, setContentStats] = useState({
     wordCount: 0,
     characterCount: 0,
   });
   const [showHistory, setShowHistory] = useState(false);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState(null);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(
+    null,
+  );
 
-  const editorRef = useRef(null);
-  const originalSnapshotRef = useRef(null);
+  const editorRef = useRef<any>(null);
+  const originalSnapshotRef = useRef<any>(null);
   const skipInitialUpdateRef = useRef(true);
   const allowNavigationRef = useRef(false);
-  const titleSharedRef = useRef(null);
+  const titleSharedRef = useRef<any>(null);
 
   const noteQuery = useQuery({
     queryKey: ["note", id],
@@ -140,9 +151,9 @@ function NoteDetailPage() {
     typingUsers,
     color,
     signalTyping,
-  } = useCollaborativeNote(id, note);
+  } = useCollaborativeNote(id ?? null, note);
 
-  const applySharedTitle = useCallback((value) => {
+  const applySharedTitle = useCallback((value: string) => {
     const shared = titleSharedRef.current;
     const nextValue = typeof value === "string" ? value : "";
     if (!shared) {
@@ -277,7 +288,7 @@ function NoteDetailPage() {
     };
   }, [doc, note?.title]);
 
-  const handleEditorReady = useCallback((editor) => {
+  const handleEditorReady = useCallback((editor: any) => {
     editorRef.current = editor;
     const text = editor.getText({ blockSeparator: "\n" }) ?? "";
     setContentStats(computeStats(text));
@@ -289,7 +300,7 @@ function NoteDetailPage() {
   }, []);
 
   const handleTitleChange = useCallback(
-    (event) => {
+    (event: ChangeEvent<HTMLInputElement>) => {
       if (!canEditNote) return;
       const value = event.target.value;
       setTitle(value);
@@ -300,7 +311,7 @@ function NoteDetailPage() {
   );
 
   const handleTagsChange = useCallback(
-    (nextTags) => {
+    (nextTags: string[]) => {
       if (!canEditNote) return;
       setTags(Array.isArray(nextTags) ? nextTags.slice(0, TAG_LIMIT) : []);
       setHasChanges(true);
@@ -357,7 +368,7 @@ function NoteDetailPage() {
       setLastSavedAt(new Date(normalized.updatedAt ?? Date.now()));
       setHasChanges(false);
       toast.success("Note updated successfully");
-    } catch (error) {
+    } catch (error: any) {
       const message =
         error.response?.data?.message ?? "Failed to update note. Please retry.";
       toast.error(message);
@@ -427,7 +438,7 @@ function NoteDetailPage() {
       toast.success(
         normalized.pinned ? "Note pinned to top" : "Note removed from pinned",
       );
-    } catch (error) {
+    } catch (error: any) {
       const message =
         error.response?.data?.message ?? "Failed to update pin status";
       toast.error(message);
@@ -470,7 +481,7 @@ function NoteDetailPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
-    const handleKeyDown = (event) => {
+    const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
         if (!canEditNote) {
@@ -518,7 +529,7 @@ function NoteDetailPage() {
 
   // Navigation guard - prevent leaving with unsaved changes
   useEffect(() => {
-    const handleBeforeUnload = (e) => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       // Allow navigation if we're intentionally saving and leaving
       if (hasChanges && !allowNavigationRef.current) {
         e.preventDefault();
@@ -535,9 +546,9 @@ function NoteDetailPage() {
   useEffect(() => {
     if (!hasChanges) return undefined;
 
-    const handleClick = (e) => {
+    const handleClick = (e: MouseEvent) => {
       // Check if clicking a link that would navigate away
-      const link = e.target.closest("a");
+      const link = (e.target as HTMLElement).closest("a");
       if (link && link.href && !link.href.includes(window.location.pathname)) {
         e.preventDefault();
         setPendingNavigation(link.href);
@@ -659,7 +670,7 @@ function NoteDetailPage() {
           <div className="card-body text-center">
             <h2 className="card-title justify-center">Note not found</h2>
             <p className="text-base-content/70">
-              The note you're looking for might have been deleted or never
+              The note you&apos;re looking for might have been deleted or never
               existed.
             </p>
             <div className="card-actions justify-center mt-4">
@@ -882,7 +893,7 @@ function NoteDetailPage() {
                     provider={provider}
                     doc={doc}
                     color={color}
-                    user={user}
+                    user={user as CollaborativeEditorUser}
                     onReady={handleEditorReady}
                     onTyping={signalTyping}
                     readOnly={!canEditNote}
@@ -954,7 +965,7 @@ function NoteDetailPage() {
                       </div>
                     ) : history.length ? (
                       <ul className="space-y-3">
-                        {history.map((entry) => {
+                        {history.map((entry: any) => {
                           const timestamp = entry.createdAt
                             ? new Date(entry.createdAt)
                             : null;
@@ -1066,7 +1077,7 @@ function NoteDetailPage() {
               ) : (
                 <>
                   <SaveIcon className="size-4" />
-                  Save & Leave
+                  Save &amp; Leave
                 </>
               )}
             </button>

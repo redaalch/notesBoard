@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import useAuth from "../hooks/useAuth";
 
+type VerifyStatus = "instructions" | "verifying" | "success" | "error";
+
 const VerifyEmailPage = () => {
   const { verifyEmail, user, initializing } = useAuth();
   const [searchParams] = useSearchParams();
@@ -20,13 +22,17 @@ const VerifyEmailPage = () => {
   const location = useLocation();
 
   const token = searchParams.get("token");
-  const emailFromQuery = searchParams.get("email") ?? location.state?.email;
+  const emailFromQuery =
+    searchParams.get("email") ??
+    (location.state as Record<string, string> | null)?.email;
   const pendingEmail = useMemo(() => {
     if (typeof emailFromQuery !== "string") return "";
     return emailFromQuery.trim().toLowerCase();
   }, [emailFromQuery]);
 
-  const nextParam = searchParams.get("next") ?? location.state?.next;
+  const nextParam =
+    searchParams.get("next") ??
+    (location.state as Record<string, string> | null)?.next;
   const nextPath = useMemo(() => {
     if (typeof nextParam === "string" && nextParam.startsWith("/")) {
       return nextParam;
@@ -34,7 +40,9 @@ const VerifyEmailPage = () => {
     return "/app";
   }, [nextParam]);
 
-  const [status, setStatus] = useState(token ? "verifying" : "instructions");
+  const [status, setStatus] = useState<VerifyStatus>(
+    token ? "verifying" : "instructions",
+  );
   const [errorMessage, setErrorMessage] = useState("");
   const [retrying, setRetrying] = useState(false);
 
@@ -54,7 +62,7 @@ const VerifyEmailPage = () => {
         setTimeout(() => {
           navigate(nextPath, { replace: true });
         }, 1200);
-      } catch (error) {
+      } catch (error: any) {
         if (cancelled) return;
         const message =
           error.response?.data?.message ??
@@ -89,7 +97,7 @@ const VerifyEmailPage = () => {
       setTimeout(() => {
         navigate(nextPath, { replace: true });
       }, 1200);
-    } catch (error) {
+    } catch (error: any) {
       const message =
         error.response?.data?.message ??
         "We couldn't verify your email. The link may have expired.";
@@ -115,7 +123,9 @@ const VerifyEmailPage = () => {
                   <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <MailCheckIcon className="size-7" />
                   </div>
-                  <h1 className="text-2xl font-semibold">Confirm your email</h1>
+                  <h1 className="text-2xl font-semibold">
+                    Confirm your email
+                  </h1>
                   <p className="text-base-content/70">
                     {instructionMessage} It may take a minute to arrive. Be sure
                     to check your spam or promotions folder if you don&apos;t

@@ -10,10 +10,10 @@ const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   timeStyle: "short",
 });
 
-const formatDateTime = (value) => {
+const formatDateTime = (value: string | number | Date | null | undefined) => {
   if (!value) return null;
   try {
-    return dateTimeFormatter.format(new Date(value));
+    return dateTimeFormatter.format(new Date(value as string | number | Date));
   } catch {
     return null;
   }
@@ -65,7 +65,7 @@ const PublishedNotebookPage = () => {
 
   if (isError) {
     const message =
-      error?.response?.data?.message ??
+      (error as any)?.response?.data?.message ??
       "Unable to load this published notebook.";
     return (
       <div className="min-h-screen bg-base-200">
@@ -132,7 +132,7 @@ const PublishedNotebookPage = () => {
           </div>
         ) : (
           <section className="grid gap-6 sm:grid-cols-2">
-            {notes.map((note) => (
+            {notes.map((note: any) => (
               <article
                 key={note.id}
                 className="rounded-xl border border-base-300 bg-base-100 p-6 shadow-sm"
@@ -145,7 +145,7 @@ const PublishedNotebookPage = () => {
                 </h2>
                 {note.tags?.length ? (
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {note.tags.map((tag) => (
+                    {note.tags.map((tag: string) => (
                       <span key={tag} className="badge badge-outline">
                         #{tag}
                       </span>

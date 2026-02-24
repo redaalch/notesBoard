@@ -22,7 +22,7 @@ interface Note {
   createdAt: string;
 }
 
-interface TagStats {
+export interface TagStats {
   tags?: { _id: string; count: number }[];
   uniqueTags?: number;
   topTag?: { _id: string; count: number };

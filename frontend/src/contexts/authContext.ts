@@ -4,6 +4,10 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
+  defaultWorkspace?: string;
+  emailVerified?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface AuthContextValue {
@@ -24,7 +28,7 @@ export interface AuthContextValue {
     email?: string;
     currentPassword?: string;
     verificationRedirectUrl?: string;
-  }) => Promise<Record<string, unknown>>;
+  }) => Promise<any>;
   changePassword: (data: {
     currentPassword: string;
     newPassword: string;

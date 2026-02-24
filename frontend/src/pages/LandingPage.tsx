@@ -105,13 +105,13 @@ const workflowSteps = [
 const testimonials = [
   {
     quote:
-      "“NotesBoard replaced three different tools for our team. We capture meeting notes, daily standups, and personal ideas in one calm space.”",
+      "\u201CNotesBoard replaced three different tools for our team. We capture meeting notes, daily standups, and personal ideas in one calm space.\u201D",
     author: "Isabela Quinn",
     role: "Product Lead @ Aurora Labs",
   },
   {
     quote:
-      "“The themes and filters are brilliant. I can switch from creative brainstorming to analytical planning without breaking focus.”",
+      "\u201CThe themes and filters are brilliant. I can switch from creative brainstorming to analytical planning without breaking focus.\u201D",
     author: "Darius Cole",
     role: "Freelance Creative Director",
   },
@@ -248,14 +248,14 @@ function LandingPage() {
                     Why teams switch to NotesBoard
                   </h2>
                   <div className="space-y-3 text-sm text-slate-600">
-                    <p>• Restore deleted notebooks, members, and links.</p>
-                    <p>• Spin up saved queries that travel across devices.</p>
+                    <p>&bull; Restore deleted notebooks, members, and links.</p>
+                    <p>&bull; Spin up saved queries that travel across devices.</p>
                     <p>
-                      • Publish curated snapshots whenever you&apos;re ready.
+                      &bull; Publish curated snapshots whenever you&apos;re ready.
                     </p>
                   </div>
                   <div className="rounded-2xl border border-primary/30 bg-primary/10 p-4 text-sm text-primary">
-                    “It feels like my brain finally has a place to breathe.”
+                    &ldquo;It feels like my brain finally has a place to breathe.&rdquo;
                   </div>
                 </div>
               </div>
@@ -363,7 +363,7 @@ function LandingPage() {
             <div className="mx-auto max-w-2xl text-center space-y-4 text-slate-700">
               <span className="badge badge-secondary badge-lg">Workflow</span>
               <h2 className="text-3xl font-bold">
-                Capture → Organize → Create
+                Capture &rarr; Organize &rarr; Create
               </h2>
               <p className="text-base text-slate-600">
                 A simple rhythm keeps your thoughts moving forward without
@@ -434,7 +434,7 @@ function LandingPage() {
               </h2>
               <p className="text-base text-slate-600">
                 Create a free account, explore the workspace, and invite your
-                team when you’re ready. You’ll keep unlimited notes, pin your
+                team when you&apos;re ready. You&apos;ll keep unlimited notes, pin your
                 favorites, and design your ideal theme.
               </p>
               <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
