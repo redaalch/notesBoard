@@ -8,7 +8,12 @@ import {
   useState,
   memo,
 } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   DndContext,
@@ -34,6 +39,10 @@ import {
   BriefcaseBusinessIcon,
   CalendarIcon,
   CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronsLeftIcon,
+  ChevronsRightIcon,
   FilterIcon,
   LightbulbIcon,
   ListTodoIcon,
@@ -98,6 +107,7 @@ const NotebookInsightsDrawer = lazy(
 );
 
 const FILTER_STORAGE_KEY = "notesboard-filters-v1";
+const NOTES_PER_PAGE = 6;
 const NOTEBOOK_ANALYTICS_ENABLED =
   (import.meta.env.VITE_ENABLE_NOTEBOOK_ANALYTICS ?? "false") === "true";
 
@@ -401,6 +411,7 @@ function HomePage() {
   const [publishNotebook, setPublishNotebook] = useState<any>(null);
   const [historyNotebook, setHistoryNotebook] = useState<any>(null);
   const [insightsNote, setInsightsNote] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [searchParams, setSearchParams] = useSearchParams();
   const filterPanelRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedFilters = useRef(false);
@@ -545,6 +556,8 @@ function HomePage() {
       const payload = Array.isArray(res.data) ? res.data : [];
       return payload;
     },
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
     retry: (failureCount, error: any) => {
       if (error?.response?.status === 429) {
         return false;
@@ -1544,6 +1557,29 @@ function HomePage() {
     customOrderIndex,
   ]);
 
+  // ── Pagination ───────────────────────────────────────────────────────
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredNotes.length / NOTES_PER_PAGE),
+  );
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedNotes = useMemo(() => {
+    const start = (safeCurrentPage - 1) * NOTES_PER_PAGE;
+    return filteredNotes.slice(start, start + NOTES_PER_PAGE);
+  }, [filteredNotes, safeCurrentPage]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    activeTab,
+    searchQuery,
+    minWords,
+    sortOrder,
+    selectedTags,
+    activeNotebookId,
+  ]);
+
   const noteIndexLookup = useMemo(() => {
     const map = new Map();
     filteredNotes.forEach((note, index) => {
@@ -1574,7 +1610,6 @@ function HomePage() {
 
   const showFilterEmptyState =
     !loading &&
-    !isFetchingNotes &&
     !isRateLimited &&
     !notesQuery.isError &&
     notes.length > 0 &&
@@ -1584,7 +1619,6 @@ function HomePage() {
     !customizeMode &&
     (notes.length <= 1 ||
       loading ||
-      isFetchingNotes ||
       isRateLimited ||
       notesQuery.isError ||
       hasGeneralFilters);
@@ -2537,7 +2571,39 @@ function HomePage() {
               </motion.div>
             )}
 
-            {!loading && !isFetchingNotes && filteredNotes.length > 0 && (
+            {/* ── Notes stats bar ──────────────────────────────────── */}
+            {!loading && filteredNotes.length > 0 && (
+              <div className="flex flex-wrap items-center gap-3 rounded-xl border border-base-300/30 bg-base-100/60 px-4 py-2.5 text-sm tabular-nums backdrop-blur">
+                <span className="font-semibold text-base-content">
+                  {filteredNotes.length}{" "}
+                  {filteredNotes.length === 1 ? "note" : "notes"}
+                </span>
+                <span className="text-base-content/20" aria-hidden="true">
+                  ·
+                </span>
+                <span className="text-base-content/60">
+                  {pinnedCount} pinned
+                </span>
+                <span className="text-base-content/20" aria-hidden="true">
+                  ·
+                </span>
+                <span className="text-base-content/60">
+                  {avgWords} avg words
+                </span>
+                {totalPages > 1 && (
+                  <>
+                    <span className="text-base-content/20" aria-hidden="true">
+                      ·
+                    </span>
+                    <span className="text-base-content/60">
+                      Page {safeCurrentPage} of {totalPages}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+
+            {!loading && filteredNotes.length > 0 && (
               <DndContext
                 sensors={sensors}
                 onDragStart={handleDragStart}
@@ -2569,6 +2635,7 @@ function HomePage() {
                   </SortableContext>
                 ) : (
                   <motion.div
+                    key={`page-${safeCurrentPage}`}
                     initial="hidden"
                     animate="visible"
                     variants={{
@@ -2579,7 +2646,7 @@ function HomePage() {
                     }}
                     className="grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-3"
                   >
-                    {filteredNotes.map((note) => {
+                    {paginatedNotes.map((note) => {
                       const id = getNoteId(note);
                       if (!id) return null;
                       const isSelected = selectedNoteIdSet.has(id);
@@ -2637,6 +2704,66 @@ function HomePage() {
               </DndContext>
             )}
 
+            {/* ── Pagination controls ─────────────────────────────── */}
+            {!loading && totalPages > 1 && !customizeMode && (
+              <div className="flex items-center justify-center gap-1.5 pt-2 pb-4">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={safeCurrentPage === 1}
+                  className="btn btn-sm btn-ghost btn-circle"
+                  title="First page"
+                >
+                  <ChevronsLeftIcon className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={safeCurrentPage === 1}
+                  className="btn btn-sm btn-ghost btn-circle"
+                  title="Previous page"
+                >
+                  <ChevronLeftIcon className="size-4" />
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                  (page) => (
+                    <button
+                      key={page}
+                      type="button"
+                      onClick={() => setCurrentPage(page)}
+                      className={`btn btn-sm btn-circle ${
+                        page === safeCurrentPage ? "btn-primary" : "btn-ghost"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ),
+                )}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
+                  disabled={safeCurrentPage === totalPages}
+                  className="btn btn-sm btn-ghost btn-circle"
+                  title="Next page"
+                >
+                  <ChevronRightIcon className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={safeCurrentPage === totalPages}
+                  className="btn btn-sm btn-ghost btn-circle"
+                  title="Last page"
+                >
+                  <ChevronsRightIcon className="size-4" />
+                </button>
+              </div>
+            )}
+
             <AnimatePresence>
               {showFilterEmptyState && (
                 <motion.div
@@ -2670,10 +2797,10 @@ function HomePage() {
             </AnimatePresence>
 
             {!loading &&
-              !isFetchingNotes &&
               !isRateLimited &&
               !notesQuery.isError &&
-              notes.length === 0 && (
+              notes.length === 0 &&
+              !notesQuery.isPlaceholderData && (
                 <NotesNotFound createLinkState={createPageState} />
               )}
           </div>
