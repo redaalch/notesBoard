@@ -12,7 +12,6 @@ import { toast } from "sonner";
 import {
   ArrowLeftIcon,
   CheckIcon,
-  ClockIcon,
   HistoryIcon,
   LoaderIcon,
   PinIcon,
@@ -686,118 +685,97 @@ function NoteDetailPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-base-200 via-base-100 to-base-300">
-        <header className="sticky top-0 z-30 mx-auto max-w-4xl rounded-b-2xl shadow-lg border border-base-300/30 bg-base-100/90 backdrop-blur-lg mt-2">
-          <div className="flex w-full flex-col gap-3 px-3 py-3 sm:px-6 sm:py-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-1 min-w-0 items-start gap-2 sm:gap-4">
-              <Link
-                to="/app"
-                className="btn btn-ghost btn-sm btn-circle sm:btn-md shadow-md hover:bg-primary/10"
-                aria-label="Back to notes"
-              >
-                <ArrowLeftIcon className="size-4 sm:size-5" />
-              </Link>
-              <div className="flex-1 min-w-0 space-y-1.5 sm:space-y-2">
-                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                  <span className="text-base sm:text-lg font-bold text-base-content truncate">
-                    {sanitizedTitle}
-                  </span>
-                  {pinned && (
-                    <span className="badge badge-warning badge-sm sm:badge-lg flex items-center gap-1 sm:gap-2">
-                      <PinIcon className="size-3 sm:size-4" />
-                      <span className="hidden sm:inline">Pinned</span>
-                    </span>
-                  )}
-                </div>
-                <div
-                  className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs text-base-content/60"
-                  title={lastSavedTooltip ?? undefined}
-                >
-                  <ClockIcon className="size-3.5 sm:size-4" />
-                  <span className="truncate text-[10px] sm:text-xs">
-                    {lastSavedDisplay}
-                  </span>
-                  <span
-                    className={`badge badge-xs sm:badge-sm items-center gap-1 ${statusBadge.className} whitespace-nowrap`}
-                  >
-                    <StatusBadgeIcon className={statusBadge.iconClassName} />
-                    <span className="hidden sm:inline">
-                      {statusBadge.label}
-                    </span>
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-col items-start lg:items-end gap-2">
-              <div className="flex items-center gap-2">
-                <PresenceAvatars participants={participants} />
+      <div className="min-h-screen bg-base-200">
+        <header className="sticky top-0 z-30 bg-base-100/90 backdrop-blur-lg border-b border-base-300/40">
+          <div className="mx-auto flex max-w-4xl items-center gap-2 px-4 py-2 sm:px-6 sm:gap-3">
+            <Link
+              to="/app"
+              className="btn btn-ghost btn-sm btn-circle shrink-0"
+              aria-label="Back to notes"
+            >
+              <ArrowLeftIcon className="size-4" />
+            </Link>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm sm:text-base font-semibold text-base-content truncate">
+                  {sanitizedTitle}
+                </span>
+                {pinned && <PinIcon className="size-3 text-warning shrink-0" />}
                 <span
-                  className={`badge badge-xs sm:badge-sm gap-1 ${collabBadge.className} whitespace-nowrap`}
+                  className={`badge badge-xs gap-1 ${statusBadge.className} whitespace-nowrap shrink-0`}
                 >
-                  <CollabBadgeIcon className="size-3" />
-                  <span className="text-[10px] sm:text-xs">
-                    {collabBadge.label}
-                  </span>
+                  <StatusBadgeIcon className={statusBadge.iconClassName} />
+                  <span className="text-[10px]">{statusBadge.label}</span>
                 </span>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:flex lg:flex-wrap items-center gap-2 sm:gap-2 w-full lg:w-auto">
-                <button
-                  type="button"
-                  className={`btn btn-outline btn-xs sm:btn-sm lg:btn-md h-12 sm:h-auto w-full lg:w-auto gap-1 sm:gap-2 ${
-                    pinned ? "border-warning text-warning" : ""
-                  }`}
-                  onClick={handleTogglePinned}
-                  disabled={pinning || isReadOnly}
-                  title={pinned ? "Unpin note" : "Pin note"}
-                >
-                  {pinning ? (
-                    <LoaderIcon className="size-3 sm:size-4 animate-spin" />
-                  ) : pinned ? (
-                    <PinOffIcon className="size-3 sm:size-4" />
-                  ) : (
-                    <PinIcon className="size-3 sm:size-4" />
-                  )}
-                  <span className="hidden sm:inline">
-                    {pinned ? "Unpin" : "Pin"}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline btn-xs sm:btn-sm lg:btn-md h-12 sm:h-auto w-full lg:w-auto gap-1 sm:gap-2"
-                  onClick={handleRevert}
-                  disabled={disableRevert}
-                  title="Revert changes"
-                >
-                  <RefreshCwIcon className="size-3 sm:size-4" />
-                  <span className="hidden sm:inline">Revert</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline btn-error btn-xs sm:btn-sm lg:btn-md h-12 sm:h-auto w-full lg:w-auto gap-1 sm:gap-2"
-                  onClick={openConfirm}
-                  title="Delete note"
-                  disabled={isReadOnly}
-                >
-                  <Trash2Icon className="size-3 sm:size-4" strokeWidth={2.2} />
-                  <span className="hidden sm:inline">Delete</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-xs sm:btn-sm lg:btn-md h-12 sm:h-auto w-full lg:w-auto font-semibold gap-1 sm:gap-2 shadow-lg"
-                  onClick={handleSave}
-                  disabled={disableSave}
-                  title="Save changes"
-                >
-                  {saving ? (
-                    <LoaderIcon className="size-3 sm:size-4 animate-spin" />
-                  ) : (
-                    <SaveIcon className="size-3 sm:size-4" />
-                  )}
-                  <span className="hidden sm:inline">
-                    {saving ? "Saving" : "Save changes"}
-                  </span>
-                </button>
+              <div
+                className="flex items-center gap-1.5 sm:gap-2 text-[11px] text-base-content/50 mt-0.5"
+                title={lastSavedTooltip ?? undefined}
+              >
+                <span className="truncate">{lastSavedDisplay}</span>
+                <span className="hidden sm:inline">·</span>
+                <span className="hidden sm:inline">{wordCount} words</span>
+                <span className="hidden sm:flex items-center gap-1">
+                  · <CollabBadgeIcon className="size-3" />
+                  {collabBadge.label}
+                </span>
               </div>
+            </div>
+
+            <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+              <PresenceAvatars participants={participants} />
+              <button
+                type="button"
+                className={`btn btn-ghost btn-xs sm:btn-sm btn-circle ${
+                  pinned ? "text-warning" : ""
+                }`}
+                onClick={handleTogglePinned}
+                disabled={pinning || isReadOnly}
+                title={pinned ? "Unpin note" : "Pin note"}
+              >
+                {pinning ? (
+                  <LoaderIcon className="size-3.5 animate-spin" />
+                ) : pinned ? (
+                  <PinOffIcon className="size-3.5" />
+                ) : (
+                  <PinIcon className="size-3.5" />
+                )}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs sm:btn-sm btn-circle"
+                onClick={handleRevert}
+                disabled={disableRevert}
+                title="Revert changes"
+              >
+                <RefreshCwIcon className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs sm:btn-sm btn-circle text-error"
+                onClick={openConfirm}
+                title="Delete note"
+                disabled={isReadOnly}
+              >
+                <Trash2Icon className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-xs sm:btn-sm gap-1 font-medium"
+                onClick={handleSave}
+                disabled={disableSave}
+                title={`Save (${shortcutLabel})`}
+              >
+                {saving ? (
+                  <LoaderIcon className="size-3.5 animate-spin" />
+                ) : (
+                  <SaveIcon className="size-3.5" />
+                )}
+                <span className="hidden sm:inline">
+                  {saving ? "Saving…" : "Save"}
+                </span>
+              </button>
             </div>
           </div>
         </header>
@@ -805,7 +783,7 @@ function NoteDetailPage() {
         <main
           id="main-content"
           tabIndex={-1}
-          className="mx-auto w-full max-w-4xl space-y-8 px-4 py-10"
+          className="mx-auto w-full max-w-4xl space-y-5 px-4 py-6"
         >
           {isReadOnly ? (
             <div className="alert alert-info border border-info/40 bg-info/5 text-info-content">
@@ -820,49 +798,8 @@ function NoteDetailPage() {
             </div>
           ) : null}
 
-          <section className="grid gap-6 md:grid-cols-3">
-            <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-base-100 via-base-200 to-primary/10 p-5 shadow-lg space-y-3">
-              <p className="text-xs font-bold uppercase text-primary tracking-wide">
-                Status
-              </p>
-              <p
-                className="flex items-center gap-2 text-sm font-semibold text-base-content"
-                title={lastSavedTooltip ?? undefined}
-              >
-                <ClockIcon className="size-4 text-primary" />
-                {lastSavedDisplay}
-              </p>
-              <p className="text-xs text-base-content/60">
-                Shortcut:
-                <span className="ml-2 rounded px-2 py-1 font-mono bg-base-300/40">
-                  {shortcutLabel}
-                </span>
-              </p>
-            </div>
-            <div className="rounded-2xl border border-secondary/30 bg-gradient-to-br from-base-100 via-base-200 to-secondary/10 p-5 shadow-lg space-y-3">
-              <p className="text-xs font-bold uppercase text-secondary tracking-wide">
-                Writing stats
-              </p>
-              <p className="text-3xl font-bold text-secondary">{wordCount}</p>
-              <p className="text-xs text-base-content/60">
-                {characterCount} characters
-              </p>
-            </div>
-            <div className="rounded-2xl border border-accent/30 bg-gradient-to-br from-base-100 via-base-200 to-accent/10 p-5 shadow-lg space-y-3">
-              <p className="text-xs font-bold uppercase text-accent tracking-wide">
-                Timeline
-              </p>
-              <p className="text-sm font-semibold text-accent">
-                {updatedAt ? `Updated ${formatRelativeTime(updatedAt)}` : "–"}
-              </p>
-              <p className="text-xs text-base-content/60">
-                Created {createdAt ? formatDate(createdAt) : "–"}
-              </p>
-            </div>
-          </section>
-
-          <section className="space-y-6">
-            <div className="card border border-base-300/60 bg-base-100/90 shadow-lg rounded-2xl">
+          <section className="space-y-5">
+            <div className="card border border-base-300/60 border-l-4 border-l-primary/30 bg-base-100/90 shadow-sm rounded-2xl">
               <div className="card-body space-y-4">
                 <label className="form-control gap-2">
                   <span className="label-text text-sm font-semibold text-primary">
@@ -880,8 +817,8 @@ function NoteDetailPage() {
                 </label>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-secondary">
-                      Collaborative content
+                    <span className="text-sm font-semibold text-primary">
+                      Content
                     </span>
                     <span className="badge badge-outline gap-1 text-xs">
                       <UsersIcon className="size-3" />
@@ -916,16 +853,16 @@ function NoteDetailPage() {
               />
             ) : null}
 
-            <div className="card border border-base-300/60 bg-base-100/90 shadow-lg rounded-2xl">
+            <div className="card border border-base-300/60 bg-base-100/90 shadow-sm rounded-2xl">
               <div className="card-body space-y-5">
                 <div className="flex items-center justify-between gap-2">
                   <div>
-                    <h3 className="text-base font-bold text-accent">Tags</h3>
+                    <h3 className="text-base font-bold text-primary">Tags</h3>
                     <p className="text-xs text-base-content/60">
                       Press Enter or comma to add up to {TAG_LIMIT} tags
                     </p>
                   </div>
-                  <span className="badge badge-accent badge-outline text-xs px-3 py-1">
+                  <span className="badge badge-primary badge-outline text-xs px-3 py-1">
                     {tagCount}/{TAG_LIMIT}
                   </span>
                 </div>
@@ -937,7 +874,7 @@ function NoteDetailPage() {
               </div>
             </div>
 
-            <div className="card border border-base-300/60 bg-base-100/90 shadow-lg rounded-2xl">
+            <div className="card border border-base-300/60 bg-base-100/90 shadow-sm rounded-2xl">
               <div className="card-body space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -1001,20 +938,6 @@ function NoteDetailPage() {
                   </div>
                 )}
               </div>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-primary/30 bg-base-100/80 px-6 py-4 text-xs text-base-content/70 shadow">
-              <span>
-                <span className="font-semibold text-primary">Tip:</span> Use{" "}
-                <span className="bg-base-300/40 rounded px-2 py-1 font-mono">
-                  {shortcutLabel}
-                </span>{" "}
-                to save without leaving the editor.
-              </span>
-              <span className="flex items-center gap-2">
-                <CheckIcon className="size-4 text-primary" />
-                Changes sync after each save
-              </span>
             </div>
           </section>
         </main>
