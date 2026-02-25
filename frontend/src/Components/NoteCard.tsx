@@ -286,7 +286,7 @@ function NoteCard({
           }}
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          className={`card bg-base-100/90 backdrop-blur border border-base-200/70 shadow-sm h-full relative z-10 transition-shadow duration-200 ${
+          className={`card bg-base-100/90 backdrop-blur border border-base-200/70 shadow-sm h-full min-h-[260px] relative z-10 transition-shadow duration-200 ${
             selected
               ? "border-primary/60 ring-1 ring-primary/40"
               : "hover:border-primary/30 hover:shadow-md"
