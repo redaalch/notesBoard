@@ -45,7 +45,7 @@ export const validationRules = {
   email: () =>
     body("email")
       .isEmail()
-      .normalizeEmail()
+      .normalizeEmail({ gmail_remove_dots: false })
       .withMessage("Must be a valid email address"),
 
   // Password validation
@@ -148,7 +148,7 @@ export const validationRules = {
       .toLowerCase()
       .isIn(ANALYTICS_RANGE_VALUES)
       .withMessage(
-        `range must be one of: ${ANALYTICS_RANGE_VALUES.join(", ")}`
+        `range must be one of: ${ANALYTICS_RANGE_VALUES.join(", ")}`,
       ),
 
   notebookPublicSlug: (field = "slug") =>
