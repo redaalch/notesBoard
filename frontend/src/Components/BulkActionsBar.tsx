@@ -19,7 +19,12 @@ interface ActionButtonProps {
   disabled?: boolean;
 }
 
-const ActionButton = ({ icon, label, onClick, disabled }: ActionButtonProps) => {
+const ActionButton = ({
+  icon,
+  label,
+  onClick,
+  disabled,
+}: ActionButtonProps) => {
   const IconComponent = icon;
   return (
     <button
@@ -81,8 +86,8 @@ function BulkActionsBar({
   };
 
   return (
-    <div className="sticky top-20 z-30 mb-4 rounded-2xl border border-primary/20 bg-base-100/90 px-4 py-3 shadow-lg shadow-primary/20 backdrop-blur">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-primary/20 bg-base-100/95 px-4 py-3 shadow-[0_-4px_24px_rgba(0,0,0,0.1)] backdrop-blur-md">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-primary">
           <ListChecksIcon className="size-4" />
           <span>{summary}</span>
