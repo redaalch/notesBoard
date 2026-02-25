@@ -129,8 +129,7 @@ function NotebookInsightsDrawer({
     },
     onError: (error: unknown) => {
       const message =
-        (error as any)?.response?.data?.message ??
-        "Unable to build smart view";
+        (error as any)?.response?.data?.message ?? "Unable to build smart view";
       toast.error(message);
     },
   });
@@ -236,8 +235,8 @@ function NotebookInsightsDrawer({
 
         <section className="mt-6 space-y-6">
           <div className="rounded-2xl border border-base-300/60 bg-base-200/40 p-5">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-base-content">
                   Recommended notebooks
                 </h3>
@@ -246,7 +245,7 @@ function NotebookInsightsDrawer({
                   saved views.
                 </p>
               </div>
-              <span className="badge badge-outline badge-sm">
+              <span className="badge badge-outline badge-sm shrink-0 whitespace-nowrap">
                 {loadingRecommendations
                   ? "Loading"
                   : `${recommendations.length} suggestions`}
