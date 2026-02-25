@@ -207,6 +207,7 @@ function SidebarContent({
               className={cn(
                 "text-xs font-semibold tabular-nums",
                 isActive ? "text-primary/80" : "text-base-content/40",
+                notebook ? "group-hover:opacity-0 transition-opacity" : "",
               )}
             >
               {count}
@@ -215,7 +216,7 @@ function SidebarContent({
 
           {/* Context menu for custom notebooks */}
           {notebook && (
-            <div className="dropdown dropdown-end dropdown-bottom absolute right-1 top-1/2 -translate-y-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="dropdown dropdown-end dropdown-bottom absolute right-2 top-1/2 -translate-y-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 type="button"
                 tabIndex={0}
