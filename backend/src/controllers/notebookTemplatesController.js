@@ -210,6 +210,7 @@ export const listNotebookTemplates = async (req, res) => {
 
     const templates = await NotebookTemplate.find({ owner: ownerId })
       .sort({ updatedAt: -1 })
+      .select({ name: 1, description: 1, tags: 1, color: 1, icon: 1, noteCount: 1, estimatedSize: 1, createdAt: 1, updatedAt: 1 })
       .lean();
 
     const payload = templates.map((template) => ({
@@ -480,13 +481,8 @@ export const instantiateNotebookTemplate = async (req, res) => {
 
     const insertedNotes = [];
     if (notePayload.length) {
-      for (const payload of notePayload) {
-        // Sequential creation keeps middleware & validations intact
-        // while preserving note order from template definition.
-        // eslint-disable-next-line no-await-in-loop
-        const created = await Note.create(payload);
-        insertedNotes.push(created);
-      }
+      const created = await Note.insertMany(notePayload, { ordered: true });
+      insertedNotes.push(...created);
 
       const orderedIds = insertedNotes.map((note) => note._id);
       await Notebook.updateOne(
