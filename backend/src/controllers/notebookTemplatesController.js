@@ -18,10 +18,10 @@ import {
 
 const INTERNAL_SERVER_ERROR = { message: "Internal server error" };
 const MAX_TEMPLATE_NOTES = Number(
-  process.env.NOTEBOOK_TEMPLATE_NOTE_LIMIT ?? 200
+  process.env.NOTEBOOK_TEMPLATE_NOTE_LIMIT ?? 200,
 );
 const MAX_TEMPLATE_BYTES = Number(
-  process.env.NOTEBOOK_TEMPLATE_SIZE_LIMIT ?? 750000
+  process.env.NOTEBOOK_TEMPLATE_SIZE_LIMIT ?? 750000,
 );
 const TEMPLATE_TAG_LIMIT = 8;
 
@@ -157,7 +157,7 @@ export const exportNotebookTemplate = async (req, res) => {
     const templateDescription =
       typeof desiredDescription === "string"
         ? desiredDescription.trim()
-        : notebook.description ?? "";
+        : (notebook.description ?? "");
 
     const sanitizedTags = sanitizeTemplateTags(tags ?? []);
 
@@ -210,7 +210,17 @@ export const listNotebookTemplates = async (req, res) => {
 
     const templates = await NotebookTemplate.find({ owner: ownerId })
       .sort({ updatedAt: -1 })
-      .select({ name: 1, description: 1, tags: 1, color: 1, icon: 1, noteCount: 1, estimatedSize: 1, createdAt: 1, updatedAt: 1 })
+      .select({
+        name: 1,
+        description: 1,
+        tags: 1,
+        color: 1,
+        icon: 1,
+        noteCount: 1,
+        estimatedSize: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      })
       .lean();
 
     const payload = templates.map((template) => ({
@@ -274,7 +284,7 @@ export const getNotebookTemplate = async (req, res) => {
       if (workspaceId) {
         workspaceCounts.set(
           workspaceId,
-          (workspaceCounts.get(workspaceId) ?? 0) + 1
+          (workspaceCounts.get(workspaceId) ?? 0) + 1,
         );
         if (mongoose.Types.ObjectId.isValid(workspaceId)) {
           workspaceIds.add(workspaceId);
@@ -286,7 +296,7 @@ export const getNotebookTemplate = async (req, res) => {
       ? await Board.find({
           _id: {
             $in: Array.from(boardIds).map(
-              (id) => new mongoose.Types.ObjectId(id)
+              (id) => new mongoose.Types.ObjectId(id),
             ),
           },
         })
@@ -298,7 +308,7 @@ export const getNotebookTemplate = async (req, res) => {
       ? await Workspace.find({
           _id: {
             $in: Array.from(workspaceIds).map(
-              (id) => new mongoose.Types.ObjectId(id)
+              (id) => new mongoose.Types.ObjectId(id),
             ),
           },
         })
@@ -307,10 +317,10 @@ export const getNotebookTemplate = async (req, res) => {
       : [];
 
     const workspaceMetaById = new Map(
-      workspaceDocs.map((entry) => [entry._id.toString(), entry])
+      workspaceDocs.map((entry) => [entry._id.toString(), entry]),
     );
     const boardMetaById = new Map(
-      boardDocs.map((entry) => [entry._id.toString(), entry])
+      boardDocs.map((entry) => [entry._id.toString(), entry]),
     );
 
     const workspaceSummaries = Array.from(workspaceCounts.entries()).map(
@@ -321,7 +331,7 @@ export const getNotebookTemplate = async (req, res) => {
           name: workspaceMeta?.name ?? null,
           noteCount: count,
         };
-      }
+      },
     );
 
     const boardSummaries = Array.from(boardCounts.entries()).map(
@@ -331,7 +341,7 @@ export const getNotebookTemplate = async (req, res) => {
           ? boardMeta.workspaceId.toString()
           : null;
         const workspaceMeta = metaWorkspaceId
-          ? workspaceMetaById.get(metaWorkspaceId) ?? null
+          ? (workspaceMetaById.get(metaWorkspaceId) ?? null)
           : null;
 
         return {
@@ -341,7 +351,7 @@ export const getNotebookTemplate = async (req, res) => {
           workspaceName: workspaceMeta?.name ?? null,
           noteCount: count,
         };
-      }
+      },
     );
 
     return res.status(200).json({
@@ -441,13 +451,13 @@ export const instantiateNotebookTemplate = async (req, res) => {
       ownerId,
       typeof desiredName === "string" && desiredName.trim().length
         ? desiredName.trim()
-        : template.name
+        : template.name,
     );
 
     const notebookDescription =
       typeof desiredDescription === "string"
         ? desiredDescription.trim()
-        : template.description ?? "";
+        : (template.description ?? "");
 
     const notebook = await Notebook.create({
       owner: ownerId,
@@ -464,7 +474,7 @@ export const instantiateNotebookTemplate = async (req, res) => {
         ? normalizedWorkspaceId
         : normalizeObjectId(sanitizedWorkspaceMappings[originalWorkspaceId]);
       const targetBoard = normalizeObjectId(
-        sanitizedBoardMappings[note.boardId ?? ""]
+        sanitizedBoardMappings[note.boardId ?? ""],
       );
       return {
         owner: ownerId,
@@ -487,13 +497,13 @@ export const instantiateNotebookTemplate = async (req, res) => {
       const orderedIds = insertedNotes.map((note) => note._id);
       await Notebook.updateOne(
         { _id: notebook._id },
-        { $set: { noteOrder: orderedIds } }
+        { $set: { noteOrder: orderedIds } },
       );
     }
 
     await NotebookTemplate.updateOne(
       { _id: templateObjectId },
-      { $set: { lastUsedAt: new Date() } }
+      { $set: { lastUsedAt: new Date() } },
     );
 
     return res.status(201).json({
