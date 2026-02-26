@@ -6,23 +6,23 @@ This package powers the NotesBoard API — notes, notebooks, boards, workspaces,
 
 Copy `.env.example` to `.env` and configure the following variables before running any scripts:
 
-| Variable | Purpose |
-| --- | --- |
-| `MONGO_URI` | Connection string for the primary MongoDB deployment. |
-| `MONGO_DB` | Optional database name override when the URI does not embed one. |
-| `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` | Secrets for signing JWT tokens. |
-| `JWT_ACCESS_TTL`, `JWT_REFRESH_TTL_MS` | Access and refresh token lifetimes. |
-| `PASSWORD_RESET_URL` | Base URL used in password reset emails. |
-| `NODE_ENV` | Set to `production` in production environments. |
+| Variable                                             | Purpose                                                                                                    |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `MONGO_URI`                                          | Connection string for the primary MongoDB deployment.                                                      |
+| `MONGO_DB`                                           | Optional database name override when the URI does not embed one.                                           |
+| `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`            | Secrets for signing JWT tokens.                                                                            |
+| `JWT_ACCESS_TTL`, `JWT_REFRESH_TTL_MS`               | Access and refresh token lifetimes.                                                                        |
+| `PASSWORD_RESET_URL`                                 | Base URL used in password reset emails.                                                                    |
+| `NODE_ENV`                                           | Set to `production` in production environments.                                                            |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis credentials for distributed rate limiting. Falls back to a pass-through limiter when absent. |
-| `NOTEBOOK_ANALYTICS_SNAPSHOT_DAYS` | (Optional) Overrides how many days the snapshot cron ingests per run. |
-| `NOTEBOOK_ANALYTICS_SEED_OWNER_EMAIL` | (Optional) Default owner email for analytics fixture seeding. |
-| `NOTEBOOK_ANALYTICS_SEED_OWNER_NAME` | (Optional) Display name for the seed owner account. |
-| `NOTEBOOK_ANALYTICS_SEED_OWNER_PASSWORD` | (Optional) Password used when the seed owner account is auto-created. |
-| `NOTEBOOK_ANALYTICS_SEED_NOTEBOOK_NAME` | (Optional) Custom label for the synthetic analytics notebook. |
-| `NOTEBOOK_ANALYTICS_SEED_DAYS` | (Optional) Days of history that the seeding script will generate. |
-| `NOTEBOOK_ANALYTICS_SEED_NOTES_PER_DAY` | (Optional) Notes created per day during seeding. |
-| `DISABLE_ANALYTICS_CRON` | (Optional) Set to `true` to disable the scheduled snapshot cron job. |
+| `NOTEBOOK_ANALYTICS_SNAPSHOT_DAYS`                   | (Optional) Overrides how many days the snapshot cron ingests per run.                                      |
+| `NOTEBOOK_ANALYTICS_SEED_OWNER_EMAIL`                | (Optional) Default owner email for analytics fixture seeding.                                              |
+| `NOTEBOOK_ANALYTICS_SEED_OWNER_NAME`                 | (Optional) Display name for the seed owner account.                                                        |
+| `NOTEBOOK_ANALYTICS_SEED_OWNER_PASSWORD`             | (Optional) Password used when the seed owner account is auto-created.                                      |
+| `NOTEBOOK_ANALYTICS_SEED_NOTEBOOK_NAME`              | (Optional) Custom label for the synthetic analytics notebook.                                              |
+| `NOTEBOOK_ANALYTICS_SEED_DAYS`                       | (Optional) Days of history that the seeding script will generate.                                          |
+| `NOTEBOOK_ANALYTICS_SEED_NOTES_PER_DAY`              | (Optional) Notes created per day during seeding.                                                           |
+| `DISABLE_ANALYTICS_CRON`                             | (Optional) Set to `true` to disable the scheduled snapshot cron job.                                       |
 
 ## Scripts
 
@@ -62,29 +62,30 @@ src/
 
 ### Key Models
 
-| Model | Purpose |
-| --- | --- |
-| `User` | Authentication, refresh tokens, email verification, custom note ordering |
-| `Workspace` | Multi-tenant workspace with embedded members |
-| `Board` | Grouping entity within a workspace |
-| `Notebook` | Note container with ordering, publishing, offline sync |
-| `Note` | Individual note (title, content, rich content, tags, pinning) |
-| `NoteCollaborator` | Per-note sharing/permissions |
-| `NoteHistory` | Audit log for note-level events |
-| `NotebookMember` | Notebook-level membership and roles |
-| `NotebookEvent` | Notebook-level event log |
-| `NotebookAnalyticsSnapshot` | Pre-computed daily analytics snapshots |
-| `NotebookIndex` | TF-IDF vector index for notebook recommendations |
-| `NotebookTemplate` | Reusable notebook templates with embedded notes |
-| `NotebookPublication` | Published HTML snapshots of notebooks |
-| `NotebookSyncState` | Offline sync state per user/client |
-| `SavedNotebookQuery` | User-saved analytics query configurations |
-| `ShareLink` | Tokenized share links for boards and notebooks |
-| `CollabDocument` | Y.js collaboration document state |
+| Model                       | Purpose                                                                  |
+| --------------------------- | ------------------------------------------------------------------------ |
+| `User`                      | Authentication, refresh tokens, email verification, custom note ordering |
+| `Workspace`                 | Multi-tenant workspace with embedded members                             |
+| `Board`                     | Grouping entity within a workspace                                       |
+| `Notebook`                  | Note container with ordering, publishing, offline sync                   |
+| `Note`                      | Individual note (title, content, rich content, tags, pinning)            |
+| `NoteCollaborator`          | Per-note sharing/permissions                                             |
+| `NoteHistory`               | Audit log for note-level events                                          |
+| `NotebookMember`            | Notebook-level membership and roles                                      |
+| `NotebookEvent`             | Notebook-level event log                                                 |
+| `NotebookAnalyticsSnapshot` | Pre-computed daily analytics snapshots                                   |
+| `NotebookIndex`             | TF-IDF vector index for notebook recommendations                         |
+| `NotebookTemplate`          | Reusable notebook templates with embedded notes                          |
+| `NotebookPublication`       | Published HTML snapshots of notebooks                                    |
+| `NotebookSyncState`         | Offline sync state per user/client                                       |
+| `SavedNotebookQuery`        | User-saved analytics query configurations                                |
+| `ShareLink`                 | Tokenized share links for boards and notebooks                           |
+| `CollabDocument`            | Y.js collaboration document state                                        |
 
 ## API Routes
 
 ### Authentication (`/api/auth`)
+
 - `POST /register` – create account
 - `POST /login` – authenticate and receive tokens
 - `POST /refresh` – rotate access token
@@ -98,6 +99,7 @@ src/
 - `PUT /me/password` – change password
 
 ### Notes (`/api/notes`)
+
 - `GET /` – list notes (supports `boardId`, `notebookId` query filters)
 - `POST /` – create note
 - `GET /:id` – get note by ID
@@ -109,6 +111,7 @@ src/
 - `PUT /layout` – update custom note ordering
 
 ### Notebooks (`/api/notebooks`)
+
 - `GET /` – list notebooks
 - `POST /` – create notebook
 - `GET /:id` – get notebook
@@ -117,6 +120,7 @@ src/
 - Full sub-routes for: members, analytics, sync, publishing, share links, saved queries, events, undo
 
 ### Notebook Analytics (`/api/notebooks/:id/analytics`)
+
 - `GET /` – aggregate overview metrics
 - `GET /activity` – daily creation trend data
 - `GET /tags` – tag leaderboard for the selected range
@@ -126,18 +130,21 @@ src/
 Supply the `range` query parameter using shared values from `shared/analyticsTypes.js` (`7d`, `30d`, `90d`, `365d`).
 
 ### Boards (`/api/boards`)
+
 - `GET /` – list boards across user workspaces
 - `POST /` – create board
 - `PUT /:id` – update board
 - `DELETE /:id` – delete board
 
 ### Workspaces (`/api/workspaces`)
+
 - `GET /` – list user workspaces
 - `POST /` – create workspace
 - `GET /:id/members` – list workspace members
 - `POST /:id/members` – invite member
 
 ### Notebook Templates (`/api/notebook-templates`)
+
 - `GET /` – list templates
 - `POST /` – create template from notebook
 - `GET /:id` – get template details
@@ -146,6 +153,7 @@ Supply the `range` query parameter using shared values from `shared/analyticsTyp
 - `POST /:id/instantiate` – create notebook from template
 
 ### Published Notebooks (`/api/published`)
+
 - `GET /notebooks/:slug` – view published notebook (public, no auth)
 
 ## Caching Strategy
@@ -182,6 +190,7 @@ The collaboration server (`src/collab/server.js`) uses Hocuspocus with Y.js for 
 ## Background Tasks
 
 ### Analytics Snapshot Scheduler (`tasks/analyticsSnapshotScheduler.js`)
+
 - Configurable cron schedule (default: periodic).
 - Iterates notebooks via cursor-based streaming to control memory.
 - Runs 5 parallel aggregation sub-queries per notebook snapshot.
@@ -189,6 +198,7 @@ The collaboration server (`src/collab/server.js`) uses Hocuspocus with Y.js for 
 - Can be disabled via `DISABLE_ANALYTICS_CRON`.
 
 ### Notebook Indexing Worker (`tasks/notebookIndexingWorker.js`)
+
 - Watches MongoDB change streams on the `Note` collection.
 - Builds TF-IDF vectors for notebook recommendation/search.
 - Sequential queue processing to avoid overwhelming the database.
@@ -234,6 +244,7 @@ Vitest powers the backend test suite:
 - `npm run test:analytics` – analytics-focused unit, integration, and performance tests.
 
 Key test files:
+
 - `tests/auth.notes.e2e.test.js` – end-to-end auth + notes integration.
 - `tests/note.validation.test.js` – note validation rules.
 - `tests/notebook.analytics.controller.test.js` – analytics controller.
@@ -250,37 +261,37 @@ The following performance improvements have been applied and/or documented:
 
 ### Applied Fixes
 
-| Area | Fix |
-| --- | --- |
-| **Auth middleware** | Added 30s in-memory user cache with `.lean()` + `.select()` projection. Eliminates a full User document fetch on every authenticated request. Exported `invalidateUserCache()` for mutation paths. |
-| **Rate limiter** | Changed key strategy from `req.originalUrl` (per-URL) to `req.route.path` (per-pattern). Prevents bucket dilution on REST routes with dynamic IDs. |
-| **Cache service** | Route cache middleware key now includes `req.user.id` to prevent cross-user data leaks on authenticated routes. |
-| **Analytics cache** | Cache key includes viewer context (user ID + workspace ID) to prevent cross-user data leaks. |
-| **Graceful shutdown** | Server now closes `httpServer` before disconnecting DB, allowing in-flight requests to drain. Added `isShuttingDown` guard against duplicate shutdown. |
-| **Duplicate shutdown handlers** | Removed `SIGINT`/`SIGTERM` handlers from `database.js` that raced with `server.js` shutdown flow. |
-| **User model indexes** | Added sparse indexes on `passwordReset.token` and `emailVerification.token` for O(1) token lookups. |
-| **ShareLink indexes** | Added compound indexes `{ boardId, revokedAt }` and `{ notebookId, revokedAt }` for active-link queries. Added TTL index on `expiresAt` for automatic expired-link cleanup. |
-| **Stale partial index** | Replaced `NotebookAnalyticsSnapshot`'s frozen-date partial index with a simple descending index. The original date was evaluated once at startup and became useless after 180 days. |
-| **Notes controller** | Parallelized `NotebookMember` + `NoteCollaborator` lookups in `getAllNotes`. Added `.select({ richContent: 0 })` to exclude heavy fields from list responses. |
-| **Templates controller** | Added `.select()` on `listNotebookTemplates` to exclude embedded notes array. Replaced sequential `Note.create()` loop with `Note.insertMany()` in template instantiation. |
-| **Sync controller** | Parallelized note fetch and sync state lookup. Added `.select({ richContent: 0 })` projection. |
-| **Auth controller** | `updateProfile` and `changePassword` now fetch full Mongoose documents directly (accommodating lean auth middleware), with cache invalidation after saves. |
+| Area                            | Fix                                                                                                                                                                                                |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Auth middleware**             | Added 30s in-memory user cache with `.lean()` + `.select()` projection. Eliminates a full User document fetch on every authenticated request. Exported `invalidateUserCache()` for mutation paths. |
+| **Rate limiter**                | Changed key strategy from `req.originalUrl` (per-URL) to `req.route.path` (per-pattern). Prevents bucket dilution on REST routes with dynamic IDs.                                                 |
+| **Cache service**               | Route cache middleware key now includes `req.user.id` to prevent cross-user data leaks on authenticated routes.                                                                                    |
+| **Analytics cache**             | Cache key includes viewer context (user ID + workspace ID) to prevent cross-user data leaks.                                                                                                       |
+| **Graceful shutdown**           | Server now closes `httpServer` before disconnecting DB, allowing in-flight requests to drain. Added `isShuttingDown` guard against duplicate shutdown.                                             |
+| **Duplicate shutdown handlers** | Removed `SIGINT`/`SIGTERM` handlers from `database.js` that raced with `server.js` shutdown flow.                                                                                                  |
+| **User model indexes**          | Added sparse indexes on `passwordReset.token` and `emailVerification.token` for O(1) token lookups.                                                                                                |
+| **ShareLink indexes**           | Added compound indexes `{ boardId, revokedAt }` and `{ notebookId, revokedAt }` for active-link queries. Added TTL index on `expiresAt` for automatic expired-link cleanup.                        |
+| **Stale partial index**         | Replaced `NotebookAnalyticsSnapshot`'s frozen-date partial index with a simple descending index. The original date was evaluated once at startup and became useless after 180 days.                |
+| **Notes controller**            | Parallelized `NotebookMember` + `NoteCollaborator` lookups in `getAllNotes`. Added `.select({ richContent: 0 })` to exclude heavy fields from list responses.                                      |
+| **Templates controller**        | Added `.select()` on `listNotebookTemplates` to exclude embedded notes array. Replaced sequential `Note.create()` loop with `Note.insertMany()` in template instantiation.                         |
+| **Sync controller**             | Parallelized note fetch and sync state lookup. Added `.select({ richContent: 0 })` projection.                                                                                                     |
+| **Auth controller**             | `updateProfile` and `changePassword` now fetch full Mongoose documents directly (accommodating lean auth middleware), with cache invalidation after saves.                                         |
 
 ### Known Issues (Documented for Future Work)
 
-| # | Severity | Area | Issue |
-| --- | --- | --- | --- |
-| 1 | Medium | `notebookAnalyticsService.js` | `resolveLastActivity` performs expensive `$lookup` + `$unwind` across all note history. Consider adding a `lastEditedAt` field on `Note`. |
-| 2 | Medium | `notebookAnalyticsSnapshotService.js` | `$lookup` runs before `$match` in collaborator/history aggregations — reversing join direction would reduce work. |
-| 3 | Medium | `collab/server.js` | `onChange` and `onAwarenessUpdate` write to DB on every keystroke/cursor move with no debouncing. Should batch writes on a 2–5s interval. |
-| 4 | Medium | `collab/server.js` | No `maxConnections` or `maxPayload` on the WebSocket server. |
-| 5 | Medium | `notebookUndoService.js` | Sequential `Note.updateOne` in `restoreNotebook` loop — should use `bulkWrite`. |
-| 6 | Medium | `analyticsSnapshotScheduler.js` | Iterates all notebooks sequentially with no concurrency control. Should process 5–10 in parallel with `p-limit`. |
-| 7 | Medium | `notebookIndexingWorker.js` | Change stream triggers indexing on every Note change with no debounce/cooldown window. |
-| 8 | Low | Auth routes | No route-level rate limiting on `/login`, `/register`, `/password/forgot` — abuse-prone public endpoints. Global limiter applies but stricter per-route limits are recommended. |
-| 9 | Low | Published routes | `GET /notebooks/:slug` is unauthenticated with no rate limiting or slug validation. |
-| 10 | Low | `notesController.js` | `getAllNotes` has no pagination — returns all matching notes in one response. Add cursor or offset pagination. |
-| 11 | Low | `cacheService.js` | `NodeCache` has no max-key limit — memory can grow unbounded in long-running processes. |
-| 12 | Low | `Workspace.members` | Embedded member array is unbounded — should be extracted to a `WorkspaceMember` collection at scale. |
-| 13 | Low | Redundant indexes | ~10 single-field indexes are left-prefix subsets of existing compound indexes and can be dropped to reclaim RAM and write throughput. |
-| 14 | Low | `config/db.js` | Dead code — duplicate connection module without pool settings or retry logic. Safe to remove. |
+| #   | Severity | Area                                  | Issue                                                                                                                                                                           |
+| --- | -------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Medium   | `notebookAnalyticsService.js`         | `resolveLastActivity` performs expensive `$lookup` + `$unwind` across all note history. Consider adding a `lastEditedAt` field on `Note`.                                       |
+| 2   | Medium   | `notebookAnalyticsSnapshotService.js` | `$lookup` runs before `$match` in collaborator/history aggregations — reversing join direction would reduce work.                                                               |
+| 3   | Medium   | `collab/server.js`                    | `onChange` and `onAwarenessUpdate` write to DB on every keystroke/cursor move with no debouncing. Should batch writes on a 2–5s interval.                                       |
+| 4   | Medium   | `collab/server.js`                    | No `maxConnections` or `maxPayload` on the WebSocket server.                                                                                                                    |
+| 5   | Medium   | `notebookUndoService.js`              | Sequential `Note.updateOne` in `restoreNotebook` loop — should use `bulkWrite`.                                                                                                 |
+| 6   | Medium   | `analyticsSnapshotScheduler.js`       | Iterates all notebooks sequentially with no concurrency control. Should process 5–10 in parallel with `p-limit`.                                                                |
+| 7   | Medium   | `notebookIndexingWorker.js`           | Change stream triggers indexing on every Note change with no debounce/cooldown window.                                                                                          |
+| 8   | Low      | Auth routes                           | No route-level rate limiting on `/login`, `/register`, `/password/forgot` — abuse-prone public endpoints. Global limiter applies but stricter per-route limits are recommended. |
+| 9   | Low      | Published routes                      | `GET /notebooks/:slug` is unauthenticated with no rate limiting or slug validation.                                                                                             |
+| 10  | Low      | `notesController.js`                  | `getAllNotes` has no pagination — returns all matching notes in one response. Add cursor or offset pagination.                                                                  |
+| 11  | Low      | `cacheService.js`                     | `NodeCache` has no max-key limit — memory can grow unbounded in long-running processes.                                                                                         |
+| 12  | Low      | `Workspace.members`                   | Embedded member array is unbounded — should be extracted to a `WorkspaceMember` collection at scale.                                                                            |
+| 13  | Low      | Redundant indexes                     | ~10 single-field indexes are left-prefix subsets of existing compound indexes and can be dropped to reclaim RAM and write throughput.                                           |
+| 14  | Low      | `config/db.js`                        | Dead code — duplicate connection module without pool settings or retry logic. Safe to remove.                                                                                   |
