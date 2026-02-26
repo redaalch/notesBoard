@@ -76,16 +76,8 @@ class DatabaseManager {
       this.isConnected = true;
     });
 
-    // Graceful shutdown
-    process.on("SIGINT", async () => {
-      await this.disconnect();
-      process.exit(0);
-    });
-
-    process.on("SIGTERM", async () => {
-      await this.disconnect();
-      process.exit(0);
-    });
+    // NOTE: SIGINT/SIGTERM handlers are managed by server.js gracefulShutdown.
+    // Removed duplicate handlers that would race with the main shutdown flow.
   }
 
   /**
