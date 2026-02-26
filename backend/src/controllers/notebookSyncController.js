@@ -80,7 +80,9 @@ const applyNoteUpsert = async ({ notebook, payload, ownerId, session }) => {
   const noteId = normalizeObjectId(payload.id ?? payload.noteId);
   const title = typeof payload.title === "string" ? payload.title.trim() : null;
   const content =
-    typeof payload.content === "string" ? payload.content : payload.body ?? "";
+    typeof payload.content === "string"
+      ? payload.content
+      : (payload.body ?? "");
   const tags = Array.isArray(payload.tags) ? payload.tags : [];
   const pinned = Boolean(payload.pinned);
 
@@ -110,7 +112,7 @@ const applyNoteUpsert = async ({ notebook, payload, ownerId, session }) => {
               : content,
         },
       },
-      { new: true, session }
+      { new: true, session },
     );
     if (!noteDoc) {
       throw new Error("NOTE_NOT_FOUND");
@@ -133,7 +135,7 @@ const applyNoteUpsert = async ({ notebook, payload, ownerId, session }) => {
               : content,
         },
       ],
-      { session }
+      { session },
     );
     noteDoc = newNote[0];
     await appendNotesToNotebookOrder(notebook._id, [noteDoc._id], {
@@ -151,7 +153,7 @@ const applyNoteDelete = async ({ notebook, noteId, ownerId, session }) => {
 
   const result = await Note.findOneAndDelete(
     { _id: noteId, owner: ownerId, notebookId: notebook._id },
-    { session }
+    { session },
   );
 
   if (!result) {
@@ -404,7 +406,7 @@ export const pushNotebookSyncState = async (req, res) => {
           ...(clientId ? { clientId: String(clientId) } : {}),
         },
         { $set: syncStateUpdate },
-        { upsert: true, session }
+        { upsert: true, session },
       );
 
       if (applied.length) {
@@ -427,7 +429,7 @@ export const pushNotebookSyncState = async (req, res) => {
               action: "noop",
             },
           },
-          { session }
+          { session },
         );
 
         notebookForIndexing = notebook._id;
