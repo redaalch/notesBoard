@@ -17,15 +17,28 @@ import {
 
 const PORT = process.env.PORT || 5001;
 
+let httpServer = null;
+let isShuttingDown = false;
+
 /**
  * Graceful shutdown handler
  */
 const gracefulShutdown = async (signal) => {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
   logger.info(`${signal} received, starting graceful shutdown...`);
 
   try {
     stopNotebookSnapshotJob();
     await stopNotebookIndexingWorker();
+
+    // Close HTTP server so in-flight requests can drain
+    if (httpServer) {
+      await new Promise((resolve) => httpServer.close(resolve));
+      logger.info("HTTP server closed");
+    }
+
     // Close database connection
     await dbManager.disconnect();
     logger.info("Database connection closed");
@@ -44,7 +57,7 @@ const start = async () => {
     await dbManager.connect();
 
     // Create HTTP server
-    const httpServer = http.createServer(app);
+    httpServer = http.createServer(app);
 
     // Start HTTP server
     await new Promise((resolve, reject) => {
