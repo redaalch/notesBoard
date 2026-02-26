@@ -447,7 +447,7 @@ export const register = async (req, res) => {
     await candidateUser.setPassword(password);
     candidateUser.setEmailVerificationToken(
       verification.hashed,
-      verification.expiresAt
+      verification.expiresAt,
     );
     candidateUser.clearRefreshTokens();
 
@@ -458,7 +458,7 @@ export const register = async (req, res) => {
         candidateUser,
         req,
         verification.token,
-        verificationRedirectUrl
+        verificationRedirectUrl,
       );
     } catch (error) {
       logger.error("Verification email send failed", {
@@ -535,7 +535,7 @@ export const resendEmailVerification = async (req, res) => {
         user,
         req,
         verification.token,
-        verificationRedirectUrl
+        verificationRedirectUrl,
       );
     } catch (error) {
       logger.error("Verification email resend failed", {
@@ -758,7 +758,7 @@ export const refresh = async (req, res) => {
     }
 
     const tokenEntry = user.refreshTokens.find(
-      (entry) => entry.token === hashed
+      (entry) => entry.token === hashed,
     );
     if (!tokenEntry) {
       await clearSession(user, hashed, req, res);
@@ -886,7 +886,7 @@ export const updateProfile = async (req, res) => {
         user.emailVerifiedAt = undefined;
         user.setEmailVerificationToken(
           verification.hashed,
-          verification.expiresAt
+          verification.expiresAt,
         );
         user.clearRefreshTokens();
 
@@ -916,7 +916,7 @@ export const updateProfile = async (req, res) => {
           user,
           req,
           verificationToken,
-          verificationRedirectUrl
+          verificationRedirectUrl,
         );
       } catch (error) {
         logger.error("Email change verification send failed", {
