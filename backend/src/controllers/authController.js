@@ -5,6 +5,7 @@ import Workspace from "../models/Workspace.js";
 import Board from "../models/Board.js";
 import logger from "../utils/logger.js";
 import { normalizeEmail } from "../utils/validators.js";
+import { invalidateUserCache } from "../middleware/auth.js";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -816,7 +817,8 @@ export const logout = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    const user = req.userDocument;
+    // Fetch full Mongoose document (req.userDocument is lean)
+    const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(401).json({ message: "Unauthorized" });
     }
@@ -904,6 +906,7 @@ export const updateProfile = async (req, res) => {
     }
 
     await user.save();
+    invalidateUserCache(user.id);
 
     let session = null;
 
@@ -965,7 +968,8 @@ export const updateProfile = async (req, res) => {
 
 export const changePassword = async (req, res) => {
   try {
-    const user = req.userDocument;
+    // Fetch full Mongoose document (req.userDocument is lean)
+    const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(401).json({ message: "Unauthorized" });
     }
@@ -999,6 +1003,7 @@ export const changePassword = async (req, res) => {
     await user.setPassword(newPassword);
     user.clearRefreshTokens();
     await user.save();
+    invalidateUserCache(user.id);
 
     const session = await issueSession(user, req, res, {
       userAgent: req.get("user-agent"),
