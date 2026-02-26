@@ -180,21 +180,24 @@ export const getNotebookSyncState = async (req, res) => {
 
     const includeNotes = String(withNotes).toLowerCase() !== "false";
 
-    let notes = [];
-    if (includeNotes) {
-      const noteDocs = await Note.find({ notebookId: notebook._id })
-        .sort({ updatedAt: -1 })
-        .lean();
-      notes = noteDocs
-        .map((doc) => serializeNote(doc))
-        .filter((entry) => entry !== null);
-    }
+    // Parallelize note fetch and sync state lookup
+    const [noteDocs, syncState] = await Promise.all([
+      includeNotes
+        ? Note.find({ notebookId: notebook._id })
+            .sort({ updatedAt: -1 })
+            .select({ richContent: 0 })
+            .lean()
+        : Promise.resolve([]),
+      NotebookSyncState.findOne({
+        notebookId: notebook._id,
+        userId: new mongoose.Types.ObjectId(ownerId),
+        ...(clientId ? { clientId: String(clientId) } : {}),
+      }).lean(),
+    ]);
 
-    const syncState = await NotebookSyncState.findOne({
-      notebookId: notebook._id,
-      userId: new mongoose.Types.ObjectId(ownerId),
-      ...(clientId ? { clientId: String(clientId) } : {}),
-    }).lean();
+    const notes = noteDocs
+      .map((doc) => serializeNote(doc))
+      .filter((entry) => entry !== null);
 
     return res.status(200).json({
       revision: notebook.offlineRevision ?? 0,
