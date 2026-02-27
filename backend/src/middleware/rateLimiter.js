@@ -21,9 +21,8 @@ const rateLimiter = async (req, res, next) => {
   const identifier = `rate:${clientId}:${routeKey}`;
 
   try {
-    const { success, limit, remaining, reset } = await rateLimit.limit(
-      identifier
-    );
+    const { success, limit, remaining, reset } =
+      await rateLimit.limit(identifier);
 
     if (typeof limit !== "undefined") {
       res.setHeader("X-RateLimit-Limit", String(limit));
@@ -32,7 +31,7 @@ const rateLimiter = async (req, res, next) => {
     if (typeof remaining !== "undefined") {
       res.setHeader(
         "X-RateLimit-Remaining",
-        String(Math.max(remaining ?? 0, 0))
+        String(Math.max(remaining ?? 0, 0)),
       );
     }
 
