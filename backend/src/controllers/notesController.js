@@ -92,12 +92,20 @@ export const getAllNotes = async (req, res) => {
     const requestedNotebookId = req.query?.notebookId;
     const userObjectId = new mongoose.Types.ObjectId(userId);
 
-    const notebookMemberships = await NotebookMember.find({
-      userId: userObjectId,
-      status: "active",
-    })
-      .select({ notebookId: 1, role: 1 })
-      .lean();
+    // Parallelize independent membership lookups
+    const [notebookMemberships, collaboratorDocs] = await Promise.all([
+      NotebookMember.find({
+        userId: userObjectId,
+        status: "active",
+      })
+        .select({ notebookId: 1, role: 1 })
+        .lean(),
+      NoteCollaborator.find({
+        userId: userObjectId,
+      })
+        .select({ noteId: 1, role: 1 })
+        .lean(),
+    ]);
 
     const notebookRoleById = new Map();
     const notebookMembershipObjectIds = [];
@@ -107,12 +115,6 @@ export const getAllNotes = async (req, res) => {
       notebookRoleById.set(key, membership.role ?? "viewer");
       notebookMembershipObjectIds.push(membership.notebookId);
     });
-
-    const collaboratorDocs = await NoteCollaborator.find({
-      userId: userObjectId,
-    })
-      .select({ noteId: 1, role: 1 })
-      .lean();
 
     const collaboratorByNoteId = new Map();
     const collaboratorNoteObjectIds = [];
@@ -198,6 +200,7 @@ export const getAllNotes = async (req, res) => {
 
     const notes = await Note.find(query)
       .sort({ pinned: -1, updatedAt: -1, createdAt: -1 })
+      .select({ richContent: 0 })
       .lean();
 
     const response = notes.map((note) => {
