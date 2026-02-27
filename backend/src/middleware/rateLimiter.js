@@ -12,9 +12,12 @@ const rateLimiter = async (req, res, next) => {
   const clientId = testClientHint
     ? `${baseClientId}:${testClientHint}`
     : baseClientId;
-  const routeKey = `${req.method}:${
-    req.originalUrl || req.baseUrl || "unknown"
-  }`;
+  // Use route pattern instead of full URL to prevent per-ID bucket dilution.
+  // e.g. /api/notes/:id instead of /api/notes/abc123
+  const routePath = req.route?.path
+    ? `${req.baseUrl || ""}${req.route.path}`
+    : req.originalUrl?.split("?")[0] || req.baseUrl || "unknown";
+  const routeKey = `${req.method}:${routePath}`;
   const identifier = `rate:${clientId}:${routeKey}`;
 
   try {
