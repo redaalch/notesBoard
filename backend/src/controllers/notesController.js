@@ -66,8 +66,8 @@ const normalizeNoteIds = (ids) => {
           if (!isValidObjectId(stringValue)) return null;
           return stringValue;
         })
-        .filter(Boolean)
-    )
+        .filter(Boolean),
+    ),
   );
 };
 
@@ -77,7 +77,7 @@ const normalizeTags = (tags) => {
     .map((tag) =>
       typeof tag === "string"
         ? tag.trim().toLowerCase().replace(/\s+/g, " ")
-        : ""
+        : "",
     )
     .filter(Boolean);
 
@@ -136,7 +136,7 @@ export const getAllNotes = async (req, res) => {
       } else {
         const notebookAccess = await getNotebookMembership(
           requestedNotebookId,
-          userId
+          userId,
         );
         if (!notebookAccess) {
           return res.status(404).json({ message: "Notebook not found" });
@@ -166,7 +166,7 @@ export const getAllNotes = async (req, res) => {
         filters.push({
           workspaceId: {
             $in: accessibleWorkspaceIds.map(
-              (id) => new mongoose.Types.ObjectId(id)
+              (id) => new mongoose.Types.ObjectId(id),
             ),
           },
         });
@@ -178,7 +178,7 @@ export const getAllNotes = async (req, res) => {
 
       if (notebookMembershipObjectIds.length) {
         const uniqueNotebookIds = Array.from(
-          new Set(notebookMembershipObjectIds.map((id) => id.toString()))
+          new Set(notebookMembershipObjectIds.map((id) => id.toString())),
         ).map((id) => new mongoose.Types.ObjectId(id));
         if (uniqueNotebookIds.length) {
           filters.push({ notebookId: { $in: uniqueNotebookIds } });
@@ -208,16 +208,16 @@ export const getAllNotes = async (req, res) => {
       const collabRole = collaboratorByNoteId.get(noteId) ?? null;
       const isOwner = String(note.owner) === String(userId);
       const notebookRole = note.notebookId
-        ? notebookRoleById.get(note.notebookId.toString()) ??
-          (isOwner ? "owner" : null)
+        ? (notebookRoleById.get(note.notebookId.toString()) ??
+          (isOwner ? "owner" : null))
         : null;
       const accessRole = isOwner
         ? "owner"
         : notebookRole
-        ? `notebook:${notebookRole}`
-        : collabRole
-        ? `collaborator:${collabRole}`
-        : "workspace";
+          ? `notebook:${notebookRole}`
+          : collabRole
+            ? `collaborator:${collabRole}`
+            : "workspace";
       return {
         ...note,
         collaboratorRole: collabRole,
@@ -263,11 +263,11 @@ export const getNoteById = async (req, res) => {
         (permissions.isOwner
           ? "owner"
           : permissions.canEdit
-          ? "editor"
-          : "viewer"),
+            ? "editor"
+            : "viewer"),
       accessRole: permissions.isOwner
         ? "owner"
-        : permissions.workspaceRole ?? permissions.collaboratorRole ?? null,
+        : (permissions.workspaceRole ?? permissions.collaboratorRole ?? null),
     };
 
     return res.status(200).json(payload);
@@ -452,7 +452,7 @@ export const updateNote = async (req, res) => {
       } else {
         const notebookAccess = await getNotebookMembership(
           notebookId,
-          req.user.id
+          req.user.id,
         );
         if (!notebookAccess) {
           return res.status(404).json({ message: "Notebook not found" });
@@ -474,7 +474,7 @@ export const updateNote = async (req, res) => {
 
     await touchWorkspaceMember(
       updates.workspaceId ?? access.workspaceId ?? access.note.workspaceId,
-      req.user.id
+      req.user.id,
     );
 
     const updatedNote = await Note.findOneAndUpdate({ _id: id }, updates, {
@@ -574,7 +574,7 @@ export const updateNote = async (req, res) => {
 
     const refreshedAccess = await resolveNoteForUser(
       updatedNote._id,
-      req.user.id
+      req.user.id,
     );
     const nextPermissions =
       refreshedAccess?.permissions ?? access.permissions ?? {};
@@ -591,13 +591,13 @@ export const updateNote = async (req, res) => {
         (nextPermissions.isOwner
           ? "owner"
           : nextPermissions.canEdit
-          ? "editor"
-          : "viewer"),
+            ? "editor"
+            : "viewer"),
       accessRole: nextPermissions.isOwner
         ? "owner"
-        : nextPermissions.workspaceRole ??
+        : (nextPermissions.workspaceRole ??
           nextPermissions.collaboratorRole ??
-          null,
+          null),
     };
 
     return res.status(200).json(payload);
@@ -694,7 +694,7 @@ export const getTagStats = async (req, res) => {
 
     const accessibleWorkspaceIds = await listAccessibleWorkspaceIds(ownerId);
     const workspaceObjectIds = accessibleWorkspaceIds.map(
-      (value) => new mongoose.Types.ObjectId(value)
+      (value) => new mongoose.Types.ObjectId(value),
     );
 
     const ownerMatch = new mongoose.Types.ObjectId(ownerId);
@@ -800,7 +800,7 @@ export const bulkUpdateNotes = async (req, res) => {
 
     const workspaceIds = await listAccessibleWorkspaceIds(ownerId);
     const workspaceObjectIds = workspaceIds.map(
-      (value) => new mongoose.Types.ObjectId(value)
+      (value) => new mongoose.Types.ObjectId(value),
     );
 
     const baseFilter = {
@@ -866,15 +866,15 @@ export const bulkUpdateNotes = async (req, res) => {
       permittedNotes
         .map((note) => note.workspaceId)
         .filter((value) => !!value)
-        .map((value) => value.toString())
+        .map((value) => value.toString()),
     );
 
     const touchPromises = [...touchIds].map((workspaceId) =>
-      touchWorkspaceMember(workspaceId, ownerId)
+      touchWorkspaceMember(workspaceId, ownerId),
     );
 
     const objectIdArray = allowedIds.map(
-      (id) => new mongoose.Types.ObjectId(id)
+      (id) => new mongoose.Types.ObjectId(id),
     );
 
     if (action === "pin" || action === "unpin") {
@@ -883,7 +883,7 @@ export const bulkUpdateNotes = async (req, res) => {
         { _id: { $in: objectIdArray } },
         {
           $set: { pinned: desiredPinned },
-        }
+        },
       );
 
       await Promise.all([
@@ -896,7 +896,7 @@ export const bulkUpdateNotes = async (req, res) => {
             actorId: ownerId,
             eventType: desiredPinned ? "pin" : "unpin",
             summary: desiredPinned ? "Pinned note" : "Unpinned note",
-          }))
+          })),
         ),
       ]);
 
@@ -929,7 +929,7 @@ export const bulkUpdateNotes = async (req, res) => {
             actorId: ownerId,
             eventType: "delete",
             summary: "Deleted note",
-          }))
+          })),
         ),
       ]);
 
@@ -937,13 +937,13 @@ export const bulkUpdateNotes = async (req, res) => {
         permittedNotes
           .map((note) => note.notebookId)
           .filter((id) => id)
-          .map((id) => id.toString())
+          .map((id) => id.toString()),
       );
 
       for (const notebook of notebookRemovals) {
         await removeNotesFromNotebookOrder(
           new mongoose.Types.ObjectId(notebook),
-          objectIdArray
+          objectIdArray,
         );
       }
 
@@ -974,11 +974,11 @@ export const bulkUpdateNotes = async (req, res) => {
           new Set([
             ...existingTags.map((tag) => tag.toLowerCase()),
             ...normalizedTags,
-          ])
+          ]),
         ).slice(0, MAX_TAGS_PER_NOTE);
         const result = await Note.updateOne(
           { _id: note._id },
-          { $set: { tags: merged } }
+          { $set: { tags: merged } },
         );
         if (result.modifiedCount) {
           updatedCount += 1;
@@ -1030,7 +1030,7 @@ export const bulkUpdateNotes = async (req, res) => {
             boardId: boardContext.board._id,
             workspaceId: boardContext.workspace._id,
           },
-        }
+        },
       );
 
       await Promise.all([
@@ -1044,7 +1044,7 @@ export const bulkUpdateNotes = async (req, res) => {
             actorId: ownerId,
             eventType: "move",
             summary: `Moved to ${boardContext.board.name}`,
-          }))
+          })),
         ),
       ]);
 
@@ -1067,7 +1067,7 @@ export const bulkUpdateNotes = async (req, res) => {
       }
 
       const ownNotes = permittedNotes.filter(
-        (note) => String(note.owner) === String(ownerId)
+        (note) => String(note.owner) === String(ownerId),
       );
 
       if (!ownNotes.length) {
@@ -1080,20 +1080,20 @@ export const bulkUpdateNotes = async (req, res) => {
 
       await Note.updateMany(
         { _id: { $in: noteObjectIds } },
-        { $set: { notebookId: targetNotebookId } }
+        { $set: { notebookId: targetNotebookId } },
       );
 
       const previousNotebookIds = new Set(
         ownNotes
           .map((note) => note.notebookId)
           .filter((value) => value)
-          .map((value) => value.toString())
+          .map((value) => value.toString()),
       );
 
       for (const notebook of previousNotebookIds) {
         await removeNotesFromNotebookOrder(
           new mongoose.Types.ObjectId(notebook),
-          noteObjectIds
+          noteObjectIds,
         );
       }
 
@@ -1143,7 +1143,7 @@ export const getNoteHistory = async (req, res) => {
 
     const limit = Math.min(
       Number.parseInt(req.query?.limit ?? "100", 10) || 100,
-      500
+      500,
     );
 
     const entries = await NoteHistory.find({ noteId: id })
@@ -1179,7 +1179,7 @@ export const getNoteLayout = async (req, res) => {
     if (requestedNotebookId && requestedNotebookId !== "uncategorized") {
       const notebook = await ensureNotebookOwnership(
         requestedNotebookId,
-        userId
+        userId,
       );
       if (!notebook) {
         return res.status(404).json({ message: "Notebook not found" });
@@ -1224,7 +1224,7 @@ export const updateNoteLayout = async (req, res) => {
 
     const accessibleWorkspaceIds = await listAccessibleWorkspaceIds(userId);
     const workspaceObjectIds = accessibleWorkspaceIds.map(
-      (id) => new mongoose.Types.ObjectId(id)
+      (id) => new mongoose.Types.ObjectId(id),
     );
 
     const collaboratorDocs = await NoteCollaborator.find({
@@ -1239,7 +1239,7 @@ export const updateNoteLayout = async (req, res) => {
       .map((value) => new mongoose.Types.ObjectId(value));
 
     const normalizedObjectIds = normalizedIds.map(
-      (id) => new mongoose.Types.ObjectId(id)
+      (id) => new mongoose.Types.ObjectId(id),
     );
 
     const orConditions = [{ owner: userObjectId }];
@@ -1269,14 +1269,14 @@ export const updateNoteLayout = async (req, res) => {
           owner: userObjectId,
           notebookId: notebook._id,
         },
-        { _id: 1 }
+        { _id: 1 },
       ).lean();
 
       const allowedSet = new Set(candidates.map((note) => note._id.toString()));
       const filteredIds = normalizedIds.filter((id) => allowedSet.has(id));
 
       const notebookOrder = filteredIds.map(
-        (id) => new mongoose.Types.ObjectId(id)
+        (id) => new mongoose.Types.ObjectId(id),
       );
 
       await Notebook.findByIdAndUpdate(notebook._id, {
@@ -1299,14 +1299,14 @@ export const updateNoteLayout = async (req, res) => {
         _id: { $in: normalizedObjectIds },
         $or: orConditions,
       },
-      { _id: 1 }
+      { _id: 1 },
     ).lean();
 
     const allowedSet = new Set(candidates.map((note) => note._id.toString()));
     const filteredIds = normalizedIds.filter((id) => allowedSet.has(id));
 
     const objectIdOrder = filteredIds.map(
-      (id) => new mongoose.Types.ObjectId(id)
+      (id) => new mongoose.Types.ObjectId(id),
     );
 
     await User.findByIdAndUpdate(userId, {
