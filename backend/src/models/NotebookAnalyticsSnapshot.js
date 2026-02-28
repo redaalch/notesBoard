@@ -84,16 +84,12 @@ snapshotSchema.index(
   { name: "notebook_generated_desc" }
 );
 
+// NOTE: Removed stale partial index — the date was frozen at server startup time,
+// becoming useless after 180 days. Using a simple descending index instead.
+// For retention, rely on the snapshot scheduler's pruning task.
 snapshotSchema.index(
   { generatedAt: -1 },
-  {
-    name: "recent_snapshots_generated_desc",
-    partialFilterExpression: {
-      generatedAt: {
-        $gte: new Date(Date.now() - 1000 * 60 * 60 * 24 * 180),
-      },
-    },
-  }
+  { name: "recent_snapshots_generated_desc" }
 );
 
 const NotebookAnalyticsSnapshot = mongoose.model(
