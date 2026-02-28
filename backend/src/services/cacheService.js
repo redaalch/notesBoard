@@ -137,8 +137,9 @@ class CacheService {
         return next();
       }
 
-      // Generate cache key from URL and query params
-      const key = `route:${req.originalUrl}`;
+      // Include user identity in key to prevent cross-user cache leaks
+      const userSegment = req.user?.id ? `:u:${req.user.id}` : ":anon";
+      const key = `route:${req.originalUrl}${userSegment}`;
 
       // Try to get cached response
       const cachedResponse = this.get(key);
