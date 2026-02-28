@@ -14,7 +14,7 @@ const tagBucketSchema = new mongoose.Schema(
       min: 0,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const snapshotSchema = new mongoose.Schema(
@@ -71,17 +71,17 @@ const snapshotSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 snapshotSchema.index(
   { notebookId: 1, date: 1 },
-  { unique: true, name: "notebook_date_unique" }
+  { unique: true, name: "notebook_date_unique" },
 );
 
 snapshotSchema.index(
   { notebookId: 1, generatedAt: -1 },
-  { name: "notebook_generated_desc" }
+  { name: "notebook_generated_desc" },
 );
 
 // NOTE: Removed stale partial index — the date was frozen at server startup time,
@@ -89,12 +89,12 @@ snapshotSchema.index(
 // For retention, rely on the snapshot scheduler's pruning task.
 snapshotSchema.index(
   { generatedAt: -1 },
-  { name: "recent_snapshots_generated_desc" }
+  { name: "recent_snapshots_generated_desc" },
 );
 
 const NotebookAnalyticsSnapshot = mongoose.model(
   "NotebookAnalyticsSnapshot",
-  snapshotSchema
+  snapshotSchema,
 );
 
 export default NotebookAnalyticsSnapshot;
