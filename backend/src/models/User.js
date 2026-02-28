@@ -44,7 +44,7 @@ const userSchema = new mongoose.Schema(
             userAgent: { type: String },
             ip: { type: String },
           },
-          { _id: false }
+          { _id: false },
         ),
       ],
       default: [],
@@ -90,7 +90,7 @@ const userSchema = new mongoose.Schema(
       default: [],
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 userSchema.methods.comparePassword = async function comparePassword(password) {
@@ -111,7 +111,7 @@ userSchema.methods.addRefreshToken = function addRefreshToken(entry) {
 
 userSchema.methods.removeRefreshToken = function removeRefreshToken(token) {
   this.refreshTokens = this.refreshTokens.filter(
-    (entry) => entry.token !== token
+    (entry) => entry.token !== token,
   );
 };
 
@@ -121,7 +121,7 @@ userSchema.methods.clearRefreshTokens = function clearRefreshTokens() {
 
 userSchema.methods.setPasswordResetToken = function setPasswordResetToken(
   token,
-  expiresAt
+  expiresAt,
 ) {
   this.passwordReset = {
     token,
@@ -157,6 +157,16 @@ userSchema.methods.markEmailVerified = function markEmailVerified() {
   this.emailVerifiedAt = new Date();
   this.clearEmailVerificationToken();
 };
+
+// Indexes for token-based lookups (password reset, email verification)
+userSchema.index(
+  { "passwordReset.token": 1 },
+  { sparse: true, name: "password_reset_token" },
+);
+userSchema.index(
+  { "emailVerification.token": 1 },
+  { sparse: true, name: "email_verification_token" },
+);
 
 const User = mongoose.model("User", userSchema);
 
