@@ -95,7 +95,7 @@ const buildDailySeriesLive = async ({
         map.set(entry._id, entry.count);
         return map;
       }, new Map());
-    }
+    },
   );
 
 const ensureDailySeries = async ({
@@ -135,11 +135,11 @@ const ensureDailySeries = async ({
 
     if (!snapshotAnalysis.snapshotCount) {
       snapshotAnalysis.notesTotal = Array.from(
-        snapshotAnalysis.dayCounts.values()
+        snapshotAnalysis.dayCounts.values(),
       ).reduce((acc, value) => acc + value, 0);
     } else {
       snapshotAnalysis.notesTotal += Array.from(
-        snapshotAnalysis.missingDates
+        snapshotAnalysis.missingDates,
       ).reduce((acc, dateKey) => acc + (liveCounts.get(dateKey) ?? 0), 0);
     }
   }
@@ -250,7 +250,7 @@ const resolveTagLeaderboard = async ({
         tag: entry._id,
         count: entry.count,
       }));
-    }
+    },
   );
 
 const computeTopTags = async ({
@@ -281,8 +281,7 @@ const computeTopTags = async ({
   });
 };
 
-const cacheKey = (notebookId, rangeKey) =>
-  `notebook:${notebookId}:analytics:${rangeKey}`;
+// Include viewerContext hash in cache key to prevent cross-user data leaks\nconst cacheKey = (notebookId, rangeKey, viewerContext) => {\n  const ctxSegment = viewerContext\n    ? `:${viewerContext.userId || \"anon\"}:${viewerContext.workspaceId || \"\"}`\n    : \"\";\n  return `notebook:${notebookId}:analytics:${rangeKey}${ctxSegment}`;\n};
 
 export const getNotebookAnalyticsOverview = async ({
   notebookId,
@@ -296,7 +295,9 @@ export const getNotebookAnalyticsOverview = async ({
   const { rangeKey, startDate, endExclusive } = window;
 
   if (cacheTtl) {
-    const cached = cacheService.get(cacheKey(notebookId, rangeKey));
+    const cached = cacheService.get(
+      cacheKey(notebookId, rangeKey, viewerContext),
+    );
     if (cached !== undefined) {
       const payload = clone(cached);
       payload.meta = {
@@ -315,7 +316,7 @@ export const getNotebookAnalyticsOverview = async ({
       endExclusive,
       viewerContext,
       memo,
-    }
+    },
   );
 
   const weeklySeries = buildWeeklySeries(dailySeries);
@@ -364,7 +365,11 @@ export const getNotebookAnalyticsOverview = async ({
   };
 
   if (cacheTtl) {
-    cacheService.set(cacheKey(notebookId, rangeKey), response, cacheTtl);
+    cacheService.set(
+      cacheKey(notebookId, rangeKey, viewerContext),
+      response,
+      cacheTtl,
+    );
   }
 
   return response;
@@ -386,7 +391,7 @@ export const getNotebookActivityAnalytics = async ({
       endExclusive,
       viewerContext,
       memo,
-    }
+    },
   );
 
   const labels = dailySeries.map((entry) => entry.date);
@@ -483,7 +488,7 @@ export const getNotebookCollaboratorAnalytics = async ({
   ]);
 
   const labels = Array.from(
-    new Set([...Object.keys(notebookRoles), ...Object.keys(noteCollaborators)])
+    new Set([...Object.keys(notebookRoles), ...Object.keys(noteCollaborators)]),
   ).sort();
 
   const mapCounts = (counts) =>
@@ -496,11 +501,11 @@ export const getNotebookCollaboratorAnalytics = async ({
 
   const totalNotebookMembers = Object.values(notebookRoles).reduce(
     (acc, value) => acc + value,
-    0
+    0,
   );
   const totalNoteCollaborations = Object.values(noteCollaborators).reduce(
     (acc, value) => acc + value,
-    0
+    0,
   );
 
   return {
@@ -532,7 +537,7 @@ export const getNotebookSnapshotAnalytics = async ({
   });
 
   const snapshotMap = new Map(
-    snapshots.map((snapshot) => [formatDateKey(snapshot.date), snapshot])
+    snapshots.map((snapshot) => [formatDateKey(snapshot.date), snapshot]),
   );
 
   const snapshotAnalysis = analyzeSnapshots(snapshots, startDate, endExclusive);
