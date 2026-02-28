@@ -66,7 +66,7 @@ const shareLinkSchema = new mongoose.Schema(
       default: () => ({}),
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 shareLinkSchema.statics.hash = function hash(value) {
@@ -78,7 +78,7 @@ shareLinkSchema.statics.generateToken = function generateToken(size = 24) {
 };
 
 shareLinkSchema.methods.isExpired = function isExpired(
-  referenceDate = new Date()
+  referenceDate = new Date(),
 ) {
   if (this.revokedAt) {
     return true;
@@ -91,7 +91,7 @@ shareLinkSchema.methods.isExpired = function isExpired(
 
 shareLinkSchema.methods.markRevoked = function markRevoked(
   actorId,
-  when = new Date()
+  when = new Date(),
 ) {
   this.revokedAt = when;
   this.revokedBy = actorId ?? null;
@@ -109,7 +109,7 @@ shareLinkSchema.pre("validate", function ensureResourceContext(next) {
   if (this.boardId && this.notebookId) {
     this.invalidate(
       "notebookId",
-      "Cannot set both boardId and notebookId on a share link"
+      "Cannot set both boardId and notebookId on a share link",
     );
   }
 
@@ -120,7 +120,7 @@ shareLinkSchema.pre("validate", function ensureResourceContext(next) {
   if (this.resourceType === "notebook" && !this.notebookId) {
     this.invalidate(
       "notebookId",
-      "Notebook id is required for notebook share link"
+      "Notebook id is required for notebook share link",
     );
   }
 
@@ -141,6 +141,21 @@ shareLinkSchema.pre("validate", function ensureRoleMatchesResource(next) {
 
   next();
 });
+
+// Compound indexes for finding active links by resource
+shareLinkSchema.index(
+  { boardId: 1, revokedAt: 1 },
+  { name: "board_active_links" },
+);
+shareLinkSchema.index(
+  { notebookId: 1, revokedAt: 1 },
+  { name: "notebook_active_links" },
+);
+// TTL index: auto-delete expired share links after 30 days past expiry
+shareLinkSchema.index(
+  { expiresAt: 1 },
+  { expireAfterSeconds: 60 * 60 * 24 * 30, name: "share_link_ttl" },
+);
 
 const ShareLink = mongoose.model("ShareLink", shareLinkSchema);
 
