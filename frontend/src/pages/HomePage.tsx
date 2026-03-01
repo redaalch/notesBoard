@@ -2635,7 +2635,7 @@ function HomePage() {
                   </SortableContext>
                 ) : (
                   <motion.div
-                    key={`page-${safeCurrentPage}`}
+                    key={`page-${safeCurrentPage}-${activeNotebookId}`}
                     initial="hidden"
                     animate="visible"
                     variants={{
