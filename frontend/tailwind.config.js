@@ -38,9 +38,9 @@ const notesDark = {
   "accent-content": "#052F2B",
   neutral: "#334155", // Neutral slate-700
   "neutral-content": "#F1F5F9",
-  "base-100": "#080C18", // surface-1 dark
-  "base-200": "#0B1220", // surface-2 dark
-  "base-300": "#111A29", // surface-3 dark
+  "base-100": "#0F172A", // slate-900 — card / sidebar surfaces
+  "base-200": "#020617", // slate-950 — page canvas (darkest)
+  "base-300": "#1E293B", // slate-800 — borders, hover, elevated
   "base-content": "#F1F5F9", // text-primary dark
   info: "#60A5FA",
   success: "#34D399",
@@ -202,6 +202,15 @@ export default {
         80: "80",
         90: "90",
         99: "99",
+      },
+      keyframes: {
+        "slide-in-right": {
+          from: { transform: "translateX(100%)" },
+          to: { transform: "translateX(0)" },
+        },
+      },
+      animation: {
+        "slide-in-right": "slide-in-right 0.2s ease-out",
       },
     },
   },
