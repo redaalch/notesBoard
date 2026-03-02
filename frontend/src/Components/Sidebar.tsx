@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useMemo, useRef } from "react";
+import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BookmarkIcon,
@@ -32,6 +32,9 @@ import {
   SearchIcon,
   TagIcon,
   ListTodoIcon as ListTodoAlt,
+  InboxIcon,
+  FolderIcon,
+  ChevronRightIcon,
 } from "lucide-react";
 import { cn } from "../lib/cn";
 import { formatTagLabel, normalizeTag } from "../lib/Utils";
@@ -130,6 +133,58 @@ const notebookIconComponents: Record<string, React.ElementType> = {
   Brain: BrainIcon,
 };
 
+// ─── Collapsible section (for notebook groups) ──────────────────────────────
+
+function CollapsibleSection({
+  title,
+  defaultOpen = true,
+  count,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  count?: number;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex w-full items-center gap-1.5 px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-base-content/40 hover:text-base-content/60 transition-colors"
+      >
+        <ChevronRightIcon
+          className={cn(
+            "size-3 transition-transform duration-200",
+            open && "rotate-90",
+          )}
+        />
+        <span>{title}</span>
+        {typeof count === "number" && (
+          <span className="text-[10px] tabular-nums text-base-content/30">
+            {count}
+          </span>
+        )}
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="mt-0.5 space-y-0.5">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // ─── Sidebar content (shared between desktop & mobile) ───────────────────────
 
 function SidebarContent({
@@ -187,7 +242,7 @@ function SidebarContent({
               "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150",
               isActive
                 ? "bg-primary/10 text-primary border-l-[3px] border-primary pl-[calc(0.75rem-3px)]"
-                : "text-base-content/70 hover:bg-base-200/60 hover:text-base-content",
+                : "text-base-content/70 hover:bg-base-300/20 hover:text-base-content",
               dropProps?.isOver && "ring-2 ring-primary/40 bg-primary/5",
             )}
           >
@@ -230,7 +285,7 @@ function SidebarContent({
                   <li>
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-200/80"
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-300/25"
                       onClick={(e) => {
                         e.stopPropagation();
                         onShareNotebook(notebook);
@@ -245,7 +300,7 @@ function SidebarContent({
                   <li>
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-200/80"
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-300/25"
                       onClick={(e) => {
                         e.stopPropagation();
                         onPublishNotebook(notebook);
@@ -260,7 +315,7 @@ function SidebarContent({
                   <li>
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-200/80"
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-300/25"
                       onClick={(e) => {
                         e.stopPropagation();
                         onHistoryNotebook(notebook);
@@ -275,7 +330,7 @@ function SidebarContent({
                   <li>
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-200/80"
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-300/25"
                       onClick={(e) => {
                         e.stopPropagation();
                         onAnalyticsNotebook(notebook);
@@ -290,7 +345,7 @@ function SidebarContent({
                   <li>
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-200/80"
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-300/25"
                       onClick={(e) => {
                         e.stopPropagation();
                         onRenameNotebook(notebook);
@@ -305,7 +360,7 @@ function SidebarContent({
                   <li>
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-200/80"
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-300/25"
                       onClick={(e) => {
                         e.stopPropagation();
                         onSaveAsTemplate(notebook);
@@ -426,30 +481,50 @@ function SidebarContent({
               next?.focus();
             }}
           >
-            {renderItem("all", "All notes", totalCount)}
-            {renderItem("uncategorized", "Uncategorized", uncategorizedCount)}
-            {notebooks.map((nb) => {
-              const IconComp: React.ElementType =
-                (nb.icon ? notebookIconComponents[nb.icon] : undefined) ??
-                NotebookIcon;
-              const hasColor =
-                typeof nb.color === "string" && nb.color.length > 0;
-              return (
-                <div key={nb.id}>
-                  {renderItem(
-                    nb.id,
-                    nb.name,
-                    nb.noteCount ?? 0,
-                    <IconComp
-                      className="size-4"
-                      style={hasColor ? { color: nb.color! } : undefined}
-                    />,
-                    nb.color,
-                    nb,
-                  )}
-                </div>
-              );
-            })}
+            {renderItem(
+              "all",
+              "All notes",
+              totalCount,
+              <LayersIcon className="size-4" />,
+            )}
+            {renderItem(
+              "uncategorized",
+              "Uncategorized",
+              uncategorizedCount,
+              <InboxIcon className="size-4" />,
+            )}
+
+            {/* ── My Notebooks (collapsible) ────────────────────── */}
+            {notebooks.length > 0 && (
+              <CollapsibleSection
+                title="My Notebooks"
+                defaultOpen
+                count={notebooks.length}
+              >
+                {notebooks.map((nb) => {
+                  const IconComp: React.ElementType =
+                    (nb.icon ? notebookIconComponents[nb.icon] : undefined) ??
+                    NotebookIcon;
+                  const hasColor =
+                    typeof nb.color === "string" && nb.color.length > 0;
+                  return (
+                    <div key={nb.id}>
+                      {renderItem(
+                        nb.id,
+                        nb.name,
+                        nb.noteCount ?? 0,
+                        <IconComp
+                          className="size-4"
+                          style={hasColor ? { color: nb.color! } : undefined}
+                        />,
+                        nb.color,
+                        nb,
+                      )}
+                    </div>
+                  );
+                })}
+              </CollapsibleSection>
+            )}
           </nav>
         )}
 
@@ -498,7 +573,7 @@ function SidebarContent({
                           "flex-1 truncate rounded-lg px-3 py-2 text-left text-sm transition-colors",
                           isActive
                             ? "bg-primary/10 font-semibold text-primary"
-                            : "text-base-content/60 hover:bg-base-200/60 hover:text-base-content",
+                            : "text-base-content/60 hover:bg-base-300/20 hover:text-base-content",
                         )}
                       >
                         {q.name}
@@ -552,7 +627,7 @@ function Sidebar(props: SidebarProps) {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex lg:w-[240px] lg:flex-shrink-0 lg:flex-col border-r border-base-300/40 bg-base-100/50 h-[calc(100vh-73px)] sticky top-[73px]">
+      <aside className="hidden lg:flex lg:w-[240px] lg:flex-shrink-0 lg:flex-col border-r border-base-300/50 bg-base-100 h-[calc(100vh-73px)] sticky top-[73px]">
         <SidebarContent {...contentProps} />
       </aside>
 
