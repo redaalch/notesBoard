@@ -79,7 +79,7 @@ function Toolbar({
                   "relative inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors duration-200",
                   isActive
                     ? "text-primary"
-                    : "text-base-content/60 hover:text-base-content hover:bg-base-200/50",
+                    : "text-base-content/60 hover:text-base-content hover:bg-base-300/20",
                 )}
               >
                 {isActive && (
@@ -190,7 +190,7 @@ function Toolbar({
                   exit={{ opacity: 0, scale: 0.8 }}
                   transition={{ duration: 0.15 }}
                   onClick={onClear}
-                  className="inline-flex items-center gap-1 rounded-lg border border-base-300/50 bg-base-200/50 px-2.5 py-1 text-xs font-medium text-base-content/70 transition hover:bg-base-200 hover:text-base-content"
+                  className="inline-flex items-center gap-1 rounded-lg border border-base-300/50 bg-base-300/20 px-2.5 py-1 text-xs font-medium text-base-content/70 transition hover:bg-base-300/35 hover:text-base-content"
                 >
                   <span>{label}</span>
                   <XIcon className="size-3" />
