@@ -147,8 +147,26 @@ const noteSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+
+    /* ── Publishing ── */
+    isPublic: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    publicSlug: {
+      type: String,
+      default: null,
+      maxlength: 64,
+      sparse: true,
+      index: true,
+    },
+    publishedAt: {
+      type: Date,
+      default: null,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 noteSchema.index({ title: "text", content: "text" });
