@@ -16,6 +16,7 @@ import ProfilePage from "./pages/ProfilePage";
 import SkipToContent from "./Components/SkipToContent";
 import NotebookInvitePage from "./pages/NotebookInvitePage";
 import PublishedNotebookPage from "./pages/published-notebook-page";
+import PublishedNotePage from "./pages/published-note-page";
 
 const App = () => {
   return (
@@ -32,6 +33,7 @@ const App = () => {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/published/:slug" element={<PublishedNotebookPage />} />
+        <Route path="/published/note/:slug" element={<PublishedNotePage />} />
         <Route
           path="/notebook/invite"
           element={
