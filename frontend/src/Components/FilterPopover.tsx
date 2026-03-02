@@ -164,7 +164,7 @@ function FilterPopover({
                   {tagOptions.map((tag) => (
                     <label
                       key={tag}
-                      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-base-200/50 transition-colors"
+                      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-base-300/20 transition-colors"
                     >
                       <input
                         type="checkbox"
