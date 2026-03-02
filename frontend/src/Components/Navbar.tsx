@@ -44,6 +44,9 @@ export interface NavbarProps {
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
   /** Template gallery trigger */
   onOpenTemplates?: () => void;
+  /** Controlled mobile-search overlay */
+  mobileSearchOpen?: boolean;
+  onMobileSearchOpen?: (open: boolean) => void;
 }
 
 const THEME_OPTIONS: ThemeOption[] = [
@@ -129,10 +132,17 @@ function Navbar({
   onSearchChange,
   searchInputRef,
   onOpenTemplates,
+  mobileSearchOpen: mobileSearchOpenProp,
+  onMobileSearchOpen,
 }: NavbarProps) {
   const [theme, setTheme] = useState<string>(getPreferredTheme);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileSearchLocal, setMobileSearchLocal] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+
+  // Support both controlled (prop) and uncontrolled (local) mobile search
+  const mobileSearchOpen = mobileSearchOpenProp ?? mobileSearchLocal;
+  const setMobileSearchOpen = onMobileSearchOpen ?? setMobileSearchLocal;
   const currentTheme = useMemo(
     () =>
       THEME_MAP.get(theme) ?? THEME_MAP.get(DEFAULT_THEME) ?? THEME_OPTIONS[0],
@@ -199,11 +209,12 @@ function Navbar({
     <>
       <header className="sticky top-0 z-40 w-full glass-navbar">
         <div className="mx-auto w-full max-w-7xl px-4 py-3 lg:px-8">
-          <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 rounded-2xl border border-base-content/10 bg-base-200/60 px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 shadow-lg shadow-primary/10 backdrop-blur-sm md:flex-nowrap">
+          <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 rounded-2xl border border-base-300/50 bg-base-100/80 px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 shadow-lg shadow-primary/10 backdrop-blur-sm md:flex-nowrap">
             <div className="flex flex-shrink-0 items-center gap-1.5 sm:gap-2 md:gap-3">
+              {/* Desktop-only hamburger menu */}
               <button
                 onClick={() => setMobileMenuOpen(true)}
-                className="btn btn-circle btn-ghost btn-sm lg:hidden"
+                className="btn btn-circle btn-ghost btn-sm hidden md:inline-flex lg:hidden"
                 aria-label="Open quick menu"
               >
                 <MenuIcon className="size-5" />
@@ -217,11 +228,11 @@ function Navbar({
                 <Logo className="transition-transform duration-200 group-hover:scale-105" />
               </Link>
 
-              {/* Mobile sidebar toggle */}
+              {/* Sidebar toggle — hidden on mobile (bottom nav handles it) */}
               {onMobileSidebarClick && (
                 <button
                   onClick={onMobileSidebarClick}
-                  className="btn btn-circle btn-ghost btn-sm lg:hidden"
+                  className="btn btn-circle btn-ghost btn-sm hidden md:inline-flex lg:hidden"
                   aria-label="Open sidebar"
                 >
                   <FolderOpenIcon className="size-5" />
@@ -229,36 +240,49 @@ function Navbar({
               )}
             </div>
 
-            {/* Search bar — centre of navbar */}
+            {/* Search — magnifying-glass icon on mobile, full bar on md+ */}
             {onSearchChange && (
-              <div className="order-last flex-1 md:order-none md:mx-4 md:max-w-sm lg:max-w-md w-full md:w-auto">
-                <label className="input input-bordered input-sm flex items-center gap-2 rounded-xl bg-base-100/60 focus-within:bg-base-100 transition-colors">
-                  <SearchIcon className="size-4 text-base-content/40" />
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    value={searchQuery ?? ""}
-                    onChange={(e) => onSearchChange(e.target.value)}
-                    placeholder="Search notes…"
-                    className="grow bg-transparent text-sm placeholder:text-base-content/40"
-                    aria-label="Search notes"
-                  />
-                  {searchQuery ? (
-                    <button
-                      type="button"
-                      onClick={() => onSearchChange("")}
-                      className="btn btn-circle btn-ghost btn-xs"
-                      aria-label="Clear search"
-                    >
-                      <XIcon className="size-3" />
-                    </button>
-                  ) : (
-                    <kbd className="hidden lg:inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded border border-base-300/60 bg-base-200/60 px-1 text-[10px] font-semibold text-base-content/40">
-                      /
-                    </kbd>
-                  )}
-                </label>
-              </div>
+              <>
+                {/* Mobile: search icon */}
+                <button
+                  type="button"
+                  onClick={() => setMobileSearchOpen(true)}
+                  className="btn btn-circle btn-ghost btn-sm md:hidden"
+                  aria-label="Open search"
+                >
+                  <SearchIcon className="size-5" />
+                </button>
+
+                {/* Desktop: inline search bar */}
+                <div className="hidden md:flex order-none mx-4 max-w-sm lg:max-w-md flex-1">
+                  <label className="input input-bordered input-sm flex w-full items-center gap-2 rounded-xl border-base-300/50 bg-base-300/15 focus-within:bg-base-100 transition-colors">
+                    <SearchIcon className="size-4 text-base-content/40" />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={searchQuery ?? ""}
+                      onChange={(e) => onSearchChange(e.target.value)}
+                      placeholder="Search notes…"
+                      className="grow bg-transparent text-sm placeholder:text-base-content/40"
+                      aria-label="Search notes"
+                    />
+                    {searchQuery ? (
+                      <button
+                        type="button"
+                        onClick={() => onSearchChange("")}
+                        className="btn btn-circle btn-ghost btn-xs"
+                        aria-label="Clear search"
+                      >
+                        <XIcon className="size-3" />
+                      </button>
+                    ) : (
+                      <kbd className="hidden lg:inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded border border-base-300/50 bg-base-300/20 px-1 text-[10px] font-semibold text-base-content/40">
+                        /
+                      </kbd>
+                    )}
+                  </label>
+                </div>
+              </>
             )}
 
             <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
@@ -284,10 +308,10 @@ function Navbar({
                 <button
                   type="button"
                   tabIndex={0}
-                  className="btn btn-primary items-center gap-2 rounded-2xl border-0 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 px-5"
+                  className="btn btn-primary btn-md items-center gap-2 rounded-2xl border-0 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/35 transition-all duration-200 hover:scale-105 px-6"
                 >
                   <PlusCircleIcon className="size-5" />
-                  <span className="font-semibold">Create</span>
+                  <span className="font-bold tracking-wide">Create</span>
                   <ChevronDownIcon className="size-4 opacity-70" />
                 </button>
                 <ul
@@ -470,6 +494,57 @@ function Navbar({
           </div>
         </div>
       </header>
+
+      {/* ── Mobile search overlay ───────────────────────────────── */}
+      {isMounted &&
+        createPortal(
+          <AnimatePresence>
+            {mobileSearchOpen && onSearchChange && (
+              <motion.div
+                key="mobile-search-overlay"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 z-[9999] flex flex-col bg-base-100 md:hidden"
+              >
+                <div className="flex items-center gap-2 border-b border-base-300/50 px-4 py-3">
+                  <SearchIcon className="size-5 text-base-content/40 shrink-0" />
+                  <input
+                    type="text"
+                    autoFocus
+                    value={searchQuery ?? ""}
+                    onChange={(e) => onSearchChange(e.target.value)}
+                    placeholder="Search notes…"
+                    className="flex-1 bg-transparent text-base text-base-content placeholder:text-base-content/40 outline-none"
+                    aria-label="Search notes"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setMobileSearchOpen(false)}
+                    className="btn btn-ghost btn-sm btn-circle"
+                    aria-label="Close search"
+                  >
+                    <XIcon className="size-5" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto px-4 py-6">
+                  {searchQuery ? (
+                    <p className="text-sm text-base-content/60">
+                      Showing results for &ldquo;{searchQuery}&rdquo; — return
+                      to dashboard to browse.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-base-content/40">
+                      Start typing to search your notes…
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body,
+        )}
 
       {isMounted &&
         createPortal(
