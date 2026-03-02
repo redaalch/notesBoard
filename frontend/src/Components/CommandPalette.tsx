@@ -207,7 +207,7 @@ function CommandPalette() {
                             className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left text-sm transition focus:outline-none focus:ring-2 focus:ring-primary/50 ${
                               highlighted
                                 ? "bg-primary/10 text-base-content"
-                                : "bg-transparent hover:bg-base-200/70"
+                                : "bg-transparent hover:bg-base-300/25"
                             }`}
                             onClick={() => handleSelect(command)}
                             onMouseEnter={() => setHighlightedIndex(index)}
