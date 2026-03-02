@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { BubbleMenu, EditorContent, useEditor } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -40,7 +40,13 @@ export interface ToolbarButtonProps {
   label: string;
 }
 
-const ToolbarButton = ({ onClick, active, disabled, icon, label }: ToolbarButtonProps) => {
+const ToolbarButton = ({
+  onClick,
+  active,
+  disabled,
+  icon,
+  label,
+}: ToolbarButtonProps) => {
   const Icon = icon;
   return (
     <button
@@ -51,89 +57,71 @@ const ToolbarButton = ({ onClick, active, disabled, icon, label }: ToolbarButton
       onClick={onClick}
       disabled={disabled}
       title={label}
-      onMouseDown={(e: React.MouseEvent<HTMLButtonElement>) => e.preventDefault()} // Prevent focus loss
+      onMouseDown={(e: React.MouseEvent<HTMLButtonElement>) =>
+        e.preventDefault()
+      } // Prevent focus loss
     >
       <Icon className="size-3.5" />
     </button>
   );
 };
 
-export interface EditorToolbarProps {
-  editor: Editor | null;
-}
-
-const EditorToolbar = ({ editor }: EditorToolbarProps) => {
-  if (!editor) return null;
-
-  const handleButtonClick = (callback: () => void) => (e: React.MouseEvent<HTMLButtonElement>) => {
+const BubbleToolbar = ({ editor }: { editor: Editor }) => {
+  const wrap = (fn: () => void) => (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    callback();
+    fn();
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-1 rounded-xl border border-base-300/60 bg-base-200/70 px-2 py-1">
+    <div className="flex items-center gap-0.5 rounded-xl border border-base-300/50 bg-base-100 px-1.5 py-1 shadow-lg">
       <ToolbarButton
         icon={BoldIcon}
         label="Bold (Ctrl+B)"
-        onClick={handleButtonClick(() =>
-          editor.chain().focus().toggleBold().run()
-        )}
+        onClick={wrap(() => editor.chain().focus().toggleBold().run())}
         active={editor.isActive("bold")}
         disabled={!editor.can().chain().focus().toggleBold().run()}
       />
       <ToolbarButton
         icon={ItalicIcon}
         label="Italic (Ctrl+I)"
-        onClick={handleButtonClick(() =>
-          editor.chain().focus().toggleItalic().run()
-        )}
+        onClick={wrap(() => editor.chain().focus().toggleItalic().run())}
         active={editor.isActive("italic")}
         disabled={!editor.can().chain().focus().toggleItalic().run()}
       />
       <ToolbarButton
         icon={StrikethroughIcon}
-        label="Strikethrough (Ctrl+Shift+X)"
-        onClick={handleButtonClick(() =>
-          editor.chain().focus().toggleStrike().run()
-        )}
+        label="Strikethrough"
+        onClick={wrap(() => editor.chain().focus().toggleStrike().run())}
         active={editor.isActive("strike")}
         disabled={!editor.can().chain().focus().toggleStrike().run()}
       />
-      <span className="divider divider-horizontal mx-1" />
+      <span className="mx-0.5 h-4 w-px bg-base-300/60" />
       <ToolbarButton
         icon={ListIcon}
         label="Bullet list"
-        onClick={handleButtonClick(() =>
-          editor.chain().focus().toggleBulletList().run()
-        )}
+        onClick={wrap(() => editor.chain().focus().toggleBulletList().run())}
         active={editor.isActive("bulletList")}
         disabled={!editor.can().chain().focus().toggleBulletList().run()}
       />
       <ToolbarButton
         icon={ListOrderedIcon}
         label="Ordered list"
-        onClick={handleButtonClick(() =>
-          editor.chain().focus().toggleOrderedList().run()
-        )}
+        onClick={wrap(() => editor.chain().focus().toggleOrderedList().run())}
         active={editor.isActive("orderedList")}
         disabled={!editor.can().chain().focus().toggleOrderedList().run()}
       />
       <ToolbarButton
         icon={QuoteIcon}
         label="Blockquote"
-        onClick={handleButtonClick(() =>
-          editor.chain().focus().toggleBlockquote().run()
-        )}
+        onClick={wrap(() => editor.chain().focus().toggleBlockquote().run())}
         active={editor.isActive("blockquote")}
         disabled={!editor.can().chain().focus().toggleBlockquote().run()}
       />
       <ToolbarButton
         icon={CodeIcon}
         label="Code block"
-        onClick={handleButtonClick(() =>
-          editor.chain().focus().toggleCodeBlock().run()
-        )}
+        onClick={wrap(() => editor.chain().focus().toggleCodeBlock().run())}
         active={editor.isActive("codeBlock")}
         disabled={!editor.can().chain().focus().toggleCodeBlock().run()}
       />
@@ -217,7 +205,7 @@ const CollaborativeEditor = ({
           editorProps: {
             attributes: {
               class:
-                "prose prose-sm sm:prose-base prose-ul:list-disc prose-ol:list-decimal prose-li:ml-4 max-w-none h-full min-h-[24rem] rounded-2xl border border-base-300/60 bg-base-100/90 px-4 py-5 focus:outline-none focus:ring-2 focus:ring-primary/20",
+                "prose prose-lg prose-ul:list-disc prose-ol:list-decimal prose-li:ml-4 max-w-none h-full min-h-[24rem] leading-relaxed focus:outline-none",
             },
             handleKeyDown: () => {
               if (onTypingRef.current && !readOnly) {
@@ -228,7 +216,7 @@ const CollaborativeEditor = ({
           },
         }
       : undefined,
-    [provider, doc, user?.id, user?.name, color, readOnly, placeholder]
+    [provider, doc, user?.id, user?.name, color, readOnly, placeholder],
   );
 
   useEffect(() => {
@@ -246,8 +234,15 @@ const CollaborativeEditor = ({
   }
 
   return (
-    <div className="space-y-3">
-      {!readOnly && <EditorToolbar editor={editor} />}
+    <div>
+      {editor && !readOnly && (
+        <BubbleMenu
+          editor={editor}
+          tippyOptions={{ duration: 150, placement: "top" }}
+        >
+          <BubbleToolbar editor={editor} />
+        </BubbleMenu>
+      )}
       <EditorContent editor={editor} />
     </div>
   );
