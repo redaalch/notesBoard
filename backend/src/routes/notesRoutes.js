@@ -16,6 +16,11 @@ import {
   listNoteCollaborators,
   removeNoteCollaborator,
 } from "../controllers/noteCollaboratorsController.js";
+import {
+  getNotePublishingState,
+  publishNote,
+  unpublishNote,
+} from "../controllers/notePublishingController.js";
 import auth from "../middleware/auth.js";
 import { validate, validationRules } from "../middleware/validation.js";
 import { body, query } from "express-validator";
@@ -29,7 +34,7 @@ router.use(auth);
 router.get(
   "/",
   validate([...validationRules.pagination(), query("tag").optional().trim()]),
-  getAllNotes
+  getAllNotes,
 );
 
 // Note layout routes
@@ -49,10 +54,10 @@ router.put(
         return validationRules.objectId("notebookId").custom(() => true);
       })
       .withMessage(
-        "notebookId must be a valid MongoDB ID or 'uncategorized' or 'all'"
+        "notebookId must be a valid MongoDB ID or 'uncategorized' or 'all'",
       ),
   ]),
-  updateNoteLayout
+  updateNoteLayout,
 );
 
 // Tag statistics
@@ -68,21 +73,21 @@ router.post(
     body("noteIds.*").isMongoId().withMessage("Each noteId must be valid"),
     body("action").isString().withMessage("Action is required"),
   ]),
-  bulkUpdateNotes
+  bulkUpdateNotes,
 );
 
 // Note history
 router.get(
   "/:id/history",
   validate([validationRules.objectId("id"), ...validationRules.pagination()]),
-  getNoteHistory
+  getNoteHistory,
 );
 
 // Collaborators routes
 router.get(
   "/:id/collaborators",
   validate([validationRules.objectId("id")]),
-  listNoteCollaborators
+  listNoteCollaborators,
 );
 
 router.post(
@@ -94,7 +99,7 @@ router.post(
       .isIn(["view", "edit"])
       .withMessage("Permission must be view or edit"),
   ]),
-  addNoteCollaborator
+  addNoteCollaborator,
 );
 
 router.delete(
@@ -103,7 +108,26 @@ router.delete(
     validationRules.objectId("id"),
     validationRules.objectId("collaboratorId"),
   ]),
-  removeNoteCollaborator
+  removeNoteCollaborator,
+);
+
+// Publishing routes
+router.get(
+  "/:id/publish",
+  validate([validationRules.objectId("id")]),
+  getNotePublishingState,
+);
+
+router.post(
+  "/:id/publish",
+  validate([validationRules.objectId("id")]),
+  publishNote,
+);
+
+router.delete(
+  "/:id/publish",
+  validate([validationRules.objectId("id")]),
+  unpublishNote,
 );
 
 // Get single note
@@ -140,7 +164,7 @@ router.post(
       .isMongoId()
       .withMessage("Invalid workspace ID"),
   ]),
-  createNote
+  createNote,
 );
 
 // Update note
@@ -157,7 +181,7 @@ router.put(
       .isBoolean()
       .withMessage("Archived must be boolean"),
   ]),
-  updateNote
+  updateNote,
 );
 
 // Delete note
