@@ -178,7 +178,7 @@ const CommandsList = forwardRef<CommandsListHandle, CommandsListProps>(
                 className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors ${
                   index === selectedIndex
                     ? "bg-primary text-primary-content"
-                    : "text-base-content hover:bg-base-200"
+                    : "text-base-content hover:bg-base-300/25"
                 }`}
                 onClick={() => selectItem(index)}
               >
