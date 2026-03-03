@@ -10,6 +10,7 @@ import {
   PenLineIcon,
   RotateCcwIcon,
   Share2Icon,
+  StarIcon,
 } from "lucide-react";
 import useAuth from "../hooks/useAuth";
 import useScrollReveal from "../hooks/useScrollReveal";
@@ -55,6 +56,11 @@ const updates = [
     description:
       "Roll back notebook deletes, member changes, and share links — one click, no hassle.",
     icon: RotateCcwIcon,
+    highlights: [
+      "Restore deleted notebooks instantly",
+      "Revert member permission changes",
+      "Recover revoked share links",
+    ],
   },
   {
     tag: "Improved",
@@ -143,10 +149,12 @@ function LandingPage() {
                 Now with undo timeline &amp; saved views
               </span>
 
-              <h1 className="text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
+              <h1 className="text-4xl font-bold leading-[1.1] -tracking-[0.02em] sm:text-5xl lg:text-6xl">
                 Your notes, organized.
                 <br />
-                <span className="text-primary">Finally.</span>
+                <span className="bg-gradient-to-r from-blue-600 via-violet-600 to-cyan-500 bg-clip-text text-transparent">
+                  Finally.
+                </span>
               </h1>
 
               <p className="mx-auto max-w-xl text-lg text-slate-500">
@@ -179,6 +187,34 @@ function LandingPage() {
               <p className="text-sm text-slate-500">
                 Free forever &middot; No credit card &middot; Unlimited notes
               </p>
+
+              {/* Social proof */}
+              <div className="flex flex-wrap items-center justify-center gap-4 pt-1">
+                <div className="flex -space-x-2">
+                  {[
+                    "from-blue-300 to-blue-400",
+                    "from-violet-300 to-violet-400",
+                    "from-cyan-300 to-cyan-400",
+                    "from-amber-300 to-amber-400",
+                    "from-rose-300 to-rose-400",
+                  ].map((gradient, i) => (
+                    <div
+                      key={i}
+                      className={`size-7 rounded-full border-2 border-white bg-gradient-to-br ${gradient}`}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-1.5 text-sm">
+                  <div className="flex text-amber-400">
+                    {[...Array(5)].map((_, i) => (
+                      <StarIcon key={i} className="size-3.5 fill-current" />
+                    ))}
+                  </div>
+                  <span className="font-medium text-slate-600">
+                    Loved by 2,000+ users
+                  </span>
+                </div>
+              </div>
             </div>
 
             {/* ── Product preview mockup ── */}
@@ -281,53 +317,153 @@ function LandingPage() {
               animate={featuresReveal.animate}
               variants={{
                 hidden: {},
-                visible: { transition: { staggerChildren: 0.15 } },
+                visible: { transition: { staggerChildren: 0.2 } },
               }}
-              className="mt-14 grid gap-8 md:grid-cols-3"
+              className="mt-16 space-y-20"
             >
               {features.map((feature, i) => {
-                const Icon = feature.icon;
+                const isReversed = i % 2 !== 0;
                 return (
-                  <motion.article
+                  <motion.div
                     key={feature.title}
                     variants={featuresReveal.variants}
-                    className="relative flex h-full flex-col gap-4 rounded-xl border border-slate-200 bg-slate-50/50 p-6 pl-8 text-left transition hover:-translate-y-0.5 hover:shadow-md"
+                    className={`flex flex-col items-center gap-10 md:flex-row ${
+                      isReversed ? "md:flex-row-reverse" : ""
+                    }`}
                   >
-                    {/* Step number + vertical connector */}
-                    <div className="absolute -left-px top-0 flex flex-col items-center md:-top-6">
-                      <span className="z-10 grid size-8 place-items-center rounded-full border-2 border-primary bg-white text-xs font-bold text-primary">
-                        {i + 1}
-                      </span>
-                      {i < features.length - 1 && (
-                        <span
-                          className="hidden h-full w-px bg-slate-200 md:block"
-                          aria-hidden
-                        />
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <span className="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
-                        <Icon className="size-5" />
-                      </span>
-                    </div>
-
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-semibold">{feature.title}</h3>
-                      <p className="text-sm leading-relaxed text-slate-500">
+                    {/* Text side */}
+                    <div className="flex-1 space-y-4">
+                      <div className="flex items-center gap-4">
+                        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-primary/10 text-xl font-bold text-primary">
+                          {i + 1}
+                        </span>
+                        <h3 className="text-xl font-semibold">
+                          {feature.title}
+                        </h3>
+                      </div>
+                      <p className="pl-16 text-base leading-relaxed text-slate-500">
                         {feature.description}
                       </p>
+                      <ul className="space-y-2 pl-16 text-sm text-slate-500">
+                        {feature.details.map((detail) => (
+                          <li key={detail} className="flex items-start gap-2">
+                            <CheckIcon className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                            <span>{detail}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
 
-                    <ul className="mt-auto space-y-2 text-sm text-slate-500">
-                      {feature.details.map((detail) => (
-                        <li key={detail} className="flex items-start gap-2">
-                          <CheckIcon className="mt-0.5 size-3.5 shrink-0 text-primary" />
-                          <span>{detail}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </motion.article>
+                    {/* Visual side */}
+                    <div className="flex flex-1 justify-center">
+                      {i === 0 && (
+                        /* Editor graphic */
+                        <div className="w-full max-w-sm rounded-xl border border-slate-100 bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-transform duration-300 hover:-translate-y-1">
+                          <div className="font-mono text-sm">
+                            <div className="mb-3 flex items-center text-base font-bold text-slate-800">
+                              ## Product Roadmap
+                              <span className="ml-1 inline-block h-4 w-1.5 animate-pulse bg-blue-500" />
+                            </div>
+                            <div className="ml-1 space-y-2 text-slate-500">
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-300">-</span>
+                                Sprint planning
+                                <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-xs text-blue-500">
+                                  @team
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-300">-</span>
+                                User interviews
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {i === 1 && (
+                        /* Filter graphic */
+                        <div className="relative h-48 w-full max-w-sm">
+                          <div className="absolute inset-x-0 top-0 flex gap-2 rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+                            <div className="flex flex-1 items-center rounded border border-slate-100 bg-slate-50 px-3 py-1.5 text-sm text-slate-500">
+                              <svg
+                                className="mr-2 size-4 text-slate-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                                />
+                              </svg>
+                              user research
+                              <span className="ml-px animate-pulse">|</span>
+                            </div>
+                            <div className="flex items-center rounded bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-600">
+                              Filters
+                            </div>
+                          </div>
+
+                          <div className="absolute right-2 top-14 z-10 w-48 rounded-xl border border-slate-100 bg-white p-2 shadow-[0_10px_40px_rgb(0,0,0,0.08)]">
+                            <div className="mb-1 flex cursor-pointer items-center gap-2 rounded-lg bg-green-500/10 px-3 py-2 text-xs font-semibold text-green-700">
+                              <svg
+                                className="size-3"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" />
+                              </svg>
+                              #Retro
+                            </div>
+                            <div className="flex cursor-pointer items-center gap-2 rounded-lg bg-blue-500/10 px-3 py-2 text-xs font-semibold text-blue-700">
+                              <svg
+                                className="size-3"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" />
+                              </svg>
+                              #Team
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {i === 2 && (
+                        /* Share modal graphic */
+                        <div className="w-full max-w-[280px] rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_20px_50px_rgb(0,0,0,0.1)] transition-transform duration-300 hover:scale-105">
+                          <div className="mb-5 flex items-center justify-between">
+                            <h4 className="text-sm font-bold text-slate-800">
+                              Share Note
+                            </h4>
+                            <span className="cursor-pointer text-slate-400 hover:text-slate-600">
+                              ✕
+                            </span>
+                          </div>
+
+                          <div className="mb-4 flex items-center justify-between">
+                            <span className="text-sm font-medium text-slate-600">
+                              Publish to web
+                            </span>
+                            <div className="flex h-5 w-9 cursor-pointer items-center justify-end rounded-full bg-blue-500 p-0.5">
+                              <div className="size-4 rounded-full bg-white shadow-sm" />
+                            </div>
+                          </div>
+
+                          <div className="mb-4 truncate rounded-lg border border-slate-200 bg-slate-50 p-2.5 font-mono text-xs text-slate-500">
+                            notesboard.xyz/your-note
+                          </div>
+
+                          <div className="w-full rounded-lg bg-blue-500 py-2.5 text-center text-sm font-semibold text-white shadow-sm shadow-blue-500/30 transition-colors hover:bg-blue-600">
+                            Copy Link
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
                 );
               })}
             </motion.div>
@@ -335,7 +471,10 @@ function LandingPage() {
         </section>
 
         {/* ── What's new ── */}
-        <section id="updates" className="border-t border-slate-200">
+        <section
+          id="updates"
+          className="border-t border-slate-200 bg-[#f8fafc]"
+        >
           <div className="mx-auto w-full max-w-5xl px-4 py-20">
             <div className="mx-auto max-w-2xl space-y-3 text-center">
               <h2 className="text-3xl font-bold tracking-tight">
@@ -354,26 +493,111 @@ function LandingPage() {
                 hidden: {},
                 visible: { transition: { staggerChildren: 0.12 } },
               }}
-              className="mt-14 grid gap-6 md:grid-cols-3"
+              className="mt-14 grid auto-rows-fr grid-cols-1 gap-5 md:grid-cols-3 md:grid-rows-2"
             >
-              {updates.map(({ tag, title, description, icon: Icon }) => (
-                <motion.div
-                  key={title}
-                  variants={updatesReveal.variants}
-                  className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5 text-left"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-slate-600">
-                      {tag}
-                    </span>
-                    <Icon className="size-4 text-slate-500" />
-                  </div>
-                  <h3 className="text-base font-semibold">{title}</h3>
-                  <p className="text-sm leading-relaxed text-slate-500">
-                    {description}
-                  </p>
-                </motion.div>
-              ))}
+              {updates.map((update, i) => {
+                const { tag, title, description, icon: Icon } = update;
+                const highlights =
+                  "highlights" in update
+                    ? (update as { highlights: string[] }).highlights
+                    : null;
+                return (
+                  <motion.div
+                    key={title}
+                    variants={updatesReveal.variants}
+                    className={`flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm ${
+                      i === 0 ? "md:col-span-2 md:row-span-2" : ""
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="rounded-full bg-primary/10 px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
+                        {tag}
+                      </span>
+                    </div>
+                    <div
+                      className={`flex items-center gap-3 ${
+                        i === 0 ? "mt-2" : ""
+                      }`}
+                    >
+                      <span
+                        className={`grid place-items-center rounded-xl bg-primary/10 ${
+                          i === 0 ? "size-14" : "size-10"
+                        }`}
+                      >
+                        <Icon
+                          className={`text-primary ${
+                            i === 0 ? "size-7" : "size-5"
+                          }`}
+                        />
+                      </span>
+                      <h3
+                        className={`font-semibold ${
+                          i === 0 ? "text-xl" : "text-base"
+                        }`}
+                      >
+                        {title}
+                      </h3>
+                    </div>
+                    <p
+                      className={`leading-relaxed text-slate-500 ${
+                        i === 0 ? "max-w-md text-base" : "text-sm"
+                      }`}
+                    >
+                      {description}
+                    </p>
+
+                    {/* Extra content for featured card */}
+                    {i === 0 && highlights && (
+                      <div className="mt-auto flex flex-col gap-5 md:flex-row md:items-end md:gap-8">
+                        <ul className="space-y-2 text-sm text-slate-500">
+                          {highlights.map((h) => (
+                            <li key={h} className="flex items-start gap-2">
+                              <CheckIcon className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                              <span>{h}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        {/* Mini timeline mockup */}
+                        <div className="hidden flex-1 space-y-2.5 rounded-xl border border-slate-100 bg-slate-50/80 p-4 md:block">
+                          {[
+                            {
+                              w: "w-3/4",
+                              accent: true,
+                              label: "Notebook restored",
+                            },
+                            {
+                              w: "w-1/2",
+                              accent: false,
+                              label: "Permission reverted",
+                            },
+                            {
+                              w: "w-2/3",
+                              accent: false,
+                              label: "Share link recovered",
+                            },
+                          ].map((row) => (
+                            <div
+                              key={row.label}
+                              className="flex items-center gap-2.5"
+                            >
+                              <span
+                                className={`size-2 shrink-0 rounded-full ${
+                                  row.accent ? "bg-primary" : "bg-slate-200"
+                                }`}
+                              />
+                              <div
+                                className={`h-2.5 rounded ${row.w} ${
+                                  row.accent ? "bg-primary/15" : "bg-slate-100"
+                                }`}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
             </motion.div>
           </div>
         </section>
@@ -384,20 +608,23 @@ function LandingPage() {
           initial="hidden"
           animate={ctaReveal.animate}
           variants={ctaReveal.variants}
-          className="border-t border-slate-200 bg-white"
+          className="border-t border-slate-200"
         >
           <div className="mx-auto w-full max-w-5xl px-4 py-20">
-            <div className="mx-auto max-w-2xl space-y-5 text-center">
-              <h2 className="text-3xl font-bold tracking-tight">
+            <div className="mx-auto max-w-3xl rounded-2xl bg-gradient-to-br from-blue-50 via-violet-50/60 to-cyan-50 px-6 py-16 text-center shadow-sm ring-1 ring-slate-200/60 sm:px-12">
+              <h2 className="text-4xl font-bold tracking-tight">
                 Ready to try it?
               </h2>
-              <p className="text-base text-slate-500">
+              <p className="mx-auto mt-4 max-w-xl text-lg text-slate-500">
                 Create a free account and start writing. Invite your team
                 whenever you&apos;re ready.
               </p>
-              <div className="flex flex-col items-center justify-center gap-3 pt-2 sm:flex-row">
+              <div className="flex flex-col items-center justify-center gap-3 pt-8 sm:flex-row">
                 {initializing ? null : user ? (
-                  <Link to="/app" className="btn btn-primary btn-lg gap-2">
+                  <Link
+                    to="/app"
+                    className="btn btn-primary btn-lg gap-2 px-8 text-base"
+                  >
                     <LayoutDashboardIcon className="size-5" />
                     Back to dashboard
                   </Link>
@@ -405,12 +632,15 @@ function LandingPage() {
                   <>
                     <Link
                       to="/register"
-                      className="btn btn-primary btn-lg gap-2"
+                      className="btn btn-primary btn-lg gap-2 px-8 text-base shadow-lg shadow-primary/20"
                     >
                       Create an account
                       <ArrowRightIcon className="size-4" />
                     </Link>
-                    <Link to="/login" className="btn btn-ghost btn-lg">
+                    <Link
+                      to="/login"
+                      className="btn btn-ghost btn-lg text-base"
+                    >
                       I already have one
                     </Link>
                   </>
@@ -422,7 +652,8 @@ function LandingPage() {
       </main>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-slate-200">
+      <hr className="mx-auto max-w-5xl border-slate-200" />
+      <footer>
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-8 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
           <span>&copy; {new Date().getFullYear()} NotesBoard</span>
           <div className="flex items-center gap-4">
