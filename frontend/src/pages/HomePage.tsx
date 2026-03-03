@@ -63,6 +63,7 @@ import { NOTEBOOK_COLORS, NOTEBOOK_ICONS } from "@shared/notebookOptions";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../Components/Navbar";
 import Sidebar from "../Components/Sidebar";
+import MobileBottomNav from "../Components/MobileBottomNav";
 import Toolbar from "../Components/Toolbar";
 import RateLimitedUI from "../Components/RateLimitedUI";
 import api from "../lib/axios";
@@ -352,6 +353,7 @@ function HomePage() {
   const [isRateLimited, setIsRateLimited] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [minWords, setMinWords] = useState(0);
@@ -2434,7 +2436,7 @@ function HomePage() {
   ]);
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col pb-16 lg:pb-0">
       <Navbar
         onMobileSidebarClick={() => setMobileSidebarOpen(true)}
         defaultNotebookId={
@@ -2448,6 +2450,8 @@ function HomePage() {
         onSearchChange={setSearchQuery}
         searchInputRef={searchInputRef}
         onOpenTemplates={openTemplateGallery}
+        mobileSearchOpen={mobileSearchOpen}
+        onMobileSearchOpen={setMobileSearchOpen}
       />
 
       {isRateLimited && (
@@ -2572,36 +2576,6 @@ function HomePage() {
             )}
 
             {/* ── Notes stats bar ──────────────────────────────────── */}
-            {!loading && filteredNotes.length > 0 && (
-              <div className="flex flex-wrap items-center gap-3 rounded-xl border border-base-300/30 bg-base-100/60 px-4 py-2.5 text-sm tabular-nums backdrop-blur">
-                <span className="font-semibold text-base-content">
-                  {filteredNotes.length}{" "}
-                  {filteredNotes.length === 1 ? "note" : "notes"}
-                </span>
-                <span className="text-base-content/20" aria-hidden="true">
-                  ·
-                </span>
-                <span className="text-base-content/60">
-                  {pinnedCount} pinned
-                </span>
-                <span className="text-base-content/20" aria-hidden="true">
-                  ·
-                </span>
-                <span className="text-base-content/60">
-                  {avgWords} avg words
-                </span>
-                {totalPages > 1 && (
-                  <>
-                    <span className="text-base-content/20" aria-hidden="true">
-                      ·
-                    </span>
-                    <span className="text-base-content/60">
-                      Page {safeCurrentPage} of {totalPages}
-                    </span>
-                  </>
-                )}
-              </div>
-            )}
 
             {!loading && filteredNotes.length > 0 && (
               <DndContext
@@ -2644,7 +2618,7 @@ function HomePage() {
                         transition: { staggerChildren: 0.04 },
                       },
                     }}
-                    className="grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-3"
+                    className="grid grid-cols-1 gap-4 md:gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-3"
                   >
                     {paginatedNotes.map((note) => {
                       const id = getNoteId(note);
@@ -2704,63 +2678,86 @@ function HomePage() {
               </DndContext>
             )}
 
-            {/* ── Pagination controls ─────────────────────────────── */}
-            {!loading && totalPages > 1 && !customizeMode && (
-              <div className="flex items-center justify-center gap-1.5 pt-2 pb-4">
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={safeCurrentPage === 1}
-                  className="btn btn-sm btn-ghost btn-circle"
-                  title="First page"
-                >
-                  <ChevronsLeftIcon className="size-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={safeCurrentPage === 1}
-                  className="btn btn-sm btn-ghost btn-circle"
-                  title="Previous page"
-                >
-                  <ChevronLeftIcon className="size-4" />
-                </button>
+            {/* ── Pagination controls + compact stats ─────────────── */}
+            {!loading && filteredNotes.length > 0 && (
+              <div className="flex flex-col items-center gap-2 pt-2 pb-4">
+                {/* Compact stats */}
+                <p className="text-[11px] tabular-nums text-base-content/40">
+                  {filteredNotes.length}{" "}
+                  {filteredNotes.length === 1 ? "note" : "notes"}
+                  {" · "}
+                  {pinnedCount} pinned
+                  {" · "}
+                  {avgWords} avg words
+                  {totalPages > 1 && (
+                    <>
+                      {" · "}
+                      Page {safeCurrentPage} of {totalPages}
+                    </>
+                  )}
+                </p>
 
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                  (page) => (
+                {/* Page buttons */}
+                {totalPages > 1 && !customizeMode && (
+                  <div className="flex items-center justify-center gap-1.5">
                     <button
-                      key={page}
                       type="button"
-                      onClick={() => setCurrentPage(page)}
-                      className={`btn btn-sm btn-circle ${
-                        page === safeCurrentPage ? "btn-primary" : "btn-ghost"
-                      }`}
+                      onClick={() => setCurrentPage(1)}
+                      disabled={safeCurrentPage === 1}
+                      className="btn btn-sm btn-ghost btn-circle"
+                      title="First page"
                     >
-                      {page}
+                      <ChevronsLeftIcon className="size-4" />
                     </button>
-                  ),
-                )}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={safeCurrentPage === 1}
+                      className="btn btn-sm btn-ghost btn-circle"
+                      title="Previous page"
+                    >
+                      <ChevronLeftIcon className="size-4" />
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    setCurrentPage((p) => Math.min(totalPages, p + 1))
-                  }
-                  disabled={safeCurrentPage === totalPages}
-                  className="btn btn-sm btn-ghost btn-circle"
-                  title="Next page"
-                >
-                  <ChevronRightIcon className="size-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={safeCurrentPage === totalPages}
-                  className="btn btn-sm btn-ghost btn-circle"
-                  title="Last page"
-                >
-                  <ChevronsRightIcon className="size-4" />
-                </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                      (page) => (
+                        <button
+                          key={page}
+                          type="button"
+                          onClick={() => setCurrentPage(page)}
+                          className={`btn btn-sm btn-circle ${
+                            page === safeCurrentPage
+                              ? "btn-primary"
+                              : "btn-ghost"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ),
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      disabled={safeCurrentPage === totalPages}
+                      className="btn btn-sm btn-ghost btn-circle"
+                      title="Next page"
+                    >
+                      <ChevronRightIcon className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={safeCurrentPage === totalPages}
+                      className="btn btn-sm btn-ghost btn-circle"
+                      title="Last page"
+                    >
+                      <ChevronsRightIcon className="size-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -3425,6 +3422,19 @@ function HomePage() {
           onConfirm={confirmBulkDelete}
         />
       </Suspense>
+
+      {/* ── Mobile bottom navigation ─────────────────────────── */}
+      <MobileBottomNav
+        onSearchClick={() => setMobileSearchOpen(true)}
+        onNotebooksClick={() => setMobileSidebarOpen(true)}
+        defaultNotebookId={
+          activeNotebookId &&
+          activeNotebookId !== "all" &&
+          activeNotebookId !== "uncategorized"
+            ? activeNotebookId
+            : null
+        }
+      />
     </div>
   );
 }
