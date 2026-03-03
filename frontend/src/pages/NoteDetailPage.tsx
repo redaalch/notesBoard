@@ -12,22 +12,25 @@ import { toast } from "sonner";
 import {
   ArrowLeftIcon,
   CheckIcon,
+  CloudIcon,
   HistoryIcon,
   LoaderIcon,
+  MoreVerticalIcon,
   PinIcon,
   PinOffIcon,
   RefreshCwIcon,
   SaveIcon,
+  Share2Icon,
   Trash2Icon,
-  UsersIcon,
+  UndoIcon,
   EyeIcon,
+  XIcon,
 } from "lucide-react";
 import * as Y from "yjs";
 import { TiptapTransformer } from "@hocuspocus/transformer";
 
 import api from "../lib/axios";
 import ConfirmDialog from "../Components/ConfirmDialog";
-import TagInput from "../Components/TagInput";
 import CollaborativeEditor, {
   type CollaborativeEditorUser,
 } from "../Components/CollaborativeEditor";
@@ -49,32 +52,6 @@ const computeStats = (text: string) => ({
   characterCount: text?.length ?? 0,
 });
 
-const mapCollabStatus = (status: string, participantCount: number) => {
-  switch (status) {
-    case "connected":
-      return {
-        className: "badge-success",
-        label: participantCount
-          ? `${participantCount} live${participantCount > 1 ? "s" : ""}`
-          : "Live",
-        Icon: CheckIcon,
-      };
-    case "connecting":
-      return {
-        className: "badge-warning",
-        label: "Connecting…",
-        Icon: LoaderIcon,
-      };
-    case "disconnected":
-    default:
-      return {
-        className: "badge-outline",
-        label: "Offline",
-        Icon: RefreshCwIcon,
-      };
-  }
-};
-
 const formatRoleLabel = (role: string) => {
   switch (role) {
     case "owner":
@@ -86,6 +63,66 @@ const formatRoleLabel = (role: string) => {
     default:
       return role ?? "Viewer";
   }
+};
+
+/* ── Tiny inline "+ Add tag" trigger ── */
+const InlineTagAdder = ({
+  onAdd,
+  existingTags,
+}: {
+  onAdd: (tag: string) => void;
+  existingTags: string[];
+}) => {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const commit = () => {
+    const trimmed = value.trim().toLowerCase();
+    if (trimmed && !existingTags.includes(trimmed)) {
+      onAdd(trimmed);
+    }
+    setValue("");
+    setOpen(false);
+  };
+
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+  }, [open]);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className="badge badge-sm badge-ghost gap-0.5 text-base-content/40 hover:text-base-content/70 transition-colors cursor-pointer"
+        onClick={() => setOpen(true)}
+      >
+        + tag
+      </button>
+    );
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      className="h-5 w-20 rounded border border-base-300/60 bg-transparent px-1.5 text-xs text-base-content placeholder:text-base-content/30 focus:outline-none focus:border-primary/40"
+      placeholder="tag name"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === ",") {
+          e.preventDefault();
+          commit();
+        }
+        if (e.key === "Escape") {
+          setValue("");
+          setOpen(false);
+        }
+      }}
+      onBlur={commit}
+    />
+  );
 };
 
 function NoteDetailPage() {
@@ -108,6 +145,7 @@ function NoteDetailPage() {
     characterCount: 0,
   });
   const [showHistory, setShowHistory] = useState(false);
+  const [showCollaborators, setShowCollaborators] = useState(false);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(
     null,
@@ -118,6 +156,11 @@ function NoteDetailPage() {
   const skipInitialUpdateRef = useRef(true);
   const allowNavigationRef = useRef(false);
   const titleSharedRef = useRef<any>(null);
+  const handleSaveRef = useRef<(silent?: boolean) => Promise<void>>(
+    async () => {},
+  );
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const justSavedRef = useRef(false);
 
   const noteQuery = useQuery({
     queryKey: ["note", id],
@@ -243,6 +286,8 @@ function NoteDetailPage() {
         skipInitialUpdateRef.current = false;
         return;
       }
+      // Ignore Yjs sync echoes that fire right after a save
+      if (justSavedRef.current) return;
       const text = editorRef.current?.getText({ blockSeparator: "\n" }) ?? "";
       setContentStats(computeStats(text));
       if (!canEditNote) {
@@ -318,73 +363,106 @@ function NoteDetailPage() {
     [canEditNote],
   );
 
-  const handleSave = useCallback(async () => {
-    if (!canEditNote) {
-      toast.error("You have view-only access to this note.");
-      return;
-    }
-    if (!id) return;
-    const trimmedTitle = title.trim();
-    if (!trimmedTitle) {
-      toast.error("Add a title before saving");
-      return;
-    }
+  const handleSave = useCallback(
+    async (silent = false) => {
+      if (!canEditNote) {
+        toast.error("You have view-only access to this note.");
+        return;
+      }
+      if (!id) return;
+      const trimmedTitle = title.trim();
+      if (!trimmedTitle) {
+        toast.error("Add a title before saving");
+        return;
+      }
 
-    const snapshot = originalSnapshotRef.current;
-    const richContent = doc
-      ? TiptapTransformer.fromYdoc(doc, "default")
-      : (snapshot?.richContent ?? buildInitialNode(snapshot ?? note));
-    const plainText =
-      editorRef.current?.getText({ blockSeparator: "\n" }) ??
-      note?.content ??
-      "";
+      const snapshot = originalSnapshotRef.current;
+      const richContent = doc
+        ? TiptapTransformer.fromYdoc(doc, "default")
+        : (snapshot?.richContent ?? buildInitialNode(snapshot ?? note));
+      const plainText =
+        editorRef.current?.getText({ blockSeparator: "\n" }) ??
+        note?.content ??
+        "";
 
-    const payload = {
-      title: trimmedTitle,
-      tags,
-      pinned,
-      richContent,
-      content: plainText,
-      contentText: plainText,
-    };
-
-    setSaving(true);
-    try {
-      const response = await api.put(`/notes/${id}`, payload);
-      const normalized = {
-        ...response.data,
-        tags: Array.isArray(response.data.tags) ? response.data.tags : [],
-        pinned: Boolean(response.data.pinned),
+      const payload = {
+        title: trimmedTitle,
+        tags,
+        pinned,
+        richContent,
+        content: plainText,
+        contentText: plainText,
       };
-      originalSnapshotRef.current = normalized;
-      queryClient.setQueryData(["note", id], normalized);
-      queryClient.invalidateQueries({ queryKey: ["notes"] });
-      const savedTitle = normalized.title ?? trimmedTitle;
-      setTitle(savedTitle);
-      applySharedTitle(savedTitle);
-      setTags(normalized.tags ?? []);
-      setPinned(Boolean(normalized.pinned));
-      setLastSavedAt(new Date(normalized.updatedAt ?? Date.now()));
-      setHasChanges(false);
-      toast.success("Note updated successfully");
-    } catch (error: any) {
-      const message =
-        error.response?.data?.message ?? "Failed to update note. Please retry.";
-      toast.error(message);
-    } finally {
-      setSaving(false);
-    }
-  }, [
-    applySharedTitle,
-    canEditNote,
-    doc,
-    id,
-    note,
-    pinned,
-    queryClient,
-    tags,
-    title,
-  ]);
+
+      setSaving(true);
+      try {
+        const response = await api.put(`/notes/${id}`, payload);
+        const normalized = {
+          ...response.data,
+          tags: Array.isArray(response.data.tags) ? response.data.tags : [],
+          pinned: Boolean(response.data.pinned),
+        };
+        originalSnapshotRef.current = normalized;
+        setLastSavedAt(new Date(normalized.updatedAt ?? Date.now()));
+        setHasChanges(false);
+
+        if (silent) {
+          // Silent auto-save: only update the snapshot + timestamp.
+          // Do NOT touch queryClient or applySharedTitle — that would
+          // trigger the note-sync useEffect which resets the editor.
+          justSavedRef.current = true;
+          setTimeout(() => {
+            justSavedRef.current = false;
+          }, 1500);
+        } else {
+          // Explicit save: full cache update so sidebar list reflects changes
+          queryClient.setQueryData(["note", id], normalized);
+          queryClient.invalidateQueries({ queryKey: ["notes"] });
+          const savedTitle = normalized.title ?? trimmedTitle;
+          setTitle(savedTitle);
+          applySharedTitle(savedTitle);
+          setTags(normalized.tags ?? []);
+          setPinned(Boolean(normalized.pinned));
+          toast.success("Note updated successfully");
+        }
+      } catch (error: any) {
+        const message =
+          error.response?.data?.message ??
+          "Failed to update note. Please retry.";
+        toast.error(message);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [
+      applySharedTitle,
+      canEditNote,
+      doc,
+      id,
+      note,
+      pinned,
+      queryClient,
+      tags,
+      title,
+    ],
+  );
+
+  // Keep ref always pointing at latest handleSave
+  useEffect(() => {
+    handleSaveRef.current = handleSave;
+  }, [handleSave]);
+
+  // ── Debounced auto-save: fires once 3 s after last hasChanges flip ──
+  useEffect(() => {
+    if (!hasChanges || saving || isReadOnly) return;
+    autoSaveTimerRef.current = setTimeout(() => {
+      void handleSaveRef.current(true);
+    }, 3000);
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasChanges, saving, isReadOnly]);
 
   const handleRevert = useCallback(() => {
     if (!canEditNote) return;
@@ -507,18 +585,6 @@ function NoteDetailPage() {
     return createdAt;
   }, [note?.updatedAt, createdAt]);
 
-  const lastSavedDisplay = useMemo(() => {
-    if (hasChanges) return "Unsaved changes";
-    if (saving) return "Saving…";
-    if (lastSavedAt) {
-      return `Saved ${formatRelativeTime(lastSavedAt)}`;
-    }
-    if (updatedAt) {
-      return `Updated ${formatRelativeTime(updatedAt)}`;
-    }
-    return "All changes saved";
-  }, [hasChanges, saving, lastSavedAt, updatedAt]);
-
   const lastSavedTooltip = useMemo(() => {
     if (hasChanges) return "You have pending edits";
     if (lastSavedAt) return formatDate(lastSavedAt);
@@ -526,14 +592,15 @@ function NoteDetailPage() {
     return null;
   }, [hasChanges, lastSavedAt, updatedAt]);
 
-  // Navigation guard - prevent leaving with unsaved changes
+  // Navigation guard – auto-save before the tab closes
   useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      // Allow navigation if we're intentionally saving and leaving
+    const handleBeforeUnload = () => {
+      // Fire-and-forget save via sendBeacon or sync XHR is unreliable;
+      // the debounced auto-save should have already flushed.
+      // We still keep the flag so the browser prompt appears only if
+      // auto-save hasn't caught up yet.
       if (hasChanges && !allowNavigationRef.current) {
-        e.preventDefault();
-        e.returnValue = "";
-        return "";
+        void handleSaveRef.current(true);
       }
     };
 
@@ -541,17 +608,25 @@ function NoteDetailPage() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasChanges]);
 
-  // Block React Router navigation when there are unsaved changes
+  // Intercept in-app link clicks – auto-save then navigate
   useEffect(() => {
     if (!hasChanges) return undefined;
 
     const handleClick = (e: MouseEvent) => {
-      // Check if clicking a link that would navigate away
       const link = (e.target as HTMLElement).closest("a");
       if (link && link.href && !link.href.includes(window.location.pathname)) {
         e.preventDefault();
-        setPendingNavigation(link.href);
-        setShowUnsavedModal(true);
+        const dest = link.href;
+        allowNavigationRef.current = true;
+        // Flush save, then navigate
+        handleSaveRef
+          .current(true)
+          .catch(() => {
+            /* best-effort */
+          })
+          .finally(() => {
+            window.location.href = dest;
+          });
       }
     };
 
@@ -598,40 +673,33 @@ function NoteDetailPage() {
   const statusBadge = useMemo(() => {
     if (isReadOnly) {
       return {
-        className: "badge-outline",
+        className: "text-base-content/50",
         label: "View only",
         Icon: EyeIcon,
-        iconClassName: "size-3 text-base-content/70 shrink-0",
       };
     }
-
+    if (saving) {
+      return {
+        className: "text-base-content/50",
+        label: "Saving…",
+        Icon: LoaderIcon,
+      };
+    }
     if (hasChanges) {
       return {
-        className: "badge-warning",
-        label: "Unsaved changes",
+        className: "text-warning",
+        label: "Editing",
         Icon: RefreshCwIcon,
-        iconClassName: "size-3 text-warning-content shrink-0",
       };
     }
-
     return {
-      className: "badge-success",
-      label: "Up to date",
-      Icon: CheckIcon,
-      iconClassName: "size-3 text-success-content shrink-0",
+      className: "text-success",
+      label: "Saved to cloud",
+      Icon: CloudIcon,
     };
-  }, [hasChanges, isReadOnly]);
-  const StatusBadgeIcon = statusBadge.Icon;
+  }, [hasChanges, isReadOnly, saving]);
 
-  const collabBadge = useMemo(
-    () => mapCollabStatus(collabStatus, participants.length),
-    [collabStatus, participants.length],
-  );
-  const CollabBadgeIcon = collabBadge.Icon;
-
-  const sanitizedTitle = title.trim() ? title.trim() : "Untitled note";
   const { wordCount, characterCount } = contentStats;
-  const tagCount = tags.length;
   const disableSave = isReadOnly || saving || !hasChanges;
   const disableRevert = isReadOnly || saving || !hasChanges;
   const accessSummary = useMemo(() => {
@@ -656,7 +724,7 @@ function NoteDetailPage() {
 
   if (noteQuery.isLoading) {
     return (
-      <div className="min-h-screen bg-base-200 flex items-center justify-center">
+      <div className="min-h-screen bg-base-100 flex items-center justify-center">
         <LoaderIcon className="animate-spin size-10" />
       </div>
     );
@@ -664,7 +732,7 @@ function NoteDetailPage() {
 
   if (!note) {
     return (
-      <div className="min-h-screen bg-base-200 flex items-center justify-center">
+      <div className="min-h-screen bg-base-100 flex items-center justify-center">
         <div className="card bg-base-100 shadow-xl">
           <div className="card-body text-center">
             <h2 className="card-title justify-center">Note not found</h2>
@@ -683,110 +751,149 @@ function NoteDetailPage() {
     );
   }
 
+  const StatusIcon = statusBadge.Icon;
+
   return (
     <>
-      <div className="min-h-screen bg-base-200">
-        <header className="sticky top-0 z-30 bg-base-100/90 backdrop-blur-lg border-b border-base-300/40">
-          <div className="mx-auto flex max-w-4xl items-center gap-2 px-4 py-2 sm:px-6 sm:gap-3">
+      <div className="min-h-screen bg-base-100">
+        {/* ─── Zen header ─── */}
+        <header className="sticky top-0 z-30 bg-base-100/80 backdrop-blur-xl border-b border-base-300/30">
+          <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-2.5 sm:px-6">
+            {/* Left – back link */}
             <Link
               to="/app"
-              className="btn btn-ghost btn-sm btn-circle shrink-0"
+              className="btn btn-ghost btn-sm gap-1.5 text-base-content/60 hover:text-base-content font-normal"
               aria-label="Back to notes"
             >
               <ArrowLeftIcon className="size-4" />
+              <span className="hidden sm:inline text-sm">Notes</span>
             </Link>
 
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm sm:text-base font-semibold text-base-content truncate">
-                  {sanitizedTitle}
-                </span>
-                {pinned && <PinIcon className="size-3 text-warning shrink-0" />}
-                <span
-                  className={`badge badge-xs gap-1 ${statusBadge.className} whitespace-nowrap shrink-0`}
-                >
-                  <StatusBadgeIcon className={statusBadge.iconClassName} />
-                  <span className="text-[10px]">{statusBadge.label}</span>
-                </span>
-              </div>
-              <div
-                className="flex items-center gap-1.5 sm:gap-2 text-[11px] text-base-content/50 mt-0.5"
+            {/* Center – auto-save indicator */}
+            <div className="flex-1 flex items-center justify-center gap-1.5">
+              <StatusIcon
+                className={`size-3.5 ${statusBadge.className} ${
+                  saving ? "animate-spin" : ""
+                }`}
+              />
+              <span
+                className={`text-xs font-medium ${statusBadge.className}`}
                 title={lastSavedTooltip ?? undefined}
               >
-                <span className="truncate">{lastSavedDisplay}</span>
-                <span className="hidden sm:inline">·</span>
-                <span className="hidden sm:inline">{wordCount} words</span>
-                <span className="hidden sm:flex items-center gap-1">
-                  · <CollabBadgeIcon className="size-3" />
-                  {collabBadge.label}
+                {statusBadge.label}
+              </span>
+              {pinned && (
+                <span className="ml-1" title="Pinned">
+                  <PinIcon className="size-3 text-warning" />
                 </span>
-              </div>
+              )}
             </div>
 
-            <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+            {/* Right – actions */}
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               <PresenceAvatars participants={participants} />
+
+              {/* Share button */}
               <button
                 type="button"
-                className={`btn btn-ghost btn-xs sm:btn-sm btn-circle ${
-                  pinned ? "text-warning" : ""
-                }`}
-                onClick={handleTogglePinned}
-                disabled={pinning || isReadOnly}
-                title={pinned ? "Unpin note" : "Pin note"}
+                className="btn btn-ghost btn-sm gap-1.5 text-base-content/70"
+                onClick={() => setShowCollaborators(true)}
+                title="Share & collaborate"
               >
-                {pinning ? (
-                  <LoaderIcon className="size-3.5 animate-spin" />
-                ) : pinned ? (
-                  <PinOffIcon className="size-3.5" />
-                ) : (
-                  <PinIcon className="size-3.5" />
-                )}
+                <Share2Icon className="size-4" />
+                <span className="hidden sm:inline text-sm">Share</span>
               </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-xs sm:btn-sm btn-circle"
-                onClick={handleRevert}
-                disabled={disableRevert}
-                title="Revert changes"
-              >
-                <RefreshCwIcon className="size-3.5" />
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-xs sm:btn-sm btn-circle text-error"
-                onClick={openConfirm}
-                title="Delete note"
-                disabled={isReadOnly}
-              >
-                <Trash2Icon className="size-3.5" />
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary btn-xs sm:btn-sm gap-1 font-medium"
-                onClick={handleSave}
-                disabled={disableSave}
-                title={`Save (${shortcutLabel})`}
-              >
-                {saving ? (
-                  <LoaderIcon className="size-3.5 animate-spin" />
-                ) : (
-                  <SaveIcon className="size-3.5" />
-                )}
-                <span className="hidden sm:inline">
-                  {saving ? "Saving…" : "Save"}
-                </span>
-              </button>
+
+              {/* More menu */}
+              <div className="dropdown dropdown-end">
+                <button
+                  type="button"
+                  tabIndex={0}
+                  className="btn btn-ghost btn-sm btn-square"
+                  aria-label="More actions"
+                >
+                  <MoreVerticalIcon className="size-4" />
+                </button>
+                <ul
+                  tabIndex={0}
+                  className="dropdown-content menu bg-base-100 rounded-xl w-52 p-2 shadow-lg border border-base-300/40 z-50"
+                >
+                  <li>
+                    <button
+                      type="button"
+                      className="gap-2"
+                      onClick={() => handleSave()}
+                      disabled={disableSave}
+                    >
+                      <SaveIcon className="size-4" />
+                      Save now
+                      <kbd className="ml-auto text-[10px] text-base-content/40">
+                        {shortcutLabel}
+                      </kbd>
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      className={`gap-2 ${pinned ? "text-warning" : ""}`}
+                      onClick={handleTogglePinned}
+                      disabled={pinning || isReadOnly}
+                    >
+                      {pinned ? (
+                        <PinOffIcon className="size-4" />
+                      ) : (
+                        <PinIcon className="size-4" />
+                      )}
+                      {pinned ? "Unpin note" : "Pin note"}
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      className="gap-2"
+                      onClick={handleRevert}
+                      disabled={disableRevert}
+                    >
+                      <UndoIcon className="size-4" />
+                      Revert changes
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      className="gap-2"
+                      onClick={() => setShowHistory(true)}
+                    >
+                      <HistoryIcon className="size-4" />
+                      View history
+                    </button>
+                  </li>
+                  <div className="divider my-0.5" />
+                  <li>
+                    <button
+                      type="button"
+                      className="gap-2 text-error"
+                      onClick={openConfirm}
+                      disabled={isReadOnly}
+                    >
+                      <Trash2Icon className="size-4" />
+                      Delete note
+                    </button>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </header>
 
+        {/* ─── Main content ─── */}
         <main
           id="main-content"
           tabIndex={-1}
-          className="mx-auto w-full max-w-4xl space-y-5 px-4 py-6"
+          className="mx-auto w-full max-w-3xl px-6 py-8 sm:px-8"
         >
           {isReadOnly ? (
-            <div className="alert alert-info border border-info/40 bg-info/5 text-info-content">
+            <div className="alert alert-info border border-info/40 bg-info/5 text-info-content mb-6">
               <EyeIcon className="size-5" />
               <div className="space-y-1">
                 <h3 className="font-semibold">View-only access</h3>
@@ -798,150 +905,195 @@ function NoteDetailPage() {
             </div>
           ) : null}
 
-          <section className="space-y-5">
-            <div className="card border border-base-300/60 border-l-4 border-l-primary/30 bg-base-100/90 shadow-sm rounded-2xl">
-              <div className="card-body space-y-4">
-                <label className="form-control gap-2">
-                  <span className="label-text text-sm font-semibold text-primary">
-                    Title
-                  </span>
-                  <input
-                    type="text"
-                    placeholder="Note title"
-                    className="input input-bordered input-lg bg-base-200/60 rounded-xl focus:ring-2 focus:ring-primary/40 transition-all"
-                    value={title}
-                    onChange={handleTitleChange}
-                    disabled={isReadOnly}
-                    aria-readonly={isReadOnly}
-                  />
-                </label>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-primary">
-                      Content
-                    </span>
-                    <span className="badge badge-outline gap-1 text-xs">
-                      <UsersIcon className="size-3" />
-                      {participants.length || "No"} collaborator
-                      {participants.length === 1 ? "" : "s"}
-                    </span>
-                  </div>
-                  <CollaborativeEditor
-                    provider={provider}
-                    doc={doc}
-                    color={color}
-                    user={user as CollaborativeEditorUser}
-                    onReady={handleEditorReady}
-                    onTyping={signalTyping}
-                    readOnly={!canEditNote}
-                    placeholder="Draft the note together..."
-                  />
-                  <div className="flex items-center justify-between">
-                    <TypingIndicator typingUsers={typingUsers} />
-                    <p className="text-right text-xs text-base-content/60">
-                      {wordCount} words · {characterCount} characters
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+          {/* ─── Title ─── */}
+          <input
+            type="text"
+            placeholder="Untitled"
+            className="w-full border-0 bg-transparent text-3xl font-extrabold leading-tight text-base-content placeholder:text-base-content/20 focus:outline-none focus:ring-0 sm:text-4xl"
+            value={title}
+            onChange={handleTitleChange}
+            disabled={isReadOnly}
+            aria-readonly={isReadOnly}
+          />
 
-            {note ? (
+          {/* ─── Properties row: tags + collaborators ─── */}
+          <div className="mt-3 mb-6 flex flex-wrap items-center gap-1.5">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className="badge badge-sm badge-outline gap-1 text-base-content/60 font-normal"
+              >
+                {tag}
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    className="ml-0.5 opacity-40 hover:opacity-100"
+                    onClick={() =>
+                      handleTagsChange(tags.filter((t) => t !== tag))
+                    }
+                    aria-label={`Remove tag ${tag}`}
+                  >
+                    <XIcon className="size-2.5" />
+                  </button>
+                )}
+              </span>
+            ))}
+            {!isReadOnly && tags.length < TAG_LIMIT && (
+              <InlineTagAdder
+                onAdd={(tag) => handleTagsChange([...tags, tag])}
+                existingTags={tags}
+              />
+            )}
+            {participants.length > 0 && (
+              <>
+                <span className="mx-1 h-4 w-px bg-base-300/40" />
+                <PresenceAvatars participants={participants} />
+              </>
+            )}
+          </div>
+
+          {/* ─── Editor (the canvas) ─── */}
+          <CollaborativeEditor
+            provider={provider}
+            doc={doc}
+            color={color}
+            user={user as CollaborativeEditorUser}
+            onReady={handleEditorReady}
+            onTyping={signalTyping}
+            readOnly={!canEditNote}
+            placeholder="Draft the note together..."
+          />
+
+          {typingUsers.length > 0 && (
+            <div className="mt-3">
+              <TypingIndicator typingUsers={typingUsers} />
+            </div>
+          )}
+        </main>
+
+        {/* ─── Subtle bottom status bar ─── */}
+        <div className="fixed bottom-0 inset-x-0 z-20 pointer-events-none">
+          <div className="mx-auto max-w-3xl px-6 sm:px-8 pb-3 flex justify-end">
+            <span className="text-[11px] text-base-content/30 tabular-nums">
+              {wordCount} words · {characterCount} chars
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── History sidebar (slides in from right) ─── */}
+      {showHistory && (
+        <div className="fixed inset-0 z-40 flex justify-end">
+          {/* Backdrop */}
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"
+            onClick={() => setShowHistory(false)}
+            aria-label="Close history"
+          />
+          {/* Drawer */}
+          <aside className="relative w-full max-w-sm bg-base-100 shadow-2xl border-l border-base-300/40 flex flex-col animate-slide-in-right">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-base-300/40">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <HistoryIcon className="size-4" />
+                Change history
+              </h3>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm btn-circle"
+                onClick={() => setShowHistory(false)}
+                aria-label="Close history"
+              >
+                <XIcon className="size-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+              {historyQuery.isFetching && history.length === 0 ? (
+                <div className="flex items-center justify-center py-10">
+                  <LoaderIcon className="size-5 animate-spin" />
+                </div>
+              ) : history.length ? (
+                <ul className="space-y-2">
+                  {history.map((entry: any) => {
+                    const timestamp = entry.createdAt
+                      ? new Date(entry.createdAt)
+                      : null;
+                    return (
+                      <li
+                        key={entry.id}
+                        className="rounded-lg border border-base-300/50 bg-base-200/40 px-3.5 py-2.5"
+                      >
+                        <p className="text-sm font-medium text-base-content">
+                          {entry.summary ?? entry.eventType}
+                        </p>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-[11px] uppercase tracking-wide text-base-content/50">
+                            {entry.eventType}
+                          </span>
+                          <span className="text-[11px] text-base-content/50">
+                            {timestamp ? formatRelativeTime(timestamp) : ""}
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="text-sm text-base-content/50 text-center py-10">
+                  No changes recorded yet.
+                </p>
+              )}
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* ─── Share / Collaborators dialog ─── */}
+      <dialog
+        className={`modal ${showCollaborators ? "modal-open" : ""}`}
+        role="dialog"
+        aria-labelledby="share-modal-title"
+      >
+        <div className="modal-box max-w-lg w-[32rem] rounded-2xl p-0 overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-base-300/40 px-6 py-4">
+            <h3
+              id="share-modal-title"
+              className="text-lg font-semibold text-base-content"
+            >
+              Share Note
+            </h3>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm btn-circle"
+              onClick={() => setShowCollaborators(false)}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="px-6 py-5">
+            {note && (
               <NoteCollaboratorsCard
                 noteId={note._id}
                 canManage={canManageNoteCollaborators}
+                owner={
+                  user ? { name: user.name, email: user.email } : undefined
+                }
               />
-            ) : null}
+            )}
+          </div>
+        </div>
+        <form method="dialog" className="modal-backdrop">
+          <button type="button" onClick={() => setShowCollaborators(false)}>
+            close
+          </button>
+        </form>
+      </dialog>
 
-            <div className="card border border-base-300/60 bg-base-100/90 shadow-sm rounded-2xl">
-              <div className="card-body space-y-5">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <h3 className="text-base font-bold text-primary">Tags</h3>
-                    <p className="text-xs text-base-content/60">
-                      Press Enter or comma to add up to {TAG_LIMIT} tags
-                    </p>
-                  </div>
-                  <span className="badge badge-primary badge-outline text-xs px-3 py-1">
-                    {tagCount}/{TAG_LIMIT}
-                  </span>
-                </div>
-                <TagInput
-                  value={tags}
-                  onChange={handleTagsChange}
-                  disabled={isReadOnly}
-                />
-              </div>
-            </div>
-
-            <div className="card border border-base-300/60 bg-base-100/90 shadow-sm rounded-2xl">
-              <div className="card-body space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-base font-bold text-primary">
-                      Change history
-                    </h3>
-                    <p className="text-xs text-base-content/60">
-                      Recent edits from your team
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-ghost gap-2"
-                    onClick={() => setShowHistory((value) => !value)}
-                  >
-                    <HistoryIcon className="size-4" />
-                    {showHistory ? "Hide" : "Show"} timeline
-                  </button>
-                </div>
-                {showHistory && (
-                  <div className="space-y-3">
-                    {historyQuery.isFetching && history.length === 0 ? (
-                      <div className="flex items-center justify-center py-6">
-                        <LoaderIcon className="size-5 animate-spin" />
-                      </div>
-                    ) : history.length ? (
-                      <ul className="space-y-3">
-                        {history.map((entry: any) => {
-                          const timestamp = entry.createdAt
-                            ? new Date(entry.createdAt)
-                            : null;
-                          return (
-                            <li
-                              key={entry.id}
-                              className="rounded-xl border border-base-300/60 bg-base-200/60 px-4 py-3"
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <p className="text-sm font-medium text-base-content">
-                                    {entry.summary ?? entry.eventType}
-                                  </p>
-                                  <p className="text-xs uppercase tracking-wide text-base-content/60">
-                                    {entry.eventType}
-                                  </p>
-                                </div>
-                                <span className="text-xs text-base-content/60 whitespace-nowrap">
-                                  {timestamp
-                                    ? formatRelativeTime(timestamp)
-                                    : ""}
-                                </span>
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-base-content/60">
-                        Be the first to make a change and it will show up here.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
-        </main>
-      </div>
+      {/* ─── Delete confirmation ─── */}
       <ConfirmDialog
         open={confirmOpen}
         title="Delete this note?"
@@ -953,7 +1105,7 @@ function NoteDetailPage() {
         onConfirm={handleDelete}
       />
 
-      {/* Unsaved Changes Navigation Modal */}
+      {/* ─── Unsaved Changes Navigation Modal ─── */}
       <dialog
         className={`modal ${showUnsavedModal ? "modal-open" : ""}`}
         role="dialog"
