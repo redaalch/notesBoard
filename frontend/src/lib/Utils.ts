@@ -56,3 +56,22 @@ export function formatTagLabel(tag = ""): string {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 }
+
+/**
+ * Strip common Markdown syntax from a string so it reads as clean plain text.
+ * Handles headings, bold, italic, strikethrough, inline code, links,
+ * images, and list markers.
+ */
+export function stripMarkdown(text = ""): string {
+  return text
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1") // images
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // links
+    .replace(/^#{1,6}\s+/gm, "") // headings
+    .replace(/(\*{1,3}|_{1,3})(.*?)\1/g, "$2") // bold / italic
+    .replace(/~~(.*?)~~/g, "$1") // strikethrough
+    .replace(/`{1,3}[^`]*`{1,3}/g, (m) => m.replace(/`/g, "")) // inline code
+    .replace(/^(\s*)([-*+]|\d+\.)\s/gm, "$1") // list markers
+    .replace(/^>\s?/gm, "") // blockquotes
+    .replace(/\n{3,}/g, "\n\n") // collapse extra blank lines
+    .trim();
+}
