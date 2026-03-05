@@ -23,6 +23,7 @@ Copy `.env.example` to `.env` and configure the following variables before runni
 | `NOTEBOOK_ANALYTICS_SEED_DAYS`                       | (Optional) Days of history that the seeding script will generate.                                          |
 | `NOTEBOOK_ANALYTICS_SEED_NOTES_PER_DAY`              | (Optional) Notes created per day during seeding.                                                           |
 | `DISABLE_ANALYTICS_CRON`                             | (Optional) Set to `true` to disable the scheduled snapshot cron job.                                       |
+| `GEMINI_API_KEY`                                     | (Optional) Google Gemini API key for AI features: semantic search, summarisation, predictive tagging.      |
 
 ## Scripts
 
@@ -39,6 +40,7 @@ Run scripts from the backend package using `npm run <script>`:
 - `backfill-notebook-members` – populate the `NotebookMember` collection for existing notebooks.
 - `analytics-snapshots` – generate or warm notebook analytics snapshots; accepts `--days=<n>` and `--warm=7d,30d`.
 - `seed-analytics-fixtures` – populate a high-volume analytics dataset. Options include `--owner=<email>`, `--owner-name=<name>`, `--owner-password=<password>`, `--notebook=<name>`, `--days=<n>`, and `--per-day=<n>`.
+- `backfill-embeddings` – generate vector embeddings for all existing notes and print Atlas Vector Search index setup instructions.
 
 Example: `npm run seed-analytics-fixtures -- --owner=analytics@example.com --days=120 --per-day=10`
 
