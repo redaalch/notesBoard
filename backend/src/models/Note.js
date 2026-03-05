@@ -148,6 +148,34 @@ const noteSchema = new mongoose.Schema(
       default: "",
     },
 
+    /* ── Semantic Embeddings ── */
+    embedding: {
+      type: [Number],
+      default: undefined,
+      select: false,
+    },
+    embeddingUpdatedAt: {
+      type: Date,
+      default: null,
+    },
+
+    /* ── AI Features ── */
+    aiSummary: {
+      summary: { type: String, default: null },
+      actionItems: [
+        {
+          _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
+          text: { type: String, required: true },
+          completed: { type: Boolean, default: false },
+        },
+      ],
+      generatedAt: { type: Date, default: null },
+    },
+    suggestedTags: {
+      tags: { type: [String], default: [] },
+      generatedAt: { type: Date, default: null },
+    },
+
     /* ── Publishing ── */
     isPublic: {
       type: Boolean,
