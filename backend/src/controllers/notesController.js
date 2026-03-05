@@ -22,6 +22,35 @@ import {
   ensureNotebookOwnership,
   removeNotesFromNotebookOrder,
 } from "../utils/notebooks.js";
+import {
+  embedText,
+  buildNoteEmbeddingText,
+} from "../services/embeddingService.js";
+
+/**
+ * Fire-and-forget: generate an embedding for a note and persist it.
+ * Non-blocking – failures are silently logged.
+ */
+const generateEmbeddingAsync = (noteId, noteData) => {
+  if (!process.env.GEMINI_API_KEY) return;
+  setImmediate(async () => {
+    try {
+      const text = buildNoteEmbeddingText(noteData);
+      const embedding = await embedText(text);
+      if (embedding) {
+        await Note.updateOne(
+          { _id: noteId },
+          { $set: { embedding, embeddingUpdatedAt: new Date() } },
+        );
+      }
+    } catch (err) {
+      logger.debug("Async embedding generation failed", {
+        noteId: String(noteId),
+        message: err?.message,
+      });
+    }
+  });
+};
 
 const INTERNAL_SERVER_ERROR = {
   message: "Internal server error",
@@ -371,6 +400,15 @@ export const createNote = async (req, res) => {
     if (notebookObjectId) {
       await queueNotebookIndexSafely(notebookObjectId, "note-create");
     }
+
+    // Fire-and-forget: generate a vector embedding for semantic search
+    generateEmbeddingAsync(savedNote._id, {
+      title: savedNote.title,
+      content: savedNote.content,
+      contentText: savedNote.contentText,
+      tags: savedNote.tags,
+    });
+
     return res.status(201).json(savedNote);
   } catch (error) {
     logger.error("Error in createNote", { error: error?.message });
@@ -570,6 +608,21 @@ export const updateNote = async (req, res) => {
     }
     for (const target of indexTargets) {
       await queueNotebookIndexSafely(target, "note-update");
+    }
+
+    // Fire-and-forget: regenerate vector embedding when content changes
+    if (
+      updates.title ||
+      updates.content ||
+      updates.contentText ||
+      updates.tags
+    ) {
+      generateEmbeddingAsync(updatedNote._id, {
+        title: updatedNote.title,
+        content: updatedNote.content,
+        contentText: updatedNote.contentText ?? updatedNote.content,
+        tags: updatedNote.tags,
+      });
     }
 
     const refreshedAccess = await resolveNoteForUser(
@@ -1324,6 +1377,154 @@ export const updateNoteLayout = async (req, res) => {
       stack: error?.stack,
       userId: req.user?.id,
     });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
+  }
+};
+
+/* ─────── GET /api/notes/search?q=…&limit=… ─────── */
+export const searchNotes = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const rawQuery = String(req.query.q ?? "").trim();
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 60);
+
+    if (!rawQuery) {
+      return res.status(200).json({ results: [], searchMode: null, query: "" });
+    }
+
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+
+    // Build the same access filter used by getAllNotes
+    const [workspaceIds, collaboratorDocs, notebookMemberships] =
+      await Promise.all([
+        listAccessibleWorkspaceIds(userId),
+        NoteCollaborator.find({ userId: userObjectId })
+          .select({ noteId: 1 })
+          .lean(),
+        NotebookMember.find({ userId: userObjectId, status: "active" })
+          .select({ notebookId: 1 })
+          .lean(),
+      ]);
+
+    const orConditions = [{ owner: userObjectId }];
+
+    if (workspaceIds.length) {
+      orConditions.push({
+        workspaceId: {
+          $in: workspaceIds.map((id) => new mongoose.Types.ObjectId(id)),
+        },
+      });
+    }
+    const collabNoteIds = collaboratorDocs
+      .map((d) => d.noteId?.toString())
+      .filter(Boolean);
+    if (collabNoteIds.length) {
+      orConditions.push({
+        _id: {
+          $in: collabNoteIds.map((id) => new mongoose.Types.ObjectId(id)),
+        },
+      });
+    }
+    const memberNotebookIds = notebookMemberships
+      .map((d) => d.notebookId?.toString())
+      .filter(Boolean);
+    if (memberNotebookIds.length) {
+      orConditions.push({
+        notebookId: {
+          $in: memberNotebookIds.map((id) => new mongoose.Types.ObjectId(id)),
+        },
+      });
+    }
+
+    const accessFilter =
+      orConditions.length === 1 ? orConditions[0] : { $or: orConditions };
+
+    // ── 1. Try semantic (vector) search first ────────────────────────────
+    let results = null;
+    let searchMode = "keyword";
+
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        const queryEmbedding = await embedText(rawQuery);
+        if (queryEmbedding) {
+          const pipeline = [
+            {
+              $vectorSearch: {
+                index: "note_embedding_index",
+                path: "embedding",
+                queryVector: queryEmbedding,
+                numCandidates: Math.max(limit * 10, 100),
+                limit: limit * 2,
+              },
+            },
+            { $addFields: { score: { $meta: "vectorSearchScore" } } },
+            { $match: accessFilter },
+            { $limit: limit },
+            {
+              $project: {
+                title: 1,
+                content: 1,
+                contentText: 1,
+                tags: 1,
+                pinned: 1,
+                notebookId: 1,
+                updatedAt: 1,
+                createdAt: 1,
+                owner: 1,
+                score: 1,
+              },
+            },
+          ];
+
+          const docs = await Note.aggregate(pipeline);
+          if (docs.length > 0) {
+            results = docs;
+            searchMode = "semantic";
+          }
+        }
+      } catch (vecErr) {
+        const msg = vecErr?.message ?? "";
+        if (
+          !msg.includes("PlanExecutor") &&
+          !msg.includes("vectorSearch") &&
+          !msg.includes("index not found") &&
+          !msg.includes("Atlas")
+        ) {
+          logger.warn("Vector search error", { message: msg.slice(0, 300) });
+        }
+        // Fall through to keyword search
+      }
+    }
+
+    // ── 2. Fallback: MongoDB $text search ────────────────────────────────
+    if (!results) {
+      const textQuery = { ...accessFilter, $text: { $search: rawQuery } };
+      results = await Note.find(textQuery)
+        .sort({ score: { $meta: "textScore" }, updatedAt: -1 })
+        .limit(limit)
+        .select({
+          title: 1,
+          content: 1,
+          contentText: 1,
+          tags: 1,
+          pinned: 1,
+          notebookId: 1,
+          updatedAt: 1,
+          createdAt: 1,
+          owner: 1,
+          score: { $meta: "textScore" },
+        })
+        .lean();
+      searchMode = "keyword";
+    }
+
+    return res.status(200).json({
+      results: results ?? [],
+      searchMode,
+      query: rawQuery,
+    });
+  } catch (error) {
+    logger.error("Error in searchNotes", { error: error?.message });
     return res.status(500).json(INTERNAL_SERVER_ERROR);
   }
 };

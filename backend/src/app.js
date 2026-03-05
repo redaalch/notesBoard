@@ -13,6 +13,7 @@ import workspaceRoutes from "./routes/workspaceRoutes.js";
 import notebookRoutes from "./routes/notebookRoutes.js";
 import notebookTemplateRoutes from "./routes/notebookTemplateRoutes.js";
 import publishedRoutes from "./routes/publishedRoutes.js";
+import aiRoutes from "./routes/aiRoutes.js";
 import rateLimiter from "./middleware/rateLimiter.js";
 import requestLogger from "./middleware/requestLogger.js";
 import errorHandler from "./middleware/errorHandler.js";
@@ -73,7 +74,7 @@ app.use(
     hsts: isProduction
       ? { maxAge: 31536000, includeSubDomains: true, preload: true }
       : false,
-  })
+  }),
 );
 app.use(
   cors({
@@ -84,7 +85,7 @@ app.use(
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
-  })
+  }),
 );
 app.options("*", cors());
 
@@ -101,7 +102,7 @@ if (
 }
 
 app.get("/api/health", (_req, res) =>
-  res.json({ ok: true, timestamp: new Date().toISOString() })
+  res.json({ ok: true, timestamp: new Date().toISOString() }),
 );
 
 app.use("/api", rateLimiter);
@@ -113,6 +114,7 @@ app.use("/api/workspaces", workspaceRoutes);
 app.use("/api/notebooks", notebookRoutes);
 app.use("/api/templates", notebookTemplateRoutes);
 app.use("/api/published", publishedRoutes);
+app.use("/api/ai", aiRoutes);
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(dist));
