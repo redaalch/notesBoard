@@ -5,6 +5,8 @@ import NotebookMember from "../models/NotebookMember.js";
 import Note from "../models/Note.js";
 import NoteCollaborator from "../models/NoteCollaborator.js";
 import { listAccessibleWorkspaceIds } from "../utils/access.js";
+import { embedText } from "./embeddingService.js";
+import logger from "../utils/logger.js";
 
 const MAX_NOTE_LIMIT = 60;
 const PREVIEW_NOTE_LIMIT = 12;
@@ -135,7 +137,7 @@ const buildAccessibleNoteFilter = async ({
     ]);
 
   const workspaceObjectIds = workspaceIds.map(
-    (id) => new mongoose.Types.ObjectId(id)
+    (id) => new mongoose.Types.ObjectId(id),
   );
 
   const collaboratorNoteIds = collaboratorDocs
@@ -178,7 +180,7 @@ const buildAccessibleNoteFilter = async ({
   if (candidateNotebookIds?.size) {
     filter.notebookId = {
       $in: Array.from(candidateNotebookIds).map(
-        (id) => new mongoose.Types.ObjectId(id)
+        (id) => new mongoose.Types.ObjectId(id),
       ),
     };
   }
@@ -187,12 +189,80 @@ const buildAccessibleNoteFilter = async ({
     filter.notebookId = {
       ...(filter.notebookId ?? {}),
       $nin: Array.from(excludedNotebookIds).map(
-        (id) => new mongoose.Types.ObjectId(id)
+        (id) => new mongoose.Types.ObjectId(id),
       ),
     };
   }
 
   return filter;
+};
+
+/**
+ * Perform semantic vector search using MongoDB Atlas $vectorSearch.
+ * Falls back to null if embeddings are unavailable or the index doesn't exist.
+ */
+const performSemanticSearch = async ({
+  searchTerm,
+  accessFilter,
+  limit = 20,
+}) => {
+  try {
+    const queryEmbedding = await embedText(searchTerm);
+    if (!queryEmbedding) return null;
+
+    const pipeline = [
+      {
+        $vectorSearch: {
+          index: "note_embedding_index",
+          path: "embedding",
+          queryVector: queryEmbedding,
+          numCandidates: Math.max(limit * 10, 100),
+          limit: limit * 2, // fetch extras so we can filter by access
+        },
+      },
+      {
+        $addFields: {
+          score: { $meta: "vectorSearchScore" },
+        },
+      },
+    ];
+
+    // Apply access filter as a $match stage
+    if (accessFilter) {
+      pipeline.push({ $match: accessFilter });
+    }
+
+    pipeline.push({ $limit: limit + 1 });
+    pipeline.push({
+      $project: {
+        title: 1,
+        notebookId: 1,
+        updatedAt: 1,
+        tags: 1,
+        pinned: 1,
+        score: 1,
+      },
+    });
+
+    const results = await Note.aggregate(pipeline);
+    return results;
+  } catch (error) {
+    // $vectorSearch index may not exist yet – fall back silently
+    const msg = error?.message ?? "";
+    if (
+      msg.includes("PlanExecutor") ||
+      msg.includes("vectorSearch") ||
+      msg.includes("index not found") ||
+      msg.includes("Atlas")
+    ) {
+      logger.debug("Vector search unavailable, falling back to text search", {
+        message: msg.slice(0, 200),
+      });
+    } else {
+      logger.warn("Semantic search error", { message: msg.slice(0, 300) });
+    }
+    return null;
+  }
 };
 
 export const buildSmartNotebook = async ({
@@ -223,7 +293,7 @@ export const buildSmartNotebook = async ({
     aggregatedTags.add(normalizedTag);
   }
   normalizeTagList(savedQueryFilters?.tags).forEach((t) =>
-    aggregatedTags.add(t)
+    aggregatedTags.add(t),
   );
 
   if (
@@ -252,13 +322,13 @@ export const buildSmartNotebook = async ({
   }
 
   sanitizeNotebookIdList(savedQueryFilters?.notebookIds).forEach((id) =>
-    candidateNotebookIds.add(id)
+    candidateNotebookIds.add(id),
   );
   sanitizeNotebookIdList(
-    savedQueryFilters?.notebookId ? [savedQueryFilters.notebookId] : []
+    savedQueryFilters?.notebookId ? [savedQueryFilters.notebookId] : [],
   ).forEach((id) => candidateNotebookIds.add(id));
   sanitizeNotebookIdList(savedQueryFilters?.excludeNotebookIds).forEach((id) =>
-    excludedNotebookIds.add(id)
+    excludedNotebookIds.add(id),
   );
 
   let tagNarrowingSet = new Set();
@@ -272,7 +342,7 @@ export const buildSmartNotebook = async ({
       .select({ notebookId: 1 })
       .lean();
     tagNarrowingSet = new Set(
-      tagMatches.map((doc) => doc.notebookId?.toString?.()).filter(Boolean)
+      tagMatches.map((doc) => doc.notebookId?.toString?.()).filter(Boolean),
     );
   }
 
@@ -282,8 +352,8 @@ export const buildSmartNotebook = async ({
         ? tagNarrowingSet
         : new Set(
             Array.from(candidateNotebookIds).filter((id) =>
-              tagNarrowingSet.has(id)
-            )
+              tagNarrowingSet.has(id),
+            ),
           );
     candidateNotebookIds.clear();
     union.forEach((id) => candidateNotebookIds.add(id));
@@ -330,14 +400,14 @@ export const buildSmartNotebook = async ({
       const workspaceIds = sanitizeNotebookIdList(
         Array.isArray(savedQueryFilters.workspaceId)
           ? savedQueryFilters.workspaceId
-          : [savedQueryFilters.workspaceId]
+          : [savedQueryFilters.workspaceId],
       ).map((id) => new mongoose.Types.ObjectId(id));
       if (workspaceIds.length) {
         query.workspaceId = { $in: workspaceIds };
       }
     } else if (Array.isArray(savedQueryFilters.workspaceIds)) {
       const workspaceIds = sanitizeNotebookIdList(
-        savedQueryFilters.workspaceIds
+        savedQueryFilters.workspaceIds,
       ).map((id) => new mongoose.Types.ObjectId(id));
       if (workspaceIds.length) {
         query.workspaceId = { $in: workspaceIds };
@@ -359,7 +429,7 @@ export const buildSmartNotebook = async ({
 
   const effectiveLimit = Math.max(
     PREVIEW_NOTE_LIMIT,
-    Math.min(Number(limit) || PREVIEW_NOTE_LIMIT, MAX_NOTE_LIMIT)
+    Math.min(Number(limit) || PREVIEW_NOTE_LIMIT, MAX_NOTE_LIMIT),
   );
 
   const sortSpec = (() => {
@@ -384,26 +454,57 @@ export const buildSmartNotebook = async ({
     projection.score = { $meta: "textScore" };
   }
 
-  const [totalMatches, notes] = await Promise.all([
-    Note.countDocuments(query),
-    Note.find(query)
-      .sort(sortSpec)
-      .limit(effectiveLimit + 1)
-      .select(projection)
-      .lean(),
-  ]);
+  // ── Semantic search pathway ──────────────────────────────────────────
+  // When a search term is present, try vector search first, fall back to $text.
+  let notes = null;
+  let totalMatches = 0;
+  let usedSemantic = false;
+
+  if (searchTerm && !aggregatedTags.size) {
+    // Build access filter without $text for vector search $match stage
+    const accessFilterForVector = { ...baseFilter };
+    if (savedQueryFilters) {
+      if (typeof savedQueryFilters.pinned === "boolean") {
+        accessFilterForVector.pinned = savedQueryFilters.pinned;
+      }
+    }
+
+    const semanticResults = await performSemanticSearch({
+      searchTerm,
+      accessFilter: accessFilterForVector,
+      limit: effectiveLimit,
+    });
+
+    if (semanticResults && semanticResults.length > 0) {
+      notes = semanticResults;
+      totalMatches = notes.length;
+      usedSemantic = true;
+    }
+  }
+
+  // Fallback to keyword-based $text search (or primary path when no search)
+  if (!notes) {
+    [totalMatches, notes] = await Promise.all([
+      Note.countDocuments(query),
+      Note.find(query)
+        .sort(sortSpec)
+        .limit(effectiveLimit + 1)
+        .select(projection)
+        .lean(),
+    ]);
+  }
 
   const hasMore = notes.length > effectiveLimit;
   const slicedNotes = hasMore ? notes.slice(0, effectiveLimit) : notes;
 
   const notebookIdSet = new Set(
-    slicedNotes.map((note) => note.notebookId?.toString?.()).filter(Boolean)
+    slicedNotes.map((note) => note.notebookId?.toString?.()).filter(Boolean),
   );
 
   const notebookDocs = await Notebook.find({
     _id: {
       $in: Array.from(notebookIdSet).map(
-        (id) => new mongoose.Types.ObjectId(id)
+        (id) => new mongoose.Types.ObjectId(id),
       ),
     },
   })
@@ -411,7 +512,7 @@ export const buildSmartNotebook = async ({
     .lean();
 
   const notebookNameById = new Map(
-    notebookDocs.map((doc) => [doc._id.toString(), doc])
+    notebookDocs.map((doc) => [doc._id.toString(), doc]),
   );
 
   const previewNotes = slicedNotes.map((note) => ({
@@ -419,7 +520,7 @@ export const buildSmartNotebook = async ({
     title: note.title,
     notebookId: note.notebookId ? note.notebookId.toString() : null,
     notebook: note.notebookId
-      ? notebookNameById.get(note.notebookId.toString()) ?? null
+      ? (notebookNameById.get(note.notebookId.toString()) ?? null)
       : null,
     tags: Array.isArray(note.tags) ? note.tags : [],
     updatedAt: note.updatedAt,
@@ -434,6 +535,7 @@ export const buildSmartNotebook = async ({
     matchedTag:
       aggregatedTags.size === 1 ? Array.from(aggregatedTags)[0] : null,
     search: searchTerm,
+    searchMode: usedSemantic ? "semantic" : searchTerm ? "keyword" : null,
     noteCount: totalMatches,
     notes: previewNotes,
     sourceNotebookIds: Array.from(notebookIdSet),
