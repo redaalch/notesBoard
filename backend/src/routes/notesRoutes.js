@@ -10,6 +10,7 @@ import {
   getNoteHistory,
   getNoteLayout,
   updateNoteLayout,
+  searchNotes,
 } from "../controllers/notesController.js";
 import {
   addNoteCollaborator,
@@ -62,6 +63,22 @@ router.put(
 
 // Tag statistics
 router.get("/tags/stats", getTagStats);
+
+// Semantic / keyword search
+router.get(
+  "/search",
+  validate([
+    query("q")
+      .trim()
+      .isLength({ min: 1, max: 200 })
+      .withMessage("Search query is required (max 200 chars)"),
+    query("limit")
+      .optional()
+      .isInt({ min: 1, max: 60 })
+      .withMessage("Limit must be 1-60"),
+  ]),
+  searchNotes,
+);
 
 // Bulk update notes
 router.post(
