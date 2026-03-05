@@ -208,9 +208,14 @@ export default {
           from: { transform: "translateX(100%)" },
           to: { transform: "translateX(0)" },
         },
+        "gradient-x": {
+          "0%, 100%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
+        },
       },
       animation: {
         "slide-in-right": "slide-in-right 0.2s ease-out",
+        "gradient-x": "gradient-x 3s ease infinite",
       },
     },
   },
