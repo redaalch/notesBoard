@@ -155,6 +155,45 @@ const CollaborativeEditor = ({
   onReady,
   onTyping,
 }: CollaborativeEditorProps) => {
+  if (!provider || !doc) {
+    return (
+      <div className="grid min-h-[16rem] place-items-center rounded-2xl border border-base-300/60 bg-base-100/90">
+        <span className="loading loading-spinner loading-md text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <CollaborativeEditorInner
+      provider={provider}
+      doc={doc}
+      user={user}
+      color={color}
+      placeholder={placeholder}
+      readOnly={readOnly}
+      onReady={onReady}
+      onTyping={onTyping}
+    />
+  );
+};
+
+/**
+ * Inner component that only mounts when provider & doc are available.
+ * This ensures useEditor is never called without a valid extension config.
+ */
+const CollaborativeEditorInner = ({
+  provider,
+  doc,
+  user,
+  color,
+  placeholder = "Start writing...",
+  readOnly = false,
+  onReady,
+  onTyping,
+}: Omit<CollaborativeEditorProps, "provider" | "doc"> & {
+  provider: HocuspocusProvider;
+  doc: Y.Doc;
+}) => {
   const onTypingRef = useRef(onTyping);
 
   // Keep ref updated without causing re-renders
@@ -163,59 +202,57 @@ const CollaborativeEditor = ({
   }, [onTyping]);
 
   const editor = useEditor(
-    provider && doc
-      ? {
-          editable: !readOnly,
-          extensions: [
-            Document,
-            Paragraph,
-            Text,
-            BulletList,
-            OrderedList,
-            ListItem,
-            Blockquote,
-            CodeBlockLowlight.configure({ lowlight }),
-            StarterKit.configure({
-              document: false,
-              paragraph: false,
-              text: false,
-              history: false,
-              codeBlock: false,
-              bulletList: false,
-              orderedList: false,
-              listItem: false,
-              blockquote: false,
-            }),
-            TaskList,
-            TaskItem.configure({ nested: true }),
-            Placeholder.configure({
-              placeholder: placeholder + " (Type '/' for commands)",
-            }),
-            SlashCommands,
-            Collaboration.configure({ document: doc }),
-            CollaborationCursor.configure({
-              provider,
-              user: {
-                id: user?.id,
-                name: user?.name ?? "Anonymous",
-                color,
-              },
-            }),
-          ],
-          editorProps: {
-            attributes: {
-              class:
-                "prose prose-lg prose-ul:list-disc prose-ol:list-decimal prose-li:ml-4 max-w-none h-full min-h-[24rem] leading-relaxed focus:outline-none",
-            },
-            handleKeyDown: () => {
-              if (onTypingRef.current && !readOnly) {
-                onTypingRef.current();
-              }
-              return false;
-            },
+    {
+      editable: !readOnly,
+      extensions: [
+        Document,
+        Paragraph,
+        Text,
+        BulletList,
+        OrderedList,
+        ListItem,
+        Blockquote,
+        CodeBlockLowlight.configure({ lowlight }),
+        StarterKit.configure({
+          document: false,
+          paragraph: false,
+          text: false,
+          history: false,
+          codeBlock: false,
+          bulletList: false,
+          orderedList: false,
+          listItem: false,
+          blockquote: false,
+        }),
+        TaskList,
+        TaskItem.configure({ nested: true }),
+        Placeholder.configure({
+          placeholder: placeholder + " (Type '/' for commands)",
+        }),
+        SlashCommands,
+        Collaboration.configure({ document: doc }),
+        CollaborationCursor.configure({
+          provider,
+          user: {
+            id: user?.id,
+            name: user?.name ?? "Anonymous",
+            color,
           },
-        }
-      : undefined,
+        }),
+      ],
+      editorProps: {
+        attributes: {
+          class:
+            "prose prose-lg prose-ul:list-disc prose-ol:list-decimal prose-li:ml-4 max-w-none h-full min-h-[24rem] leading-relaxed focus:outline-none",
+        },
+        handleKeyDown: () => {
+          if (onTypingRef.current && !readOnly) {
+            onTypingRef.current();
+          }
+          return false;
+        },
+      },
+    },
     [provider, doc, user?.id, user?.name, color, readOnly, placeholder],
   );
 
@@ -224,14 +261,6 @@ const CollaborativeEditor = ({
       onReady(editor);
     }
   }, [editor, onReady]);
-
-  if (!provider || !doc) {
-    return (
-      <div className="grid min-h-[16rem] place-items-center rounded-2xl border border-base-300/60 bg-base-100/90">
-        <span className="loading loading-spinner loading-md text-primary" />
-      </div>
-    );
-  }
 
   return (
     <div>

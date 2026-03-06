@@ -8,6 +8,10 @@ import {
   buildNotebookVector,
   computeTagFrequencies,
 } from "../utils/textAnalytics.js";
+import {
+  embedBatch,
+  buildNoteEmbeddingText,
+} from "../services/embeddingService.js";
 
 const jobQueue = [];
 const enqueuedNotebooks = new Set();
@@ -51,7 +55,7 @@ const markJobStatus = async (notebookId, status, updates = {}) => {
           jobStatus: status,
           ...updates,
         },
-      }
+      },
     );
   } catch (error) {
     logger.warn("Failed to update notebook index job status", {
@@ -84,12 +88,69 @@ const runNotebookIndexJob = async (job) => {
   });
 
   const notes = await Note.find({ notebookId })
-    .select({ title: 1, content: 1, contentText: 1, tags: 1 })
+    .select({
+      title: 1,
+      content: 1,
+      contentText: 1,
+      tags: 1,
+      embeddingUpdatedAt: 1,
+    })
     .lean();
 
   const vectorResult = buildNotebookVector(notes, job.vectorOptions);
   const tagResult = computeTagFrequencies(notes);
   const now = new Date();
+
+  // ── Generate per-note embeddings for semantic search ──
+  const embeddingStaleThreshold = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const notesNeedingEmbedding = notes.filter(
+    (note) =>
+      !note.embeddingUpdatedAt ||
+      new Date(note.embeddingUpdatedAt) < embeddingStaleThreshold,
+  );
+
+  if (notesNeedingEmbedding.length > 0) {
+    try {
+      const texts = notesNeedingEmbedding.map((note) =>
+        buildNoteEmbeddingText(note),
+      );
+
+      // Process in batches of 20 (Gemini batch limit)
+      const BATCH_SIZE = 20;
+      for (let i = 0; i < texts.length; i += BATCH_SIZE) {
+        const batchTexts = texts.slice(i, i + BATCH_SIZE);
+        const batchNotes = notesNeedingEmbedding.slice(i, i + BATCH_SIZE);
+        const embeddings = await embedBatch(batchTexts);
+
+        const bulkOps = [];
+        for (let j = 0; j < batchNotes.length; j++) {
+          if (embeddings[j]) {
+            bulkOps.push({
+              updateOne: {
+                filter: { _id: batchNotes[j]._id },
+                update: {
+                  $set: {
+                    embedding: embeddings[j],
+                    embeddingUpdatedAt: now,
+                  },
+                },
+              },
+            });
+          }
+        }
+
+        if (bulkOps.length > 0) {
+          await Note.bulkWrite(bulkOps, { ordered: false });
+        }
+      }
+    } catch (embeddingError) {
+      // Embedding failures are non-fatal – TF-IDF index still gets updated
+      logger.warn("Note embedding generation failed during indexing", {
+        notebookId: notebookId.toString(),
+        message: embeddingError?.message,
+      });
+    }
+  }
 
   await NotebookIndex.findOneAndUpdate(
     { notebookId },
@@ -117,7 +178,7 @@ const runNotebookIndexJob = async (job) => {
     },
     {
       upsert: true,
-    }
+    },
   );
 };
 
@@ -202,7 +263,7 @@ export const enqueueNotebookIndexJob = async ({
           noteCount: 0,
         },
       },
-      { upsert: true }
+      { upsert: true },
     );
   } catch (error) {
     logger.warn("Failed to queue notebook indexing job", {
@@ -239,7 +300,7 @@ const handleNoteChange = (change) => {
             logger.warn("Failed to enqueue notebook index from change stream", {
               message: error?.message,
             });
-          }
+          },
         );
       }
     }
