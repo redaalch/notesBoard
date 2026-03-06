@@ -21,6 +21,7 @@ import {
   RefreshCwIcon,
   SaveIcon,
   Share2Icon,
+  SparklesIcon,
   Trash2Icon,
   UndoIcon,
   EyeIcon,
@@ -37,11 +38,14 @@ import CollaborativeEditor, {
 import PresenceAvatars from "../Components/PresenceAvatars";
 import TypingIndicator from "../Components/TypingIndicator";
 import NoteCollaboratorsCard from "../Components/NoteCollaboratorsCard";
+import AiSummaryCard from "../Components/AiSummaryCard";
+import AiTagSuggestions from "../Components/AiTagSuggestions";
 import { countWords, formatDate, formatRelativeTime } from "../lib/Utils";
 import useCollaborativeNote, {
   buildInitialNode,
 } from "../hooks/useCollaborativeNote";
 import useAuth from "../hooks/useAuth";
+import useAiFeatures from "../hooks/useAiFeatures";
 
 const HISTORY_REFRESH_MS = 15_000;
 const MAX_HISTORY_RESULTS = 100;
@@ -161,6 +165,19 @@ function NoteDetailPage() {
   );
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const justSavedRef = useRef(false);
+
+  // ── AI Features ──
+  const {
+    isConfigured: aiConfigured,
+    summary: aiSummary,
+    summaryLoading,
+    generateSummary,
+    suggestedTags,
+    tagsLoading: aiTagsLoading,
+    requestTagSuggestions,
+    clearSuggestedTags,
+    toggleActionItem,
+  } = useAiFeatures(id);
 
   const noteQuery = useQuery({
     queryKey: ["note", id],
@@ -414,6 +431,11 @@ function NoteDetailPage() {
           setTimeout(() => {
             justSavedRef.current = false;
           }, 1500);
+
+          // Request AI tag suggestions after auto-save (non-blocking)
+          if (aiConfigured && suggestedTags.length === 0) {
+            requestTagSuggestions();
+          }
         } else {
           // Explicit save: full cache update so sidebar list reflects changes
           queryClient.setQueryData(["note", id], normalized);
@@ -444,6 +466,9 @@ function NoteDetailPage() {
       queryClient,
       tags,
       title,
+      aiConfigured,
+      suggestedTags,
+      requestTagSuggestions,
     ],
   );
 
@@ -951,6 +976,49 @@ function NoteDetailPage() {
               </>
             )}
           </div>
+
+          {/* ─── AI Tag Suggestions ─── */}
+          {!isReadOnly && aiConfigured && (
+            <AiTagSuggestions
+              suggestions={suggestedTags}
+              currentTags={tags}
+              onApplyTag={(tag) => handleTagsChange([...tags, tag])}
+              onDismiss={clearSuggestedTags}
+              loading={aiTagsLoading}
+            />
+          )}
+
+          {/* ─── AI Summary Card ─── */}
+          {aiSummary && (
+            <AiSummaryCard
+              summary={aiSummary.summary}
+              actionItems={aiSummary.actionItems}
+              generatedAt={aiSummary.generatedAt}
+              onToggleItem={toggleActionItem}
+            />
+          )}
+
+          {/* ─── Generate Summary Button ─── */}
+          {aiConfigured &&
+            !aiSummary &&
+            !isReadOnly &&
+            contentStats.wordCount >= 150 && (
+              <div className="mb-4">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm gap-2 text-violet-400 hover:bg-violet-500/10"
+                  onClick={generateSummary}
+                  disabled={summaryLoading}
+                >
+                  {summaryLoading ? (
+                    <LoaderIcon className="size-3.5 animate-spin" />
+                  ) : (
+                    <SparklesIcon className="size-3.5" />
+                  )}
+                  {summaryLoading ? "Generating…" : "Generate Summary"}
+                </button>
+              </div>
+            )}
 
           {/* ─── Editor (the canvas) ─── */}
           <CollaborativeEditor

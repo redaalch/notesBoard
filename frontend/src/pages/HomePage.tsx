@@ -74,6 +74,7 @@ import NoteSkeleton from "../Components/NoteSkeleton";
 import { type TagStats } from "../Components/NotesStats";
 import { countWords, formatTagLabel, normalizeTag } from "../lib/Utils";
 import { useCommandPalette } from "../contexts/CommandPaletteContext";
+import useSemanticSearch from "../hooks/useSemanticSearch";
 
 // ── Lazy-loaded heavy dialogs (code-split) ────────────────────────────
 const TemplateGalleryModal = lazy(
@@ -547,6 +548,15 @@ function HomePage() {
   );
   const navigate = useNavigate();
   const { registerCommands } = useCommandPalette();
+
+  // ── Semantic / keyword server-side search ─────────────────────────────
+  const {
+    results: semanticResults,
+    searchMode,
+    isSearching: isSemanticSearching,
+    isActive: isServerSearchActive,
+  } = useSemanticSearch(searchQuery);
+
   const notesQuery = useQuery({
     queryKey: ["notes", activeNotebookId],
     queryFn: async () => {
@@ -1403,9 +1413,15 @@ function HomePage() {
     const trimmedQuery = searchQuery.trim();
 
     if (trimmedQuery) {
+      const modeLabel =
+        isServerSearchActive && searchMode === "semantic"
+          ? " (semantic)"
+          : isServerSearchActive && searchMode === "keyword"
+            ? " (keyword)"
+            : "";
       chips.push({
         key: "search",
-        label: `Search: "${trimmedQuery}"`,
+        label: `Search: "${trimmedQuery}"${modeLabel}`,
         onClear: () => setSearchQuery(""),
       });
     }
@@ -1460,9 +1476,35 @@ function HomePage() {
     notebookFilterActive,
     activeNotebookId,
     activeNotebook,
+    isServerSearchActive,
+    searchMode,
   ]);
 
   const filteredNotes = useMemo(() => {
+    // ── When server-side search is active, use its ranked results ──────
+    if (isServerSearchActive && semanticResults.length > 0) {
+      let serverNotes = semanticResults as any[];
+
+      // Still apply non-search filters on top of server results
+      const byWords = serverNotes.filter(
+        (note) =>
+          countWords(note.contentText ?? note.content ?? "") >=
+          Number(minWords),
+      );
+
+      const byTags = selectedTags.length
+        ? byWords.filter((note) => {
+            if (!Array.isArray(note.tags) || !note.tags.length) return false;
+            const normalized = note.tags.map((t: string) => t.toLowerCase());
+            return selectedTags.every((tag) => normalized.includes(tag));
+          })
+        : byWords;
+
+      // Server results are already ranked by relevance — keep that order
+      return byTags;
+    }
+
+    // ── Fallback: client-side filtering (no search or short query) ─────
     let base = notes;
     if (activeTab === "recent") base = recentNotes;
     if (activeTab === "long") base = longFormNotes;
@@ -1557,6 +1599,8 @@ function HomePage() {
     shortNotes,
     selectedTags,
     customOrderIndex,
+    isServerSearchActive,
+    semanticResults,
   ]);
 
   // ── Pagination ───────────────────────────────────────────────────────
