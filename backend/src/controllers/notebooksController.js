@@ -28,6 +28,7 @@ import { enqueueNotebookIndexJob } from "../tasks/notebookIndexingWorker.js";
 import { getNotebookRecommendations as computeNotebookRecommendations } from "../services/notebookRecommendationService.js";
 import { buildSmartNotebook } from "../services/notebookSmartService.js";
 import { applyUndoForNotebookEvent } from "../services/notebookUndoService.js";
+import cacheService from "../services/cacheService.js";
 
 const TRANSACTION_UNSUPPORTED_MESSAGE =
   "Transaction numbers are only allowed on a replica set member or mongos";
@@ -78,8 +79,8 @@ const serializeDate = (value) =>
   value instanceof Date
     ? value.toISOString()
     : value
-    ? new Date(value).toISOString()
-    : null;
+      ? new Date(value).toISOString()
+      : null;
 
 const serializeNotebookSnapshot = (notebookDoc) => {
   if (!notebookDoc) {
@@ -106,7 +107,7 @@ const serializeNotebookSnapshot = (notebookDoc) => {
     offlineRevision: notebookDoc.offlineRevision ?? 0,
     offlineSnapshotHash: notebookDoc.offlineSnapshotHash ?? null,
     offlineSnapshotUpdatedAt: serializeDate(
-      notebookDoc.offlineSnapshotUpdatedAt
+      notebookDoc.offlineSnapshotUpdatedAt,
     ),
     createdAt: serializeDate(notebookDoc.createdAt),
     updatedAt: serializeDate(notebookDoc.updatedAt),
@@ -234,11 +235,24 @@ export const listNotebooks = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const notebooks = await Notebook.find({ owner: ownerId })
-      .sort({ createdAt: 1 })
-      .lean();
+    // ── Pagination ────────────────────────────────────────────────────
+    const page = Math.max(1, parseInt(req.query?.page, 10) || 1);
+    const limit = Math.min(
+      100,
+      Math.max(1, parseInt(req.query?.limit, 10) || 20),
+    );
+    const skip = (page - 1) * limit;
 
-    const notebookIds = notebooks.map((doc) => doc._id);
+    const [notebooks, totalNotebooks] = await Promise.all([
+      Notebook.find({ owner: ownerId })
+        .sort({ createdAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Notebook.countDocuments({ owner: ownerId }),
+    ]);
+
+    // ── Note counts (always fresh — React Query handles client-side caching) ──
     const counts = await Note.aggregate([
       {
         $match: {
@@ -252,9 +266,8 @@ export const listNotebooks = async (req, res) => {
         },
       },
     ]);
-
     const countMap = new Map(
-      counts.map((entry) => [String(entry._id), entry.count])
+      counts.map((entry) => [String(entry._id), entry.count]),
     );
 
     const response = notebooks.map((notebook) => ({
@@ -274,6 +287,10 @@ export const listNotebooks = async (req, res) => {
     return res.status(200).json({
       notebooks: response,
       uncategorizedCount,
+      total: totalNotebooks,
+      page,
+      limit,
+      totalPages: Math.ceil(totalNotebooks / limit),
     });
   } catch (error) {
     logger.error("Failed to list notebooks", { message: error?.message });
@@ -315,7 +332,7 @@ export const createNotebook = async (req, res) => {
       "Failed to start mongoose session; continuing without transaction",
       {
         message: sessionError?.message,
-      }
+      },
     );
     session = null;
   }
@@ -336,7 +353,7 @@ export const createNotebook = async (req, res) => {
           description: normalizedDescription,
         },
       ],
-      createOptions
+      createOptions,
     );
 
     const notebookObject = notebook.toObject();
@@ -365,7 +382,7 @@ export const createNotebook = async (req, res) => {
           new: true,
           setDefaultsOnInsert: true,
           ...membershipOptions,
-        }
+        },
       );
     } catch (membershipError) {
       logger.error("Failed to seed notebook owner membership", {
@@ -396,7 +413,7 @@ export const createNotebook = async (req, res) => {
           notebookId: notebook._id,
         },
       },
-      eventOptions
+      eventOptions,
     );
 
     return notebookObject;
@@ -413,7 +430,7 @@ export const createNotebook = async (req, res) => {
       } catch (error) {
         if (isTransactionUnsupported(error)) {
           logger.warn(
-            "MongoDB deployment does not support transactions; retrying notebook create without session"
+            "MongoDB deployment does not support transactions; retrying notebook create without session",
           );
           notebookRecord = await runCreate(null);
         } else {
@@ -542,7 +559,7 @@ export const updateNotebook = async (req, res) => {
             previous: previousState,
           },
         },
-        { session }
+        { session },
       );
     });
   } catch (error) {
@@ -668,13 +685,13 @@ export const deleteNotebook = async (req, res) => {
         if (noteIds.length) {
           const deleteResult = await Note.deleteMany(
             { _id: { $in: noteIds } },
-            { session }
+            { session },
           );
           deletedNotes = deleteResult?.deletedCount ?? noteIds.length;
           if (docNames.length && deleteCollaborative) {
             await CollabDocument.deleteMany(
               { name: { $in: docNames } },
-              { session }
+              { session },
             );
           }
           if (noteDocs.length) {
@@ -697,7 +714,7 @@ export const deleteNotebook = async (req, res) => {
           const updateResult = await Note.updateMany(
             { _id: { $in: noteIds } },
             { $set: updatePayload },
-            { session }
+            { session },
           );
           movedNotes = updateResult?.modifiedCount ?? noteIds.length;
           if (targetNotebookObjectId) {
@@ -721,7 +738,7 @@ export const deleteNotebook = async (req, res) => {
         ShareLink.deleteMany({ notebookId: notebookDoc._id }, { session }),
         NotebookPublication.deleteMany(
           { notebookId: notebookDoc._id },
-          { session }
+          { session },
         ),
         NotebookIndex.deleteOne({ notebookId: notebookDoc._id }, { session }),
       ]);
@@ -773,11 +790,11 @@ export const deleteNotebook = async (req, res) => {
                 }
               : null,
             deleteCollaborative: Boolean(
-              deleteCollaborative && docNames.length
+              deleteCollaborative && docNames.length,
             ),
           },
         },
-        { session }
+        { session },
       );
 
       responsePayload = {
@@ -810,7 +827,7 @@ export const deleteNotebook = async (req, res) => {
       await queueNotebookIndexSafely(
         targetNotebookObjectId,
         "notebook-delete-move",
-        { force: true }
+        { force: true },
       );
     }
 
@@ -877,7 +894,7 @@ export const moveNotesToNotebook = async (req, res) => {
       const updateResult = await Note.updateMany(
         { _id: { $in: noteObjectIds } },
         { $set: { notebookId: notebook._id } },
-        { session }
+        { session },
       );
       movedCount = updateResult?.modifiedCount ?? notes.length;
 
@@ -885,7 +902,7 @@ export const moveNotesToNotebook = async (req, res) => {
         notes
           .map((note) => note.notebookId)
           .filter((value) => value)
-          .map((value) => value.toString())
+          .map((value) => value.toString()),
       );
 
       for (const notebookId of sourceNotebookIds) {
@@ -893,7 +910,7 @@ export const moveNotesToNotebook = async (req, res) => {
         await removeNotesFromNotebookOrder(
           new mongoose.Types.ObjectId(notebookId),
           noteObjectIds,
-          { session }
+          { session },
         );
       }
 
@@ -924,7 +941,7 @@ export const moveNotesToNotebook = async (req, res) => {
             })),
           },
         },
-        { session }
+        { session },
       );
     });
   } catch (error) {
@@ -1091,7 +1108,7 @@ export const getNotebookHistory = async (req, res) => {
 
     const limit = Math.max(
       1,
-      Math.min(Number.parseInt(req.query?.limit ?? "50", 10) || 50, 200)
+      Math.min(Number.parseInt(req.query?.limit ?? "50", 10) || 50, 200),
     );
 
     const events = await NotebookEvent.find({ notebookId: notebook._id })
@@ -1222,7 +1239,7 @@ export const undoNotebookHistoryEvent = async (req, res) => {
             "metadata.undoAction": undoResult.action ?? null,
           },
         },
-        { session }
+        { session },
       );
 
       const workspaceContext = (() => {
@@ -1261,7 +1278,7 @@ export const undoNotebookHistoryEvent = async (req, res) => {
             undoAction: undoResult.action ?? null,
           },
         },
-        { session }
+        { session },
       );
 
       undoSummary = {
@@ -1270,7 +1287,7 @@ export const undoNotebookHistoryEvent = async (req, res) => {
         undoneEventId: event._id.toString(),
         undoEventId: undoEntry?._id?.toString?.() ?? null,
         affectedNotebookIds: Array.from(
-          new Set(undoResult.affectedNotebookIds ?? [])
+          new Set(undoResult.affectedNotebookIds ?? []),
         ),
       };
     });
