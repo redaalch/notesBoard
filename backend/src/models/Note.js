@@ -162,17 +162,30 @@ const noteSchema = new mongoose.Schema(
     /* ── AI Features ── */
     aiSummary: {
       summary: { type: String, default: null },
-      actionItems: [
-        {
-          _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
-          text: { type: String, required: true },
-          completed: { type: Boolean, default: false },
+      actionItems: {
+        type: [
+          {
+            _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
+            text: { type: String, required: true },
+            completed: { type: Boolean, default: false },
+          },
+        ],
+        validate: {
+          validator: (v) => !v || v.length <= 20,
+          message: "actionItems cannot exceed 20 entries",
         },
-      ],
+      },
       generatedAt: { type: Date, default: null },
     },
     suggestedTags: {
-      tags: { type: [String], default: [] },
+      tags: {
+        type: [String],
+        default: [],
+        validate: {
+          validator: (v) => !v || v.length <= 16,
+          message: "suggestedTags cannot exceed 16 entries",
+        },
+      },
       generatedAt: { type: Date, default: null },
     },
 
@@ -202,6 +215,9 @@ noteSchema.index({ owner: 1, pinned: -1, updatedAt: -1 });
 noteSchema.index({ owner: 1, createdAt: -1 });
 noteSchema.index({ owner: 1, tags: 1 });
 noteSchema.index({ owner: 1, notebookId: 1 });
+// Compound indexes for efficient paginated queries with skip/limit
+noteSchema.index({ workspaceId: 1, pinned: -1, updatedAt: -1 });
+noteSchema.index({ notebookId: 1, pinned: -1, updatedAt: -1 });
 
 noteSchema.pre("save", function ensureDocName(next) {
   if (!this.docName && this._id) {
