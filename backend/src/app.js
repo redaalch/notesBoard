@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
+import compression from "compression";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -15,6 +16,7 @@ import notebookTemplateRoutes from "./routes/notebookTemplateRoutes.js";
 import publishedRoutes from "./routes/publishedRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
 import rateLimiter from "./middleware/rateLimiter.js";
+import privateCacheHeaders from "./middleware/privateCacheHeaders.js";
 import requestLogger from "./middleware/requestLogger.js";
 import errorHandler from "./middleware/errorHandler.js";
 import notFound from "./middleware/notFound.js";
@@ -89,8 +91,11 @@ app.use(
 );
 app.options("*", cors());
 
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+// Compress all HTTP responses (gzip/deflate)
+app.use(compression());
+
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(cookieParser());
 
 // Request logging (only in development or when explicitly enabled)
@@ -106,6 +111,9 @@ app.get("/api/health", (_req, res) =>
 );
 
 app.use("/api", rateLimiter);
+
+// Private cache headers + ETag for all GET responses (ensures CDNs never cache user data)
+app.use("/api", privateCacheHeaders);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/notes", notesRoutes);
