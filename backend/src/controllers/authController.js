@@ -1027,4 +1027,19 @@ export const changePassword = async (req, res) => {
   }
 };
 
+export const getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select(
+      "name email role emailVerified emailVerifiedAt defaultWorkspace defaultBoard createdAt updatedAt",
+    );
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    return res.status(200).json({ user: sanitizeUser(user) });
+  } catch (error) {
+    logger.error("getMe failed", { error: error?.message });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
+  }
+};
+
 export { REFRESH_COOKIE };
