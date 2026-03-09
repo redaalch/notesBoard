@@ -7,6 +7,7 @@ import NoteHistory from "../models/NoteHistory.js";
 import NoteCollaborator from "../models/NoteCollaborator.js";
 import User from "../models/User.js";
 import logger from "../utils/logger.js";
+import cacheService from "../services/cacheService.js";
 import { isValidObjectId } from "../utils/validators.js";
 import { enqueueNotebookIndexJob } from "../tasks/notebookIndexingWorker.js";
 import {
@@ -227,10 +228,23 @@ export const getAllNotes = async (req, res) => {
       query.notebookId = notebookFilterObjectId;
     }
 
-    const notes = await Note.find(query)
-      .sort({ pinned: -1, updatedAt: -1, createdAt: -1 })
-      .select({ richContent: 0 })
-      .lean();
+    // ── Pagination ──────────────────────────────────────────────────────
+    const page = Math.max(1, parseInt(req.query?.page, 10) || 1);
+    const limit = Math.min(
+      200,
+      Math.max(1, parseInt(req.query?.limit, 10) || 50),
+    );
+    const skip = (page - 1) * limit;
+
+    const [notes, total] = await Promise.all([
+      Note.find(query)
+        .sort({ pinned: -1, updatedAt: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select({ richContent: 0 })
+        .lean(),
+      Note.countDocuments(query),
+    ]);
 
     const response = notes.map((note) => {
       const noteId = note._id.toString();
@@ -255,7 +269,13 @@ export const getAllNotes = async (req, res) => {
       };
     });
 
-    return res.status(200).json(response);
+    return res.status(200).json({
+      data: response,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    });
   } catch (error) {
     logger.error("Error in getAllNotes", { error: error?.message });
     return res.status(500).json(INTERNAL_SERVER_ERROR);
@@ -409,6 +429,7 @@ export const createNote = async (req, res) => {
       tags: savedNote.tags,
     });
 
+    cacheService.invalidateUserRoutes(userId);
     return res.status(201).json(savedNote);
   } catch (error) {
     logger.error("Error in createNote", { error: error?.message });
@@ -653,6 +674,7 @@ export const updateNote = async (req, res) => {
           null),
     };
 
+    cacheService.invalidateUserRoutes(req.user.id);
     return res.status(200).json(payload);
   } catch (error) {
     logger.error("Error in updateNote", { error: error?.message });
@@ -710,6 +732,7 @@ export const deleteNote = async (req, res) => {
     }
 
     // 204 No Content is common; 200 is fine too.
+    cacheService.invalidateUserRoutes(req.user.id);
     return res.status(200).json({ message: "Deleted" });
   } catch (error) {
     logger.error("Error in deleteNote", { error: error?.message });
@@ -828,6 +851,15 @@ export const getTagStats = async (req, res) => {
 export const bulkUpdateNotes = async (req, res) => {
   try {
     const { action, noteIds, tags = [], boardId, notebookId } = req.body ?? {};
+
+    // Invalidate cached routes for this user after any successful bulk mutation
+    const _origJson = res.json.bind(res);
+    res.json = (body) => {
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        cacheService.invalidateUserRoutes(req.user?.id);
+      }
+      return _origJson(body);
+    };
 
     const validActions = new Set([
       "pin",
@@ -1019,7 +1051,9 @@ export const bulkUpdateNotes = async (req, res) => {
           .json({ message: "At least one valid tag is required" });
       }
 
-      let updatedCount = 0;
+      // Build bulk write ops + history docs in one pass (replaces N+1 sequential loop)
+      const bulkOps = [];
+      const historyDocs = [];
       const updatedNotebookIds = new Set();
       for (const note of permittedNotes) {
         const existingTags = Array.isArray(note.tags) ? note.tags : [];
@@ -1029,16 +1063,19 @@ export const bulkUpdateNotes = async (req, res) => {
             ...normalizedTags,
           ]),
         ).slice(0, MAX_TAGS_PER_NOTE);
-        const result = await Note.updateOne(
-          { _id: note._id },
-          { $set: { tags: merged } },
-        );
-        if (result.modifiedCount) {
-          updatedCount += 1;
-          if (note.notebookId) {
-            updatedNotebookIds.add(note.notebookId.toString());
-          }
-          await NoteHistory.create({
+
+        // Only queue an update when tags actually change
+        if (
+          merged.length !== existingTags.length ||
+          merged.some((t, i) => t !== existingTags[i])
+        ) {
+          bulkOps.push({
+            updateOne: {
+              filter: { _id: note._id },
+              update: { $set: { tags: merged } },
+            },
+          });
+          historyDocs.push({
             noteId: note._id,
             workspaceId: note.workspaceId ?? null,
             boardId: note.boardId ?? null,
@@ -1046,18 +1083,31 @@ export const bulkUpdateNotes = async (req, res) => {
             eventType: "tag",
             summary: `Added tags: ${normalizedTags.join(", ")}`,
           });
+          if (note.notebookId) {
+            updatedNotebookIds.add(note.notebookId.toString());
+          }
         }
       }
 
-      await Promise.all(touchPromises);
-
-      for (const notebookId of updatedNotebookIds) {
-        await queueNotebookIndexSafely(notebookId, "bulk-add-tags");
+      // Execute bulk write + history insert + workspace touches in parallel
+      const bulkPromises = [...touchPromises];
+      if (bulkOps.length) {
+        bulkPromises.push(Note.bulkWrite(bulkOps, { ordered: false }));
+        bulkPromises.push(
+          NoteHistory.insertMany(historyDocs, { ordered: false }),
+        );
       }
+      await Promise.all(bulkPromises);
+
+      // Queue notebook index jobs
+      const indexPromises = [...updatedNotebookIds].map((notebookId) =>
+        queueNotebookIndexSafely(notebookId, "bulk-add-tags"),
+      );
+      await Promise.all(indexPromises);
 
       return res.status(200).json({
         action,
-        updated: updatedCount,
+        updated: bulkOps.length,
         noteIds: normalizedIds,
         tags: normalizedTags,
       });
