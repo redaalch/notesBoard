@@ -10,6 +10,7 @@ import {
   resendEmailVerification,
   updateProfile,
   changePassword,
+  getMe,
 } from "../controllers/authController.js";
 import auth from "../middleware/auth.js";
 import { validate, validationRules } from "../middleware/validation.js";
@@ -25,13 +26,13 @@ router.post(
     validationRules.password(),
     body("name").trim().notEmpty().withMessage("Name is required"),
   ]),
-  register
+  register,
 );
 
 router.post(
   "/login",
   validate([validationRules.email(), validationRules.password()]),
-  login
+  login,
 );
 
 router.post("/refresh", refresh);
@@ -40,7 +41,7 @@ router.post("/logout", logout);
 router.post(
   "/password/forgot",
   validate([validationRules.email()]),
-  requestPasswordReset
+  requestPasswordReset,
 );
 
 router.post(
@@ -49,7 +50,7 @@ router.post(
     body("token").trim().notEmpty().withMessage("Reset token is required"),
     validationRules.password(),
   ]),
-  resetPassword
+  resetPassword,
 );
 
 router.post(
@@ -60,14 +61,16 @@ router.post(
       .notEmpty()
       .withMessage("Verification token is required"),
   ]),
-  verifyEmail
+  verifyEmail,
 );
 
 router.post(
   "/verify-email/resend",
   validate([validationRules.email()]),
-  resendEmailVerification
+  resendEmailVerification,
 );
+
+router.get("/me", auth, getMe);
 
 router.put(
   "/profile",
@@ -79,7 +82,7 @@ router.put(
       .notEmpty()
       .withMessage("Name cannot be empty"),
   ]),
-  updateProfile
+  updateProfile,
 );
 
 router.post(
@@ -101,7 +104,7 @@ router.post(
       .matches(/[0-9]/)
       .withMessage("New password must contain at least one number"),
   ]),
-  changePassword
+  changePassword,
 );
 
 export default router;
