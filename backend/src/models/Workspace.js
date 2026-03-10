@@ -46,7 +46,7 @@ const memberSchema = new mongoose.Schema(
       index: true,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const workspaceSchema = new mongoose.Schema(
@@ -72,9 +72,13 @@ const workspaceSchema = new mongoose.Schema(
     members: {
       type: [memberSchema],
       default: [],
+      validate: {
+        validator: (v) => !v || v.length <= 100,
+        message: "Workspace cannot exceed 100 members",
+      },
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 workspaceSchema.index({ ownerId: 1, slug: 1 });
