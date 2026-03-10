@@ -9,7 +9,6 @@
  */
 import express from "express";
 import auth from "../middleware/auth.js";
-import rateLimiter from "../middleware/rateLimiter.js";
 import {
   summarizeNote,
   suggestTags,
@@ -20,9 +19,8 @@ import {
 
 const router = express.Router();
 
-// All AI routes require authentication
+// All AI routes require authentication (rate limiting applied globally in app.js)
 router.use(auth);
-router.use(rateLimiter);
 
 // Feature status (no AI key required – tells the frontend what's available)
 router.get("/status", getAiStatus);
