@@ -56,11 +56,16 @@ const noteHistorySchema = new mongoose.Schema(
       default: null,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 noteHistorySchema.index({ noteId: 1, createdAt: -1 });
 noteHistorySchema.index({ boardId: 1, createdAt: -1 });
+// Auto-delete history entries older than 90 days
+noteHistorySchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: 90 * 24 * 60 * 60 },
+);
 
 const NoteHistory = mongoose.model("NoteHistory", noteHistorySchema);
 
