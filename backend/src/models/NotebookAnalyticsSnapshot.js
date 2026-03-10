@@ -53,6 +53,10 @@ const snapshotSchema = new mongoose.Schema(
     topTags: {
       type: [tagBucketSchema],
       default: [],
+      validate: {
+        validator: (v) => !v || v.length <= 50,
+        message: "topTags cannot exceed 50 entries",
+      },
     },
     collaboratorTotals: {
       type: Map,
