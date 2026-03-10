@@ -42,10 +42,7 @@ const notebookMemberSchema = new mongoose.Schema(
     },
     inviteTokenHash: {
       type: String,
-      default: null,
-      unique: true,
-      sparse: true,
-      index: true,
+      default: undefined,
     },
     inviteExpiresAt: {
       type: Date,
@@ -74,24 +71,37 @@ const notebookMemberSchema = new mongoose.Schema(
       default: () => ({}),
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 notebookMemberSchema.index(
   { notebookId: 1, userId: 1 },
-  { name: "notebook_member_unique", unique: true }
+  { name: "notebook_member_unique", unique: true },
 );
 
 notebookMemberSchema.index(
   { notebookId: 1, status: 1, role: 1 },
-  { name: "notebook_member_status_role" }
+  { name: "notebook_member_status_role" },
+);
+
+// Unique constraint on inviteTokenHash only when the field actually exists.
+// sparse:true alone doesn't skip `null` — it only skips `undefined` / missing.
+notebookMemberSchema.index(
+  { inviteTokenHash: 1 },
+  {
+    name: "inviteTokenHash_unique_partial",
+    unique: true,
+    partialFilterExpression: {
+      inviteTokenHash: { $type: "string" },
+    },
+  },
 );
 
 const hashToken = (value) =>
   crypto.createHash("sha256").update(String(value)).digest("hex");
 
 notebookMemberSchema.statics.generateInviteToken = function generateInviteToken(
-  size = 32
+  size = 32,
 ) {
   return crypto.randomBytes(size).toString("hex");
 };
@@ -100,7 +110,7 @@ notebookMemberSchema.statics.hashToken = hashToken;
 
 notebookMemberSchema.methods.setInviteToken = function setInviteToken(
   rawToken,
-  expiresAt
+  expiresAt,
 ) {
   if (!rawToken) {
     this.set("inviteTokenHash", undefined);
@@ -113,7 +123,7 @@ notebookMemberSchema.methods.setInviteToken = function setInviteToken(
 };
 
 notebookMemberSchema.methods.markAccepted = function markAccepted(
-  date = new Date()
+  date = new Date(),
 ) {
   this.status = "active";
   this.acceptedAt = date;
@@ -122,7 +132,7 @@ notebookMemberSchema.methods.markAccepted = function markAccepted(
 
 notebookMemberSchema.methods.markRevoked = function markRevoked(
   actorId,
-  date = new Date()
+  date = new Date(),
 ) {
   this.status = "revoked";
   this.revokedAt = date;
