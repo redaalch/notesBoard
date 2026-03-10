@@ -1,7 +1,7 @@
 import express from "express";
 import auth from "../middleware/auth.js";
-import rateLimiter from "../middleware/rateLimiter.js";
 import { validate, validationRules } from "../middleware/validation.js";
+import cacheService from "../services/cacheService.js";
 import { body, query } from "express-validator";
 import {
   listNotebooks,
@@ -56,9 +56,8 @@ import {
 
 const router = express.Router();
 
-// Authentication and rate limiting for all routes
+// Authentication for all routes (rate limiting applied globally in app.js)
 router.use(auth);
-router.use(rateLimiter);
 
 router.get(
   "/recommendations",
@@ -71,7 +70,7 @@ router.get(
       .isInt({ min: 1, max: 20 })
       .withMessage("limit must be between 1 and 20"),
   ]),
-  getNotebookRecommendations
+  getNotebookRecommendations,
 );
 
 router.get(
@@ -88,10 +87,10 @@ router.get(
       .isInt({ min: 1, max: 60 })
       .withMessage("limit must be between 1 and 60"),
   ]),
-  getSmartNotebook
+  getSmartNotebook,
 );
 
-// List all notebooks
+// List all notebooks (no route-level cache — React Query + notebook-counts data cache handle freshness)
 router.get("/", listNotebooks);
 
 // Create notebook
@@ -101,7 +100,7 @@ router.post(
     validationRules.notebookName(),
     validationRules.notebookDescription(),
   ]),
-  createNotebook
+  createNotebook,
 );
 
 router.post(
@@ -130,7 +129,7 @@ router.post(
       .isLength({ min: 1, max: 32 })
       .withMessage("Each tag must be 1-32 characters"),
   ]),
-  exportNotebookTemplate
+  exportNotebookTemplate,
 );
 
 // Accept notebook invitation
@@ -139,14 +138,14 @@ router.post(
   validate([
     body("token").trim().notEmpty().withMessage("Invitation token is required"),
   ]),
-  acceptNotebookInvitation
+  acceptNotebookInvitation,
 );
 
 // Member management routes
 router.get(
   "/:id/members",
   validate([validationRules.objectId("id")]),
-  listNotebookMembers
+  listNotebookMembers,
 );
 
 router.post(
@@ -156,7 +155,7 @@ router.post(
     validationRules.email(),
     validationRules.memberRole(),
   ]),
-  inviteNotebookMember
+  inviteNotebookMember,
 );
 
 router.patch(
@@ -166,7 +165,7 @@ router.patch(
     validationRules.objectId("memberId"),
     validationRules.memberRole(),
   ]),
-  updateNotebookMemberRole
+  updateNotebookMemberRole,
 );
 
 router.delete(
@@ -175,7 +174,7 @@ router.delete(
     validationRules.objectId("id"),
     validationRules.objectId("memberId"),
   ]),
-  removeNotebookMember
+  removeNotebookMember,
 );
 
 // Invitation management
@@ -185,7 +184,7 @@ router.post(
     validationRules.objectId("id"),
     validationRules.objectId("memberId"),
   ]),
-  resendNotebookInvitation
+  resendNotebookInvitation,
 );
 
 router.post(
@@ -194,14 +193,14 @@ router.post(
     validationRules.objectId("id"),
     validationRules.objectId("memberId"),
   ]),
-  revokeNotebookInvitation
+  revokeNotebookInvitation,
 );
 
 // Share link management
 router.get(
   "/:id/share-links",
   validate([validationRules.objectId("id")]),
-  listNotebookShareLinks
+  listNotebookShareLinks,
 );
 
 router.post(
@@ -215,7 +214,7 @@ router.post(
       .withMessage("expiresAt must be a valid date"),
     validationRules.memberRole(),
   ]),
-  createNotebookShareLink
+  createNotebookShareLink,
 );
 
 router.delete(
@@ -224,42 +223,43 @@ router.delete(
     validationRules.objectId("id"),
     validationRules.objectId("shareLinkId"),
   ]),
-  revokeNotebookShareLink
+  revokeNotebookShareLink,
 );
 
 router.get(
   "/:id/analytics/activity",
   validate([validationRules.objectId("id"), validationRules.analyticsRange()]),
   ensureNotebookAnalyticsContext,
-  getNotebookAnalyticsActivity
+  getNotebookAnalyticsActivity,
 );
 
 router.get(
   "/:id/analytics/tags",
   validate([validationRules.objectId("id"), validationRules.analyticsRange()]),
   ensureNotebookAnalyticsContext,
-  getNotebookAnalyticsTags
+  getNotebookAnalyticsTags,
 );
 
 router.get(
   "/:id/analytics/collaborators",
   validate([validationRules.objectId("id"), validationRules.analyticsRange()]),
   ensureNotebookAnalyticsContext,
-  getNotebookAnalyticsCollaborators
+  getNotebookAnalyticsCollaborators,
 );
 
 router.get(
   "/:id/analytics/snapshots",
   validate([validationRules.objectId("id"), validationRules.analyticsRange()]),
   ensureNotebookAnalyticsContext,
-  getNotebookAnalyticsSnapshots
+  getNotebookAnalyticsSnapshots,
 );
 
 router.get(
   "/:id/analytics",
   validate([validationRules.objectId("id"), validationRules.analyticsRange()]),
   ensureNotebookAnalyticsContext,
-  getNotebookAnalytics
+  cacheService.middleware(120),
+  getNotebookAnalytics,
 );
 
 // Update notebook
@@ -270,14 +270,14 @@ router.patch(
     validationRules.notebookName(),
     validationRules.notebookDescription(),
   ]),
-  updateNotebook
+  updateNotebook,
 );
 
 // Delete notebook
 router.delete(
   "/:id",
   validate([validationRules.objectId("id")]),
-  deleteNotebook
+  deleteNotebook,
 );
 
 // Move notes to notebook
@@ -290,7 +290,7 @@ router.post(
       .withMessage("noteIds must be a non-empty array"),
     body("noteIds.*").isMongoId().withMessage("Each noteId must be valid"),
   ]),
-  moveNotesToNotebook
+  moveNotesToNotebook,
 );
 
 router.get(
@@ -302,7 +302,7 @@ router.get(
       .isInt({ min: 1, max: 200 })
       .withMessage("limit must be between 1 and 200"),
   ]),
-  getNotebookHistory
+  getNotebookHistory,
 );
 
 router.post(
@@ -313,13 +313,13 @@ router.post(
       .isMongoId()
       .withMessage("eventId must be a valid MongoDB ObjectId"),
   ]),
-  undoNotebookHistoryEvent
+  undoNotebookHistoryEvent,
 );
 
 router.get(
   "/:id/sync",
   validate([validationRules.objectId("id")]),
-  getNotebookSyncState
+  getNotebookSyncState,
 );
 
 router.post(
@@ -333,13 +333,13 @@ router.post(
       .isArray({ max: 100 })
       .withMessage("operations must be an array with at most 100 items"),
   ]),
-  pushNotebookSyncState
+  pushNotebookSyncState,
 );
 
 router.get(
   "/:id/publish",
   validate([validationRules.objectId("id")]),
-  getNotebookPublishingState
+  getNotebookPublishingState,
 );
 
 router.post(
@@ -352,19 +352,19 @@ router.post(
       .isObject()
       .withMessage("metadata must be an object"),
   ]),
-  publishNotebook
+  publishNotebook,
 );
 
 router.delete(
   "/:id/publish",
   validate([validationRules.objectId("id")]),
-  unpublishNotebook
+  unpublishNotebook,
 );
 
 router.get(
   "/:id/saved-queries",
   validate([validationRules.objectId("id")]),
-  listSavedNotebookQueries
+  listSavedNotebookQueries,
 );
 
 router.post(
@@ -374,7 +374,7 @@ router.post(
     validationRules.savedQueryName(),
     ...validationRules.savedQueryPayload(),
   ]),
-  createSavedNotebookQuery
+  createSavedNotebookQuery,
 );
 
 router.patch(
@@ -385,7 +385,7 @@ router.patch(
     body("name").optional().isString().trim(),
     ...validationRules.savedQueryPayload(),
   ]),
-  updateSavedNotebookQuery
+  updateSavedNotebookQuery,
 );
 
 router.delete(
@@ -394,7 +394,7 @@ router.delete(
     validationRules.objectId("id"),
     validationRules.objectId("queryId"),
   ]),
-  deleteSavedNotebookQuery
+  deleteSavedNotebookQuery,
 );
 
 router.post(
@@ -403,7 +403,7 @@ router.post(
     validationRules.objectId("id"),
     validationRules.objectId("queryId"),
   ]),
-  touchSavedNotebookQuery
+  touchSavedNotebookQuery,
 );
 
 export default router;
