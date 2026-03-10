@@ -88,6 +88,10 @@ const userSchema = new mongoose.Schema(
         },
       ],
       default: [],
+      validate: {
+        validator: (v) => !v || v.length <= 500,
+        message: "customNoteOrder cannot exceed 500 entries",
+      },
     },
   },
   { timestamps: true },
