@@ -68,6 +68,10 @@ const notebookSchema = new mongoose.Schema(
         },
       ],
       default: [],
+      validate: {
+        validator: (v) => !v || v.length <= 500,
+        message: "noteOrder cannot exceed 500 entries",
+      },
     },
     offlineRevision: {
       type: Number,
@@ -84,7 +88,7 @@ const notebookSchema = new mongoose.Schema(
       default: null,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 notebookSchema.index({ owner: 1, name: 1 }, { unique: true });
@@ -93,7 +97,7 @@ notebookSchema.index(
   {
     unique: true,
     partialFilterExpression: { publicSlug: { $type: "string" } },
-  }
+  },
 );
 notebookSchema.index({ owner: 1, offlineRevision: -1 });
 
