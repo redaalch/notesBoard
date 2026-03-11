@@ -2,7 +2,7 @@
 import mongoose from "mongoose";
 
 import "../config/env.js";
-import { connectDb } from "../config/db.js";
+import { connectDb } from "../config/database.js";
 import Notebook from "../models/Notebook.js";
 import logger from "../utils/logger.js";
 import {
@@ -18,7 +18,7 @@ const parseCliArgs = () => {
   const options = {
     days: Number.parseInt(
       process.env.NOTEBOOK_ANALYTICS_SNAPSHOT_DAYS ?? "1",
-      10
+      10,
     ),
     warmRanges: DEFAULT_WARM_RANGES,
   };
@@ -74,7 +74,7 @@ const run = async () => {
 
   const cursor = Notebook.find(
     {},
-    { _id: 1, owner: 1, workspaceId: 1 }
+    { _id: 1, owner: 1, workspaceId: 1 },
   ).cursor();
   let processed = 0;
   let snapshotCount = 0;
