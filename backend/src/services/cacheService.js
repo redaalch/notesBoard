@@ -126,6 +126,49 @@ class CacheService {
   }
 
   /**
+   * Delete all cache keys matching a prefix.
+   * Useful for invalidating route caches for a specific user after mutations.
+   * @param {string} prefix - Key prefix to match (e.g. "route:/api/notes")
+   * @returns {number} - Number of deleted entries
+   */
+  delByPrefix(prefix) {
+    try {
+      const matching = this.cache.keys().filter((k) => k.startsWith(prefix));
+      if (matching.length === 0) return 0;
+      const count = this.cache.del(matching);
+      logger.debug("Cache delByPrefix", { prefix, count });
+      return count;
+    } catch (error) {
+      logger.error("Cache delByPrefix error", {
+        prefix,
+        error: error.message,
+      });
+      return 0;
+    }
+  }
+
+  /**
+   * Invalidate all cached route responses for a given user.
+   * Call after any mutation so subsequent GETs return fresh data.
+   * @param {string} userId
+   */
+  invalidateUserRoutes(userId) {
+    if (!userId) return;
+    // Route cache keys follow the pattern  route:<url>:u:<userId>
+    // Also clear any user-scoped data caches (e.g. notebook-counts).
+    const segment = `:u:${userId}`;
+    const dataSuffix = `:${userId}`;
+    try {
+      const matching = this.cache
+        .keys()
+        .filter((k) => k.includes(segment) || k.endsWith(dataSuffix));
+      if (matching.length) this.cache.del(matching);
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  /**
    * Cache middleware for Express routes
    * @param {number} ttl - Time to live in seconds
    * @returns {Function} - Express middleware
@@ -150,11 +193,11 @@ class CacheService {
       // Store original res.json
       const originalJson = res.json.bind(res);
 
-      // Override res.json
+      // Override res.json – only cache successful (2xx) responses
       res.json = (body) => {
-        // Cache the response
-        this.set(key, body, ttl);
-        // Send response
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          this.set(key, body, ttl);
+        }
         return originalJson(body);
       };
 
