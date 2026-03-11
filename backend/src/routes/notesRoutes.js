@@ -25,6 +25,7 @@ import {
 import auth from "../middleware/auth.js";
 import { validate, validationRules } from "../middleware/validation.js";
 import { body, query } from "express-validator";
+import cacheService from "../services/cacheService.js";
 
 const router = express.Router();
 
@@ -61,8 +62,8 @@ router.put(
   updateNoteLayout,
 );
 
-// Tag statistics
-router.get("/tags/stats", getTagStats);
+// Tag statistics (cached 30s)
+router.get("/tags/stats", cacheService.middleware(30), getTagStats);
 
 // Semantic / keyword search
 router.get(
