@@ -2,7 +2,7 @@
 import mongoose from "mongoose";
 
 import "../config/env.js";
-import { connectDb } from "../config/db.js";
+import { connectDb } from "../config/database.js";
 import User from "../models/User.js";
 import logger from "../utils/logger.js";
 import { seedNotebookAnalyticsDataset } from "../services/notebookAnalyticsFixture.js";
@@ -13,7 +13,7 @@ const ensureEnv = () => {
   const missing = REQUIRED_ENVS.filter((key) => !process.env[key]);
   if (missing.length) {
     console.error(
-      `Missing required environment variables: ${missing.join(", ")}`
+      `Missing required environment variables: ${missing.join(", ")}`,
     );
     process.exit(1);
   }
@@ -32,7 +32,7 @@ const parseOptions = () => {
     days: Number.parseInt(process.env.NOTEBOOK_ANALYTICS_SEED_DAYS ?? "90", 10),
     notesPerDay: Number.parseInt(
       process.env.NOTEBOOK_ANALYTICS_SEED_NOTES_PER_DAY ?? "12",
-      10
+      10,
     ),
   };
 
@@ -65,7 +65,7 @@ const parseOptions = () => {
 const ensureOwnerEmail = (email) => {
   if (!email) {
     console.error(
-      "An owner email must be provided via NOTEBOOK_ANALYTICS_SEED_OWNER_EMAIL or --owner=<email>."
+      "An owner email must be provided via NOTEBOOK_ANALYTICS_SEED_OWNER_EMAIL or --owner=<email>.",
     );
     process.exit(1);
   }
