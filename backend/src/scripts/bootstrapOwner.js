@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import mongoose from "mongoose";
 
-import { connectDb } from "../config/db.js";
+import { connectDb } from "../config/database.js";
 import Note from "../models/Note.js";
 import User from "../models/User.js";
 import "../config/env.js";
@@ -18,7 +18,7 @@ const ensureEnv = () => {
   const missing = REQUIRED_ENVS.filter((key) => !process.env[key]);
   if (missing.length) {
     console.error(
-      `Missing required environment variables: ${missing.join(", ")}`
+      `Missing required environment variables: ${missing.join(", ")}`,
     );
     process.exit(1);
   }
@@ -49,13 +49,13 @@ const run = async () => {
 
   const result = await Note.updateMany(
     { owner: { $exists: false } },
-    { $set: { owner: user._id } }
+    { $set: { owner: user._id } },
   );
 
   console.log(
     `Updated ${
       result.modifiedCount
-    } notes to assign owner ${user._id.toString()}`
+    } notes to assign owner ${user._id.toString()}`,
   );
 
   await mongoose.disconnect();
