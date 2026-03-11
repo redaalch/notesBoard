@@ -1,6 +1,5 @@
 import express from "express";
 import auth from "../middleware/auth.js";
-import rateLimiter from "../middleware/rateLimiter.js";
 import { validate, validationRules } from "../middleware/validation.js";
 import { body } from "express-validator";
 import {
@@ -12,15 +11,15 @@ import {
 
 const router = express.Router();
 
+// Rate limiting applied globally in app.js
 router.use(auth);
-router.use(rateLimiter);
 
 router.get("/", listNotebookTemplates);
 
 router.get(
   "/:id",
   validate([validationRules.objectId("id")]),
-  getNotebookTemplate
+  getNotebookTemplate,
 );
 
 router.post(
@@ -53,13 +52,13 @@ router.post(
       .isObject()
       .withMessage("boardMappings must be an object"),
   ]),
-  instantiateNotebookTemplate
+  instantiateNotebookTemplate,
 );
 
 router.delete(
   "/:id",
   validate([validationRules.objectId("id")]),
-  deleteNotebookTemplate
+  deleteNotebookTemplate,
 );
 
 export default router;
