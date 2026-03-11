@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import mongoose from "mongoose";
 
-import { connectDb } from "../config/db.js";
+import { connectDb } from "../config/database.js";
 import Notebook from "../models/Notebook.js";
 import NotebookMember from "../models/NotebookMember.js";
 import "../config/env.js";
@@ -46,7 +46,7 @@ const run = async () => {
   }
 
   console.log(
-    `Processed ${processed} notebooks. Created ${created} owner memberships.`
+    `Processed ${processed} notebooks. Created ${created} owner memberships.`,
   );
 
   await mongoose.disconnect();
