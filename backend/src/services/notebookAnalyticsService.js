@@ -184,27 +184,29 @@ const resolveLastActivity = async (notebookId, viewerContext, memo) =>
   withMemo(memo, `last-activity:${notebookId}`, async () => {
     const match = buildNotebookMatch({ notebookId, viewerContext });
 
-    const pipeline = [
-      { $match: match },
-      {
-        $lookup: {
-          from: NoteHistory.collection.name,
-          localField: "_id",
-          foreignField: "noteId",
-          as: "history",
-        },
-      },
-      { $unwind: "$history" },
+    // Two-step approach: get noteIds first, then query NoteHistory directly
+    // instead of an unconstrained $lookup that loads all history per note.
+    const noteIds = await Note.find(match).distinct("_id");
+
+    if (!noteIds.length) {
+      const fallback = await Note.findOne(match)
+        .sort({ updatedAt: -1 })
+        .select({ updatedAt: 1 })
+        .lean();
+      return fallback?.updatedAt ?? null;
+    }
+
+    const [result] = await NoteHistory.aggregate([
+      { $match: { noteId: { $in: noteIds } } },
       {
         $group: {
           _id: null,
-          lastActivity: { $max: "$history.updatedAt" },
+          lastActivity: { $max: "$updatedAt" },
         },
       },
       { $project: { _id: 0, lastActivity: 1 } },
-    ];
+    ]);
 
-    const [result] = await Note.aggregate(pipeline, { allowDiskUse: true });
     if (result?.lastActivity) {
       return result.lastActivity;
     }
@@ -281,7 +283,13 @@ const computeTopTags = async ({
   });
 };
 
-// Include viewerContext hash in cache key to prevent cross-user data leaks\nconst cacheKey = (notebookId, rangeKey, viewerContext) => {\n  const ctxSegment = viewerContext\n    ? `:${viewerContext.userId || \"anon\"}:${viewerContext.workspaceId || \"\"}`\n    : \"\";\n  return `notebook:${notebookId}:analytics:${rangeKey}${ctxSegment}`;\n};
+// Include viewerContext hash in cache key to prevent cross-user data leaks
+const cacheKey = (notebookId, rangeKey, viewerContext) => {
+  const ctxSegment = viewerContext
+    ? `:${viewerContext.userId || "anon"}:${viewerContext.workspaceId || ""}`
+    : "";
+  return `notebook:${notebookId}:analytics:${rangeKey}${ctxSegment}`;
+};
 
 export const getNotebookAnalyticsOverview = async ({
   notebookId,
