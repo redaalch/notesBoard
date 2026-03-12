@@ -6,7 +6,6 @@ import NotebookMember from "../models/NotebookMember.js";
 import NoteCollaborator from "../models/NoteCollaborator.js";
 import {
   addUtcDays,
-  buildHistoryMatch,
   buildNotebookMatch,
   startOfUtcDay,
   toObjectId,
@@ -56,28 +55,21 @@ export const resolveNotebookCollaborators = async (notebookId, ownerId) => {
 };
 
 export const resolveNoteCollaborators = async (notebookId, viewerContext) => {
-  const pipeline = [
-    {
-      $lookup: {
-        from: Note.collection.name,
-        localField: "noteId",
-        foreignField: "_id",
-        as: "note",
-      },
-    },
-    { $unwind: "$note" },
-    {
-      $match: buildHistoryMatch({ notebookId, viewerContext }),
-    },
+  // Get noteIds for this notebook first, then query collaborators directly
+  const match = buildNotebookMatch({ notebookId, viewerContext });
+  const noteIds = await Note.find(match).distinct("_id");
+
+  if (!noteIds.length) return {};
+
+  const collaborators = await NoteCollaborator.aggregate([
+    { $match: { noteId: { $in: noteIds } } },
     {
       $group: {
         _id: "$role",
         count: { $sum: 1 },
       },
     },
-  ];
-
-  const collaborators = await NoteCollaborator.aggregate(pipeline);
+  ]);
   return collaborators.reduce((acc, entry) => {
     acc[entry._id] = entry.count;
     return acc;
@@ -90,23 +82,18 @@ const aggregateNoteHistoryMetrics = async ({
   endExclusive,
   viewerContext,
 }) => {
+  // Get noteIds for this notebook first, then query history directly
+  const match = buildNotebookMatch({ notebookId, viewerContext });
+  const noteIds = await Note.find(match).distinct("_id");
+
+  if (!noteIds.length) return { total: 0, uniqueEditors: 0 };
+
   const pipeline = [
     {
       $match: {
+        noteId: { $in: noteIds },
         createdAt: { $gte: startDate, $lt: endExclusive },
       },
-    },
-    {
-      $lookup: {
-        from: Note.collection.name,
-        localField: "noteId",
-        foreignField: "_id",
-        as: "note",
-      },
-    },
-    { $unwind: "$note" },
-    {
-      $match: buildHistoryMatch({ notebookId, viewerContext }),
     },
     {
       $group: {
@@ -248,7 +235,7 @@ export const upsertNotebookSnapshot = async ({
   const doc = await NotebookAnalyticsSnapshot.findOneAndUpdate(
     { notebookId: payload.notebookId, date: payload.date },
     { $set: payload },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
+    { upsert: true, new: true, setDefaultsOnInsert: true },
   );
 
   return doc;
