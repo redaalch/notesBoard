@@ -39,7 +39,7 @@ const authHeaders = (token, clientId) => ({
 });
 
 const toStringId = (value) =>
-  typeof value === "string" ? value : value?.toString?.() ?? null;
+  typeof value === "string" ? value : (value?.toString?.() ?? null);
 
 beforeAll(async () => {
   process.env.NODE_ENV = "test";
@@ -144,10 +144,10 @@ describe("Auth and notes integration", () => {
       .get("/api/notes")
       .set(authHeaders(accessToken, clientId));
     expect(listRes.status).toBe(200);
-    expect(Array.isArray(listRes.body)).toBe(true);
-    expect(listRes.body).toHaveLength(1);
+    expect(Array.isArray(listRes.body.data)).toBe(true);
+    expect(listRes.body.data).toHaveLength(1);
 
-    const noteId = listRes.body[0]._id;
+    const noteId = listRes.body.data[0]._id;
 
     const updateRes = await request(app)
       .put(`/api/notes/${noteId}`)
@@ -164,7 +164,7 @@ describe("Auth and notes integration", () => {
     const listAfterDelete = await request(app)
       .get("/api/notes")
       .set(authHeaders(accessToken, clientId));
-    expect(listAfterDelete.body).toHaveLength(0);
+    expect(listAfterDelete.body.data).toHaveLength(0);
   });
 
   it("creates notes inside notebooks and returns them in notebook scoped queries", async () => {
@@ -209,11 +209,11 @@ describe("Auth and notes integration", () => {
       .set(authHeaders(accessToken, clientId));
 
     expect(notebookNotesResponse.status).toBe(200);
-    expect(Array.isArray(notebookNotesResponse.body)).toBe(true);
-    expect(notebookNotesResponse.body).toHaveLength(1);
-    expect(notebookNotesResponse.body[0].title).toBe("Launch Checklist");
-    expect(notebookNotesResponse.body[0].notebookId.toString()).toBe(
-      notebookId
+    expect(Array.isArray(notebookNotesResponse.body.data)).toBe(true);
+    expect(notebookNotesResponse.body.data).toHaveLength(1);
+    expect(notebookNotesResponse.body.data[0].title).toBe("Launch Checklist");
+    expect(notebookNotesResponse.body.data[0].notebookId.toString()).toBe(
+      notebookId,
     );
 
     const notebooksListResponse = await request(app)
@@ -222,7 +222,7 @@ describe("Auth and notes integration", () => {
 
     expect(notebooksListResponse.status).toBe(200);
     const createdNotebook = notebooksListResponse.body.notebooks.find(
-      (entry) => entry.id === notebookId
+      (entry) => entry.id === notebookId,
     );
     expect(createdNotebook?.noteCount).toBe(1);
   });
@@ -309,12 +309,12 @@ describe("Auth and notes integration", () => {
         .query({ notebookId: createdNotebookId })
         .set(authHeaders(accessToken, clientId));
       expect(newNotebookNotes.status).toBe(200);
-      expect(Array.isArray(newNotebookNotes.body)).toBe(true);
-      expect(newNotebookNotes.body).toHaveLength(2);
-      expect(newNotebookNotes.body[0].notebookId.toString()).toBe(
-        createdNotebookId
+      expect(Array.isArray(newNotebookNotes.body.data)).toBe(true);
+      expect(newNotebookNotes.body.data).toHaveLength(2);
+      expect(newNotebookNotes.body.data[0].notebookId.toString()).toBe(
+        createdNotebookId,
       );
-    }
+    },
   );
 
   it("allows users to delete their notebook templates", async () => {
@@ -456,7 +456,7 @@ describe("Auth and notes integration", () => {
         .set(authHeaders(otherToken, otherClientId))
         .send({});
       expect(instantiateResponse.status).toBe(404);
-    }
+    },
   );
 
   it("instantiates notebook templates with workspace and board mappings", async () => {
@@ -551,7 +551,7 @@ describe("Auth and notes integration", () => {
     const createdNotebook = await Notebook.findById(createdNotebookId).lean();
     expect(createdNotebook).toBeTruthy();
     expect(toStringId(createdNotebook.workspaceId)).toBe(
-      targetWorkspace._id.toString()
+      targetWorkspace._id.toString(),
     );
 
     const notesResponse = await request(app)
@@ -559,9 +559,9 @@ describe("Auth and notes integration", () => {
       .query({ notebookId: createdNotebookId })
       .set(authHeaders(ownerToken, ownerClientId));
     expect(notesResponse.status).toBe(200);
-    expect(Array.isArray(notesResponse.body)).toBe(true);
-    expect(notesResponse.body).toHaveLength(2);
-    notesResponse.body.forEach((note) => {
+    expect(Array.isArray(notesResponse.body.data)).toBe(true);
+    expect(notesResponse.body.data).toHaveLength(2);
+    notesResponse.body.data.forEach((note) => {
       expect(toStringId(note.boardId)).toBe(targetBoard._id.toString());
       expect(toStringId(note.workspaceId)).toBe(targetWorkspace._id.toString());
     });
@@ -1002,7 +1002,7 @@ describe("Auth and notes integration", () => {
     const listAfterPin = await request(app)
       .get("/api/notes")
       .set(authHeaders(accessToken, clientId));
-    expect(listAfterPin.body.every((note) => note.pinned)).toBe(true);
+    expect(listAfterPin.body.data.every((note) => note.pinned)).toBe(true);
 
     const bulkTagsResponse = await request(app)
       .post("/api/notes/bulk")
@@ -1027,7 +1027,7 @@ describe("Auth and notes integration", () => {
 
     expect(bulkMoveResponse.status).toBe(200);
     expect(bulkMoveResponse.body.boardId.toString()).toBe(
-      extraBoard._id.toString()
+      extraBoard._id.toString(),
     );
 
     const listAfterMove = await request(app)
@@ -1035,7 +1035,7 @@ describe("Auth and notes integration", () => {
       .query({ boardId: extraBoard._id.toString() })
       .set(authHeaders(accessToken, clientId));
     expect(listAfterMove.status).toBe(200);
-    expect(listAfterMove.body).toHaveLength(3);
+    expect(listAfterMove.body.data).toHaveLength(3);
 
     const bulkDeleteResponse = await request(app)
       .post("/api/notes/bulk")
@@ -1049,8 +1049,8 @@ describe("Auth and notes integration", () => {
       .get("/api/notes")
       .query({ boardId: extraBoard._id.toString() })
       .set(authHeaders(accessToken, clientId));
-    expect(finalList.body).toHaveLength(1);
-    expect(finalList.body[0]._id).toBe(noteC._id);
+    expect(finalList.body.data).toHaveLength(1);
+    expect(finalList.body.data[0]._id).toBe(noteC._id);
   });
 
   describe("Notebook Share Links", () => {
@@ -1158,7 +1158,7 @@ describe("Auth and notes integration", () => {
         .set(authHeaders(ownerToken, ownerClientId));
       expect(listResponse.status).toBe(200);
       expect(
-        listResponse.body.shareLinks.filter((l) => !l.revokedAt).length
+        listResponse.body.shareLinks.filter((l) => !l.revokedAt).length,
       ).toBe(0);
     });
 
@@ -1264,7 +1264,7 @@ describe("Auth and notes integration", () => {
           .send({ email: newUserPayload.email, role: "viewer" });
 
         expect(forbiddenInvite.status).toBe(403);
-      }
+      },
     );
 
     it(
@@ -1320,7 +1320,7 @@ describe("Auth and notes integration", () => {
           .set(authHeaders(editorToken, editorClientId));
         expect(listResponse.status).toBe(200);
         expect(Array.isArray(listResponse.body.members)).toBe(true);
-      }
+      },
     );
 
     it(
@@ -1359,7 +1359,7 @@ describe("Auth and notes integration", () => {
           .delete(`/api/notebooks/${notebookId}/members/${ownerMembership._id}`)
           .set(authHeaders(ownerToken, ownerClientId));
         expect([400, 403]).toContain(deleteResponse.status);
-      }
+      },
     );
 
     it("allows owners to update member roles", { timeout: 10000 }, async () => {
@@ -1420,7 +1420,7 @@ describe("Auth and notes integration", () => {
       expect(updateResponse.body.members).toBeDefined();
 
       const updatedMember = await NotebookMember.findById(
-        updatedMembership._id
+        updatedMembership._id,
       );
       expect(updatedMember.role).toBe("editor");
     });
@@ -1481,7 +1481,7 @@ describe("Auth and notes integration", () => {
       expect(removeResponse.status).toBe(200);
 
       const checkMembership = await NotebookMember.findById(
-        updatedMembership._id
+        updatedMembership._id,
       );
       expect(checkMembership.status).toBe("revoked");
       expect(checkMembership.revokedAt).toBeDefined();
@@ -1563,7 +1563,7 @@ describe("Auth and notes integration", () => {
           .set(authHeaders(memberToken, memberClientId))
           .send({ title: "Hacked" });
         expect(forbiddenEdit.status).toBe(403);
-      }
+      },
     );
   });
 
@@ -1621,7 +1621,7 @@ describe("Auth and notes integration", () => {
           .set(authHeaders(ownerToken, ownerClientId))
           .send({ email: memberPayload.email, role: "editor" });
         expect(secondInvite.status).toBe(409);
-      }
+      },
     );
 
     it("rejects expired invitation tokens", async () => {
