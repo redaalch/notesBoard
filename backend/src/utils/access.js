@@ -41,7 +41,7 @@ export const getWorkspaceMembership = async (workspaceId, userId) => {
   }
 
   const member = (workspace.members ?? []).find(
-    (entry) => String(entry.userId) === String(userId)
+    (entry) => String(entry.userId) === String(userId),
   );
   if (!member) {
     return null;
@@ -168,16 +168,20 @@ export const resolveNoteForUser = async (noteId, userId) => {
   }
 
   const isOwner = String(note.owner) === String(userId);
-  const membership = await getWorkspaceMembership(workspaceId, userId);
-  const notebookMembership = note.notebookId
-    ? await getNotebookMembership(note.notebookId, userId)
-    : null;
-  const collaborator = await NoteCollaborator.findOne({
-    noteId: note._id,
-    userId: toObjectId(userId),
-  })
-    .lean()
-    .catch(() => null);
+
+  // Parallelize the three independent lookups (was 3 sequential awaits)
+  const [membership, notebookMembership, collaborator] = await Promise.all([
+    getWorkspaceMembership(workspaceId, userId),
+    note.notebookId
+      ? getNotebookMembership(note.notebookId, userId)
+      : Promise.resolve(null),
+    NoteCollaborator.findOne({
+      noteId: note._id,
+      userId: toObjectId(userId),
+    })
+      .lean()
+      .catch(() => null),
+  ]);
 
   if (!isOwner && !membership && !collaborator && !notebookMembership) {
     return null;
@@ -253,7 +257,7 @@ export const touchWorkspaceMember = async (workspaceId, userId, patch = {}) => {
 
   const result = await Workspace.updateOne(
     { _id: toObjectId(workspaceId), "members.userId": toObjectId(userId) },
-    { $set: update }
+    { $set: update },
   ).exec();
 
   if (!result?.modifiedCount) {
@@ -263,7 +267,7 @@ export const touchWorkspaceMember = async (workspaceId, userId, patch = {}) => {
         $set: {
           updatedAt: update["members.$.lastActiveAt"] ?? new Date(),
         },
-      }
+      },
     ).exec();
   }
 };
@@ -280,7 +284,7 @@ export const listAccessibleWorkspaceIds = async (userId) => {
         { "members.userId": toObjectId(userId) },
       ],
     },
-    { _id: 1 }
+    { _id: 1 },
   ).lean();
 
   return workspaces.map((workspace) => workspace._id.toString());
