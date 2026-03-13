@@ -1,6 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 
 import HomePage from "./pages/HomePage";
+import DashboardPage from "./pages/DashboardPage";
 import CreatePage from "./pages/CreatePage";
 import NoteDetailPage from "./pages/NoteDetailPage";
 import LoginPage from "./pages/LoginPage";
@@ -39,6 +40,14 @@ const App = () => {
           element={
             <RequireAuth>
               <NotebookInvitePage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/home"
+          element={
+            <RequireAuth>
+              <DashboardPage />
             </RequireAuth>
           }
         />
