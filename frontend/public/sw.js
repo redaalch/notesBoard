@@ -1,4 +1,4 @@
-const CACHE_NAME = "notesboard-static-v1";
+const CACHE_NAME = "notesboard-static-v2";
 const PRECACHE_URLS = [
   "/",
   "/index.html",
@@ -14,7 +14,7 @@ self.addEventListener("install", (event) => {
       .then(() => self.skipWaiting())
       .catch((error) => {
         console.warn("[sw] precache failed", error);
-      })
+      }),
   );
 });
 
@@ -26,10 +26,10 @@ self.addEventListener("activate", (event) => {
         Promise.all(
           keys
             .filter((key) => key !== CACHE_NAME)
-            .map((key) => caches.delete(key))
-        )
+            .map((key) => caches.delete(key)),
+        ),
       )
-      .then(() => self.clients.claim())
+      .then(() => self.clients.claim()),
   );
 });
 
@@ -41,6 +41,10 @@ self.addEventListener("fetch", (event) => {
   const isSameOrigin = url.origin === self.location.origin;
 
   if (!isSameOrigin) return;
+
+  // Never cache API requests — React Query manages its own cache.
+  // Only cache static assets (HTML, CSS, JS, images, fonts).
+  if (url.pathname.startsWith("/api/")) return;
 
   if (request.cache === "only-if-cached" && request.mode !== "same-origin") {
     return;
@@ -61,6 +65,6 @@ self.addEventListener("fetch", (event) => {
         .catch(() => cachedResponse);
 
       return cachedResponse || fetchPromise;
-    })
+    }),
   );
 });
