@@ -17,11 +17,28 @@ const queryClient = new QueryClient({
   },
 });
 
-if (import.meta.env.PROD && "serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch((error: unknown) => {
-      console.error("Service worker registration failed", error);
-    });
+if ("serviceWorker" in navigator) {
+  // Always purge stale service-worker caches first (v1 cached API responses).
+  // Then re-register the fixed SW in production only.
+  window.addEventListener("load", async () => {
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((r) => r.unregister()));
+      // Clear all CacheStorage entries left by the old SW
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+    } catch (e) {
+      console.warn("SW cleanup failed", e);
+    }
+
+    // Re-register updated SW in production
+    if (import.meta.env.PROD) {
+      navigator.serviceWorker.register("/sw.js").catch((error: unknown) => {
+        console.error("Service worker registration failed", error);
+      });
+    }
   });
 }
 
