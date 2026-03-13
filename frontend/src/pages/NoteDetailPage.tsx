@@ -439,7 +439,8 @@ function NoteDetailPage() {
         } else {
           // Explicit save: full cache update so sidebar list reflects changes
           queryClient.setQueryData(["note", id], normalized);
-          queryClient.invalidateQueries({ queryKey: ["notes"] });
+          queryClient.removeQueries({ queryKey: ["notes"] });
+          queryClient.removeQueries({ queryKey: ["notebooks"] });
           const savedTitle = normalized.title ?? trimmedTitle;
           setTitle(savedTitle);
           applySharedTitle(savedTitle);
@@ -534,7 +535,8 @@ function NoteDetailPage() {
       };
       originalSnapshotRef.current = normalized;
       queryClient.setQueryData(["note", id], normalized);
-      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      queryClient.removeQueries({ queryKey: ["notes"] });
+      queryClient.removeQueries({ queryKey: ["notebooks"] });
       setPinned(Boolean(normalized.pinned));
       setLastSavedAt(new Date(normalized.updatedAt ?? Date.now()));
       toast.success(
@@ -570,8 +572,11 @@ function NoteDetailPage() {
     try {
       await api.delete(`/notes/${id}`);
       toast.success("Note deleted");
-      queryClient.invalidateQueries({ queryKey: ["notes"] });
-      navigate("/app");
+      // Remove cached notebooks data so HomePage fetches fresh counts on mount
+      queryClient.removeQueries({ queryKey: ["notebooks"] });
+      queryClient.removeQueries({ queryKey: ["notes"] });
+      queryClient.removeQueries({ queryKey: ["tag-stats"] });
+      window.location.href = "/app";
     } catch (error) {
       console.error("Failed to delete note", error);
       toast.error("Failed to delete note");
