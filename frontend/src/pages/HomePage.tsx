@@ -560,12 +560,13 @@ function HomePage() {
   const notesQuery = useQuery({
     queryKey: ["notes", activeNotebookId],
     queryFn: async () => {
-      const params =
-        activeNotebookId && activeNotebookId !== "all"
-          ? { notebookId: activeNotebookId }
-          : undefined;
+      const params: Record<string, string> = { limit: "200" };
+      if (activeNotebookId && activeNotebookId !== "all") {
+        params.notebookId = activeNotebookId;
+      }
       const res = await api.get("/notes", { params });
-      const payload = Array.isArray(res.data) ? res.data : [];
+      // API returns { data: [...], total, page, limit, totalPages }
+      const payload = Array.isArray(res.data?.data) ? res.data.data : [];
       return payload;
     },
     staleTime: 30_000,
@@ -745,7 +746,8 @@ function HomePage() {
         uncategorizedCount: payload.uncategorizedCount ?? 0,
       };
     },
-    staleTime: 180_000,
+    staleTime: 30_000,
+    refetchOnMount: "always",
   });
 
   const savedQueriesEnabled =
@@ -843,13 +845,14 @@ function HomePage() {
     [notebooksQuery.data],
   );
   const uncategorizedNoteCount = notebooksQuery.data?.uncategorizedCount ?? 0;
-  const totalNotebookCount = useMemo(() => {
-    const notebookTotal = notebooks.reduce(
-      (sum, notebook) => sum + (Number(notebook.noteCount) || 0),
-      0,
-    );
-    return notebookTotal + (Number(uncategorizedNoteCount) || 0);
-  }, [notebooks, uncategorizedNoteCount]);
+  // Persist the "all" count so it stays correct when viewing a specific notebook.
+  // The notes query for "all" returns every accessible note; when viewing a
+  // specific notebook the query is filtered, so we recall the last "all" total.
+  const allNotesTotalRef = useRef(0);
+  if (!activeNotebookId || activeNotebookId === "all") {
+    allNotesTotalRef.current = notes.length;
+  }
+  const totalNotebookCount = allNotesTotalRef.current || notes.length;
   const activeNotebook = useMemo(() => {
     if (!notebooks.length) return null;
     return notebooks.find((entry) => entry.id === activeNotebookId) ?? null;
@@ -2653,11 +2656,10 @@ function HomePage() {
                   </SortableContext>
                 ) : (
                   <motion.div
-                    key={`page-${safeCurrentPage}-${activeNotebookId}`}
-                    initial="hidden"
+                    key={`page-${safeCurrentPage}-${activeNotebookId}-${activeTab}`}
+                    initial={false}
                     animate="visible"
                     variants={{
-                      hidden: {},
                       visible: {
                         transition: { staggerChildren: 0.04 },
                       },
@@ -2671,18 +2673,17 @@ function HomePage() {
                       return (
                         <motion.div
                           key={id}
-                          variants={{
-                            hidden: { opacity: 0, y: 16 },
-                            visible: {
-                              opacity: 1,
-                              y: 0,
-                              transition: {
-                                type: "spring",
-                                stiffness: 300,
-                                damping: 24,
-                              },
+                          initial={{ opacity: 0, y: 16 }}
+                          animate={{
+                            opacity: 1,
+                            y: 0,
+                            transition: {
+                              type: "spring",
+                              stiffness: 300,
+                              damping: 24,
                             },
                           }}
+                          layout
                         >
                           <DraggableBoardNote
                             note={note}
