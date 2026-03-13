@@ -142,32 +142,23 @@ const CreatePage = () => {
 
         toast.success("Note created successfully!");
 
-        // Navigate first for perceived performance
+        // Remove cached data so HomePage fetches fresh counts/notes on mount
+        queryClient.removeQueries({ queryKey: ["notes"] });
+        queryClient.removeQueries({ queryKey: ["tag-stats"] });
+        queryClient.removeQueries({ queryKey: ["notebooks"] });
+        if (selectedNotebookId) {
+          queryClient.removeQueries({
+            queryKey: ["note-layout", selectedNotebookId],
+          });
+          queryClient.removeQueries({
+            queryKey: ["notes", selectedNotebookId],
+          });
+        }
+
         const destination = selectedNotebookId
           ? `/app?notebook=${encodeURIComponent(selectedNotebookId)}`
           : "/app";
-        navigate(destination);
-
-        // Invalidate queries in background (non-blocking)
-        const invalidateTasks = [
-          queryClient.invalidateQueries({ queryKey: ["notes"] }),
-          queryClient.invalidateQueries({ queryKey: ["tag-stats"] }),
-          queryClient.invalidateQueries({ queryKey: ["notebooks"] }),
-        ];
-        if (selectedNotebookId) {
-          invalidateTasks.push(
-            queryClient.invalidateQueries({
-              queryKey: ["note-layout", selectedNotebookId],
-            }),
-          );
-          invalidateTasks.push(
-            queryClient.invalidateQueries({
-              queryKey: ["notes", selectedNotebookId],
-            }),
-          );
-        }
-        // Don't await - let it happen in background
-        Promise.all(invalidateTasks).catch(console.error);
+        window.location.href = destination;
       } catch (error: any) {
         console.error("Error creating note", error);
         if (error.response?.status === 429) {
