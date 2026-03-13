@@ -31,11 +31,13 @@ import {
   XIcon,
   SearchIcon,
   TagIcon,
+  HomeIcon,
   ListTodoIcon as ListTodoAlt,
   InboxIcon,
   FolderIcon,
   ChevronRightIcon,
 } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 import { cn } from "../lib/cn";
 import { formatTagLabel, normalizeTag } from "../lib/Utils";
 
@@ -481,6 +483,20 @@ function SidebarContent({
               next?.focus();
             }}
           >
+            {/* Home dashboard link */}
+            <Link
+              to="/home"
+              className={cn(
+                "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "text-base-content/70 hover:bg-primary/10 hover:text-primary",
+              )}
+            >
+              <HomeIcon className="size-4" />
+              Home
+            </Link>
+
+            <div className="my-1 border-t border-base-300/40" />
+
             {renderItem(
               "all",
               "All notes",
