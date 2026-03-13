@@ -11,6 +11,8 @@ import {
   ChevronDownIcon,
   LayoutTemplateIcon,
   FolderOpenIcon,
+  LibraryIcon,
+  LayoutDashboardIcon,
 } from "lucide-react";
 import {
   useCallback,
@@ -21,7 +23,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import Logo from "./Logo";
 import { useCommandPalette } from "../contexts/CommandPaletteContext";
@@ -167,6 +169,7 @@ function Navbar({
   }, [applyTheme, nextTheme]);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { openPalette } = useCommandPalette();
   const createLinkState = useMemo(() => {
     if (defaultNotebookId) {
@@ -208,7 +211,7 @@ function Navbar({
   return (
     <>
       <header className="sticky top-0 z-40 w-full glass-navbar">
-        <div className="mx-auto w-full max-w-7xl px-4 py-3 lg:px-8">
+        <div className="mx-auto w-full max-w-[1440px] px-4 py-3 lg:px-8">
           <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 rounded-2xl border border-base-300/50 bg-base-100/80 px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 shadow-lg shadow-primary/10 backdrop-blur-sm md:flex-nowrap">
             <div className="flex flex-shrink-0 items-center gap-1.5 sm:gap-2 md:gap-3">
               {/* Desktop-only hamburger menu */}
@@ -227,6 +230,42 @@ function Navbar({
               >
                 <Logo className="transition-transform duration-200 group-hover:scale-105" />
               </Link>
+
+              {/* Primary nav cluster */}
+              {user && (
+                <nav className="hidden lg:flex items-center gap-0.5 ml-1">
+                  {(
+                    [
+                      {
+                        to: "/home",
+                        label: "Dashboard",
+                        icon: LayoutDashboardIcon,
+                      },
+                      { to: "/app", label: "Notes", icon: LibraryIcon },
+                    ] as const
+                  ).map((item) => {
+                    const Icon = item.icon;
+                    const isActive =
+                      location.pathname === item.to ||
+                      (item.to === "/app" &&
+                        location.pathname.startsWith("/note"));
+                    return (
+                      <Link
+                        key={item.to}
+                        to={item.to}
+                        className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors ${
+                          isActive
+                            ? "text-base-content bg-base-300/25"
+                            : "text-base-content/55 hover:text-base-content hover:bg-base-300/15"
+                        }`}
+                      >
+                        <Icon className="size-3.5" />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </nav>
+              )}
 
               {/* Sidebar toggle — hidden on mobile (bottom nav handles it) */}
               {onMobileSidebarClick && (
@@ -286,61 +325,74 @@ function Navbar({
             )}
 
             <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
+              {/* Create note dropdown + command palette grouped */}
+              <div className="hidden lg:flex items-center gap-1">
+                <div
+                  className="tooltip tooltip-bottom"
+                  data-tip="Command palette (⌘K)"
+                >
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm btn-square rounded-xl"
+                    onClick={openPalette}
+                    aria-label="Open command palette (⌘K)"
+                  >
+                    <CommandIcon className="size-4" />
+                  </button>
+                </div>
+                <div className="dropdown dropdown-end">
+                  <button
+                    type="button"
+                    tabIndex={0}
+                    className="btn btn-primary btn-md items-center gap-2 rounded-2xl border-0 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/35 transition-all duration-200 hover:scale-105 px-6"
+                  >
+                    <PlusCircleIcon className="size-5" />
+                    <span className="font-bold tracking-wide">Create</span>
+                    <ChevronDownIcon className="size-4 opacity-70" />
+                  </button>
+                  <ul
+                    tabIndex={0}
+                    className="menu dropdown-content z-50 mt-2 w-52 rounded-xl border border-base-content/10 bg-base-200/95 p-2 shadow-xl backdrop-blur"
+                  >
+                    <li>
+                      <Link
+                        to="/create"
+                        state={createLinkState}
+                        className="gap-2"
+                      >
+                        <PlusCircleIcon className="size-4" />
+                        Blank note
+                      </Link>
+                    </li>
+                    {onOpenTemplates && (
+                      <li>
+                        <button
+                          type="button"
+                          onClick={onOpenTemplates}
+                          className="gap-2"
+                        >
+                          <LayoutTemplateIcon className="size-4" />
+                          From template…
+                        </button>
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Command palette – mobile (below lg) */}
               <div
-                className="tooltip tooltip-bottom"
+                className="tooltip tooltip-bottom lg:hidden"
                 data-tip="Command palette (⌘K)"
               >
                 <button
                   type="button"
-                  className="btn btn-circle btn-ghost btn-sm relative"
+                  className="btn btn-circle btn-ghost btn-sm"
                   onClick={openPalette}
                   aria-label="Open command palette (⌘K)"
                 >
                   <CommandIcon className="size-4 sm:size-5" />
-                  <kbd className="hidden lg:inline-flex absolute -bottom-1 -right-1 h-4 min-w-[1rem] items-center justify-center rounded bg-base-300/80 px-1 text-[9px] font-semibold text-base-content/60">
-                    K
-                  </kbd>
                 </button>
-              </div>
-
-              {/* Create note dropdown */}
-              <div className="dropdown dropdown-end hidden lg:block">
-                <button
-                  type="button"
-                  tabIndex={0}
-                  className="btn btn-primary btn-md items-center gap-2 rounded-2xl border-0 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/35 transition-all duration-200 hover:scale-105 px-6"
-                >
-                  <PlusCircleIcon className="size-5" />
-                  <span className="font-bold tracking-wide">Create</span>
-                  <ChevronDownIcon className="size-4 opacity-70" />
-                </button>
-                <ul
-                  tabIndex={0}
-                  className="menu dropdown-content z-50 mt-2 w-52 rounded-xl border border-base-content/10 bg-base-200/95 p-2 shadow-xl backdrop-blur"
-                >
-                  <li>
-                    <Link
-                      to="/create"
-                      state={createLinkState}
-                      className="gap-2"
-                    >
-                      <PlusCircleIcon className="size-4" />
-                      Blank note
-                    </Link>
-                  </li>
-                  {onOpenTemplates && (
-                    <li>
-                      <button
-                        type="button"
-                        onClick={onOpenTemplates}
-                        className="gap-2"
-                      >
-                        <LayoutTemplateIcon className="size-4" />
-                        From template…
-                      </button>
-                    </li>
-                  )}
-                </ul>
               </div>
 
               <div className="dropdown dropdown-end hidden lg:block">
