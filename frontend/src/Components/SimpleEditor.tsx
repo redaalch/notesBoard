@@ -17,8 +17,8 @@ import BulletList from "@tiptap/extension-bullet-list";
 import OrderedList from "@tiptap/extension-ordered-list";
 import ListItem from "@tiptap/extension-list-item";
 import Blockquote from "@tiptap/extension-blockquote";
-import { common, createLowlight } from "lowlight";
 import SlashCommands from "./SlashCommands";
+import lowlight from "../lib/lowlight";
 import {
   BoldIcon,
   ItalicIcon,
@@ -29,8 +29,6 @@ import {
   CodeIcon,
   type LucideIcon,
 } from "lucide-react";
-
-const lowlight = createLowlight(common);
 
 /* ── Toolbar Button ── */
 
