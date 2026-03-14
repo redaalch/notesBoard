@@ -66,6 +66,9 @@ import Sidebar from "../Components/Sidebar";
 import MobileBottomNav from "../Components/MobileBottomNav";
 import Toolbar from "../Components/Toolbar";
 import RateLimitedUI from "../Components/RateLimitedUI";
+import TagInput from "../Components/TagInput";
+import ConfirmDialog from "../Components/ConfirmDialog";
+import TemplateGalleryModal from "../Components/TemplateGalleryModal";
 import api from "../lib/axios";
 import { toast } from "sonner";
 import NoteCard from "../Components/NoteCard";
@@ -77,9 +80,6 @@ import { useCommandPalette } from "../contexts/CommandPaletteContext";
 import useSemanticSearch from "../hooks/useSemanticSearch";
 
 // ── Lazy-loaded heavy dialogs (code-split) ────────────────────────────
-const TemplateGalleryModal = lazy(
-  () => import("../Components/TemplateGalleryModal"),
-);
 const NotebookTemplateGalleryModal = lazy(
   () => import("../Components/NotebookTemplateGalleryModal"),
 );
@@ -87,8 +87,6 @@ const SaveNotebookTemplateDialog = lazy(
   () => import("../Components/SaveNotebookTemplateDialog"),
 );
 const BulkActionsBar = lazy(() => import("../Components/BulkActionsBar"));
-const TagInput = lazy(() => import("../Components/TagInput"));
-const ConfirmDialog = lazy(() => import("../Components/ConfirmDialog"));
 const NotebookShareDialog = lazy(
   () => import("../Components/NotebookShareDialog"),
 );
