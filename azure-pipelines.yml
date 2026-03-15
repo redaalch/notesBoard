@@ -4,18 +4,32 @@
 # https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
 
 trigger:
-- main
+  - main
 
 pool:
   vmImage: ubuntu-latest
 
 steps:
-- task: NodeTool@0
-  inputs:
-    versionSpec: '20.x'
-  displayName: 'Install Node.js'
+  - task: NodeTool@0
+    inputs:
+      versionSpec: "20.x"
+    displayName: "Install Node.js"
 
-- script: |
-    npm install
-    npm run build
-  displayName: 'npm install and build'
+  - script: |
+      npm install
+      npm ci --prefix frontend
+      npm run build
+    displayName: "Install dependencies and build"
+
+  - script: |
+      npm run perf:baseline --prefix frontend
+      npm run perf:budget:check --prefix frontend
+    displayName: "Frontend perf baseline (report-only)"
+    continueOnError: true
+
+  - task: PublishBuildArtifacts@1
+    displayName: "Publish frontend perf reports"
+    inputs:
+      PathtoPublish: "frontend/perf-reports"
+      ArtifactName: "frontend-perf-reports"
+    condition: always()
