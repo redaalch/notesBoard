@@ -15,10 +15,11 @@ import BulletList from "@tiptap/extension-bullet-list";
 import OrderedList from "@tiptap/extension-ordered-list";
 import ListItem from "@tiptap/extension-list-item";
 import Blockquote from "@tiptap/extension-blockquote";
-import { common, createLowlight } from "lowlight";
 import type { HocuspocusProvider } from "@hocuspocus/provider";
 import * as Y from "yjs";
+import "tippy.js/dist/tippy.css";
 import SlashCommands from "./SlashCommands";
+import lowlight from "../lib/lowlight";
 import {
   BoldIcon,
   ItalicIcon,
@@ -29,8 +30,6 @@ import {
   CodeIcon,
   type LucideIcon,
 } from "lucide-react";
-
-const lowlight = createLowlight(common);
 
 export interface ToolbarButtonProps {
   onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
