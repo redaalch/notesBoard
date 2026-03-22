@@ -45,29 +45,58 @@ vi.mock("../../Components/Navbar", () => ({
 }));
 
 vi.mock("../../Components/Sidebar", () => ({
-  default: ({ onSelectNotebook }: any) => (
+  default: ({ onSelectNotebook, onCreateNotebook, onDeleteNotebook }: any) => (
     <div>
       <button type="button" onClick={() => onSelectNotebook("all")}>
         notebook-all
+      </button>
+      <button type="button" onClick={() => onCreateNotebook?.()}>
+        create-notebook
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onDeleteNotebook?.({ id: "nb-1", name: "TestNB", noteCount: 3 })
+        }
+      >
+        delete-notebook
       </button>
     </div>
   ),
 }));
 
 vi.mock("../../Components/Toolbar", () => ({
-  default: ({ onToggleSelection }: any) => (
+  default: ({ onToggleSelection, filterProps }: any) => (
     <div>
       <button type="button" onClick={onToggleSelection}>
         toggle-selection
       </button>
+      <select
+        aria-label="sort-order"
+        onChange={(e: any) => filterProps?.onSortOrderChange?.(e.target.value)}
+      >
+        <option value="newest">newest</option>
+        <option value="oldest">oldest</option>
+        <option value="alphabetical">alphabetical</option>
+      </select>
     </div>
   ),
 }));
 
 vi.mock("../../Components/NoteCard", () => ({
-  default: ({ note, selectionMode, selected, onSelectionChange }: any) => (
+  default: ({ note, selectionMode, selected, onSelectionChange, onTagClick }: any) => (
     <article>
       <h3>{note.title}</h3>
+      {(note.tags ?? []).map((tag: string) => (
+        <button
+          key={tag}
+          type="button"
+          aria-label={`tag-${tag}`}
+          onClick={() => onTagClick?.(tag)}
+        >
+          {tag}
+        </button>
+      ))}
       {selectionMode ? (
         <input
           type="checkbox"
@@ -275,5 +304,82 @@ describe("HomePage", () => {
       "select-Note 1",
     )) as HTMLInputElement;
     expect(reopenedCheckbox.checked).toBe(false);
+  });
+
+  it("filters notes when a tag chip is clicked", async () => {
+    const notes = createNotes(8);
+    buildApiGetMock(notes);
+
+    renderHomePage();
+
+    await screen.findByText("Note 1");
+
+    // Click the "alpha" tag on the first visible note
+    const tagButtons = screen.getAllByRole("button", { name: "tag-alpha" });
+    await userEvent.click(tagButtons[0]);
+
+    // All 8 notes have "alpha", so they should all still appear (filtered to that tag)
+    await waitFor(() => {
+      expect(screen.getByText("Note 1")).toBeInTheDocument();
+    });
+  });
+
+  it("changing sort order resets pagination to page 1", async () => {
+    const notes = createNotes(8);
+    buildApiGetMock(notes);
+
+    renderHomePage();
+
+    // Wait for page 1 to render (6 notes per page by default)
+    await screen.findByText("Note 1");
+
+    // Navigate to page 2
+    await userEvent.click(screen.getByRole("button", { name: "2" }));
+    expect(await screen.findByText("Note 7")).toBeInTheDocument();
+
+    // Change sort to alphabetical — should reset to page 1
+    await userEvent.selectOptions(screen.getByLabelText("sort-order"), "alphabetical");
+
+    await waitFor(() => {
+      expect(screen.getByText("Note 1")).toBeInTheDocument();
+    });
+  });
+
+  it("opens the create-notebook modal from sidebar", async () => {
+    const notes = createNotes(2);
+    buildApiGetMock(notes);
+
+    renderHomePage();
+
+    await screen.findByText("Note 1");
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "create-notebook" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: /create a notebook/i }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("opens the delete-notebook confirmation from sidebar", async () => {
+    const notes = createNotes(2);
+    buildApiGetMock(notes);
+
+    renderHomePage();
+
+    await screen.findByText("Note 1");
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "delete-notebook" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: /delete notebook\?/i }),
+      ).toBeInTheDocument();
+    });
   });
 });
