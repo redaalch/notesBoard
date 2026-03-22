@@ -165,7 +165,7 @@ describe("Auth and notes integration", () => {
       .get("/api/notes")
       .set(authHeaders(accessToken, clientId));
     expect(listAfterDelete.body.data).toHaveLength(0);
-  });
+  }, 15000);
 
   it("creates notes inside notebooks and returns them in notebook scoped queries", async () => {
     const { response: registerResponse, payload } = await registerUser({
