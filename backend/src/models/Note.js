@@ -210,7 +210,10 @@ const noteSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-noteSchema.index({ title: "text", content: "text" });
+noteSchema.index(
+  { title: "text", content: "text" },
+  { weights: { title: 10, content: 1 }, name: "note_text_search" },
+);
 noteSchema.index({ owner: 1, pinned: -1, updatedAt: -1 });
 noteSchema.index({ owner: 1, createdAt: -1 });
 noteSchema.index({ owner: 1, tags: 1 });
@@ -230,5 +233,13 @@ noteSchema.pre("save", function ensureDocName(next) {
 
   next();
 });
+noteSchema.virtual("ownerId").get(function () {
+  return this.owner;
+}).set(function (v) {
+  this.owner = v;
+});
+noteSchema.set("toJSON", { virtuals: true });
+noteSchema.set("toObject", { virtuals: true });
+
 const Note = mongoose.model("Note", noteSchema);
 export default Note;
