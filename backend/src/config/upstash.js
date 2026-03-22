@@ -25,7 +25,9 @@ const requestLimit =
     : parsePositiveInt(process.env.RATELIMIT_REQUEST_LIMIT) ??
       DEFAULT_REQUEST_LIMIT;
 
-const windowDuration = process.env.RATELIMIT_WINDOW || DEFAULT_WINDOW;
+const WINDOW_RE = /^\d+\s*(s|ms|m|h|d)$/;
+const rawWindow = process.env.RATELIMIT_WINDOW || DEFAULT_WINDOW;
+const windowDuration = WINDOW_RE.test(rawWindow.trim()) ? rawWindow.trim() : DEFAULT_WINDOW;
 
 let missingConfigWarned = false;
 
@@ -44,9 +46,16 @@ const buildFallbackLimiter = () => ({
 
 const buildRateLimiter = () => {
   if (!hasUpstashConfig) {
+    const missing = REQUIRED_UPSTASH_ENV.filter((key) => !process.env[key]);
+
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        `Upstash rate limiter is required in production. Missing env vars: ${missing.join(", ")}`,
+      );
+    }
+
     if (!missingConfigWarned && process.env.NODE_ENV !== "test") {
-      const missing = REQUIRED_UPSTASH_ENV.filter((key) => !process.env[key]);
-      logger.warn("Upstash configuration missing; rate limiting disabled", {
+      logger.warn("Upstash configuration missing; using in-memory fallback", {
         missing,
       });
     }
