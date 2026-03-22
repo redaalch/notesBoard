@@ -2,11 +2,12 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import http from "node:http";
 import { spawn } from "node:child_process";
+import os from "node:os";
 
 const ROOT = process.cwd();
 const REPORTS_DIR = path.join(ROOT, "perf-reports");
 const PREVIEW_PORT = Number(process.env.LH_PORT || 4173);
-const BASE_URL = `http://127.0.0.1:${PREVIEW_PORT}/`;
+const BASE_URL = `http://127.0.0.1:${PREVIEW_PORT}`;
 const STRICT =
   String(process.env.LIGHTHOUSE_STRICT || "").toLowerCase() === "true";
 
@@ -17,6 +18,23 @@ const CHROME_CANDIDATE_PATHS = [
   "/usr/bin/chromium-browser",
   "/usr/bin/chromium",
 ].filter(Boolean);
+
+const LIGHTHOUSE_FLAG_PROFILES = [
+  // Preferred profile: keep GPU/software rasterization available to avoid NO_FCP on some CI hosts.
+  "--headless=new --no-sandbox --disable-dev-shm-usage --window-size=1365,1024 --no-first-run --no-default-browser-check --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling",
+  // Fallback profile with GPU disabled for environments where GPU init crashes.
+  "--headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --window-size=1365,1024 --no-first-run --no-default-browser-check --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling",
+  // Legacy headless fallback.
+  "--headless --no-sandbox --disable-dev-shm-usage --window-size=1365,1024 --no-first-run --no-default-browser-check --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling",
+];
+
+if (process.env.DISPLAY) {
+  LIGHTHOUSE_FLAG_PROFILES.push(
+    "--no-sandbox --disable-dev-shm-usage --window-size=1365,1024 --no-first-run --no-default-browser-check --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling",
+  );
+}
+
+const ATTEMPTS_PER_PROFILE = 3;
 
 function runCommand(command, args, options = {}) {
   return new Promise((resolve) => {
@@ -42,93 +60,12 @@ function runCommand(command, args, options = {}) {
   });
 }
 
-const LIGHTHOUSE_FLAG_PROFILES = [
-  // Preferred profile: keep GPU/software rasterization available to avoid NO_FCP on some CI hosts.
-  "--headless=new --no-sandbox --disable-dev-shm-usage --window-size=1365,1024 --no-first-run --no-default-browser-check --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling",
-  // Fallback profile with GPU disabled for environments where GPU init crashes.
-  "--headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --window-size=1365,1024 --no-first-run --no-default-browser-check --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling",
-  // Legacy headless fallback.
-  "--headless --no-sandbox --disable-dev-shm-usage --window-size=1365,1024 --no-first-run --no-default-browser-check --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling",
-];
-
-if (process.env.DISPLAY) {
-  LIGHTHOUSE_FLAG_PROFILES.push(
-    "--no-sandbox --disable-dev-shm-usage --window-size=1365,1024 --no-first-run --no-default-browser-check --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling",
-  );
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const ATTEMPTS_PER_PROFILE = 3;
-
-async function runLighthouseWithFallback({ label, outputPath, preset }) {
-  let lastResult = { code: 1, stdout: "", stderr: "" };
-
-  for (
-    let profileIndex = 0;
-    profileIndex < LIGHTHOUSE_FLAG_PROFILES.length;
-    profileIndex += 1
-  ) {
-    const chromeFlags = LIGHTHOUSE_FLAG_PROFILES[profileIndex];
-
-    for (
-      let retryIndex = 0;
-      retryIndex < ATTEMPTS_PER_PROFILE;
-      retryIndex += 1
-    ) {
-      const args = [
-        "--yes",
-        "lighthouse",
-        BASE_URL,
-        "--only-categories=performance",
-        "--output=json",
-        "--quiet",
-        "--throttling-method=provided",
-        "--disable-storage-reset",
-        "--max-wait-for-load=90000",
-        `--chrome-flags=${chromeFlags}`,
-        `--output-path=${outputPath}`,
-      ];
-
-      const chromePath = await resolveChromePath();
-      if (chromePath) {
-        args.push(`--chrome-path=${chromePath}`);
-      }
-
-      if (preset) {
-        args.splice(6, 0, `--preset=${preset}`);
-      }
-
-      const result = await runCommand("npx", args, {
-        cwd: ROOT,
-        env: {
-          ...process.env,
-          CI: process.env.CI ?? "1",
-        },
-      });
-
-      lastResult = result;
-      const totalAttempt = profileIndex * ATTEMPTS_PER_PROFILE + retryIndex + 1;
-      if (result.code === 0) {
-        return { ...result, attempt: totalAttempt, chromeFlags };
-      }
-
-      const details = `${result.stderr}\n${result.stdout}`;
-      const noFcp = /NO_FCP/i.test(details);
-      if (!noFcp) {
-        return { ...result, attempt: totalAttempt, chromeFlags };
-      }
-
-      console.warn(
-        `Lighthouse ${label} attempt ${totalAttempt} failed with NO_FCP, retrying...`,
-      );
-      await wait(1200);
-    }
-  }
-
-  return {
-    ...lastResult,
-    attempt: LIGHTHOUSE_FLAG_PROFILES.length * ATTEMPTS_PER_PROFILE,
-    chromeFlags: LIGHTHOUSE_FLAG_PROFILES[LIGHTHOUSE_FLAG_PROFILES.length - 1],
-  };
+async function ensureReportsDir() {
+  await fs.mkdir(REPORTS_DIR, { recursive: true });
 }
 
 async function resolveChromePath() {
@@ -137,26 +74,37 @@ async function resolveChromePath() {
       await fs.access(candidate);
       return candidate;
     } catch {
-      // Try the next candidate.
+      // Try next candidate.
     }
   }
   return null;
 }
 
-async function warmupPreview(url) {
-  // Warm-up requests reduce NO_FCP flakes right after the preview server starts.
-  for (let index = 0; index < 3; index += 1) {
-    await isServerReady(url);
-    await wait(250);
+function makeRunUrl(label, profileIndex, retryIndex) {
+  const params = new URLSearchParams({
+    lh: "1",
+    label,
+    profile: String(profileIndex),
+    retry: String(retryIndex),
+    ts: String(Date.now()),
+  });
+  return `${BASE_URL}/?${params.toString()}`;
+}
+
+async function createIsolatedChromeFlags(baseChromeFlags) {
+  const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "lh-profile-"));
+  return {
+    userDataDir,
+    chromeFlags: `${baseChromeFlags} --remote-debugging-port=0 --user-data-dir=${userDataDir}`,
+  };
+}
+
+async function removeDirIfExists(dirPath) {
+  try {
+    await fs.rm(dirPath, { recursive: true, force: true });
+  } catch {
+    // Best effort cleanup only.
   }
-}
-
-async function ensureReportsDir() {
-  await fs.mkdir(REPORTS_DIR, { recursive: true });
-}
-
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function isServerReady(url) {
@@ -182,6 +130,158 @@ async function waitForServer(url, timeoutMs = 30000) {
     await wait(500);
   }
   throw new Error(`Preview server did not become ready within ${timeoutMs}ms`);
+}
+
+async function warmupPreview(url) {
+  // Multiple warm-up requests reduce NO_FCP flakes right after the preview server starts.
+  for (let index = 0; index < 3; index += 1) {
+    await isServerReady(url);
+    await wait(250);
+  }
+}
+
+async function stopPreviewServer(preview) {
+  if (!preview || preview.killed) return;
+
+  preview.kill("SIGTERM");
+  const killedGracefully = await new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(false), 1000);
+    preview.once("close", () => {
+      clearTimeout(timer);
+      resolve(true);
+    });
+  });
+
+  if (!killedGracefully && !preview.killed) {
+    preview.kill("SIGKILL");
+  }
+}
+
+async function startPreviewServer() {
+  const preview = spawn(
+    "npm",
+    [
+      "run",
+      "preview",
+      "--",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      String(PREVIEW_PORT),
+      "--strictPort",
+    ],
+    {
+      cwd: ROOT,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: process.env,
+    },
+  );
+
+  preview.stdout.on("data", () => {
+    // Keep stdout pipe drained.
+  });
+
+  preview.stderr.on("data", () => {
+    // Keep stderr pipe drained.
+  });
+
+  await waitForServer(`${BASE_URL}/`);
+  return preview;
+}
+
+async function runLighthouseWithFallback({ label, outputPath, preset }) {
+  let lastResult = { code: 1, stdout: "", stderr: "" };
+
+  for (
+    let profileIndex = 0;
+    profileIndex < LIGHTHOUSE_FLAG_PROFILES.length;
+    profileIndex += 1
+  ) {
+    const baseChromeFlags = LIGHTHOUSE_FLAG_PROFILES[profileIndex];
+
+    for (
+      let retryIndex = 0;
+      retryIndex < ATTEMPTS_PER_PROFILE;
+      retryIndex += 1
+    ) {
+      const preview = await startPreviewServer();
+      let userDataDir = null;
+      let chromeFlags = baseChromeFlags;
+
+      try {
+        const runUrl = makeRunUrl(label, profileIndex, retryIndex);
+        await waitForServer(runUrl);
+        await warmupPreview(runUrl);
+        await wait(1200);
+
+        const isolated = await createIsolatedChromeFlags(baseChromeFlags);
+        userDataDir = isolated.userDataDir;
+        chromeFlags = isolated.chromeFlags;
+
+        const args = [
+          "--yes",
+          "lighthouse",
+          runUrl,
+          "--only-categories=performance",
+          "--output=json",
+          "--quiet",
+          "--throttling-method=provided",
+          "--max-wait-for-load=120000",
+          `--chrome-flags=${chromeFlags}`,
+          `--output-path=${outputPath}`,
+        ];
+
+        const chromePath = await resolveChromePath();
+        if (chromePath) {
+          args.push(`--chrome-path=${chromePath}`);
+        }
+
+        if (preset) {
+          args.splice(6, 0, `--preset=${preset}`);
+        }
+
+        const result = await runCommand("npx", args, {
+          cwd: ROOT,
+          env: {
+            ...process.env,
+            CI: process.env.CI ?? "1",
+          },
+        });
+
+        lastResult = result;
+        const totalAttempt =
+          profileIndex * ATTEMPTS_PER_PROFILE + retryIndex + 1;
+
+        if (result.code === 0) {
+          return { ...result, attempt: totalAttempt, chromeFlags };
+        }
+
+        const details = `${result.stderr}\n${result.stdout}`;
+        const noFcp = /NO_FCP/i.test(details);
+
+        if (!noFcp) {
+          return { ...result, attempt: totalAttempt, chromeFlags };
+        }
+
+        console.warn(
+          `Lighthouse ${label} attempt ${totalAttempt} failed with NO_FCP, retrying with fresh preview/browser profile...`,
+        );
+
+        await wait(1200);
+      } finally {
+        await stopPreviewServer(preview);
+        if (userDataDir) {
+          await removeDirIfExists(userDataDir);
+        }
+      }
+    }
+  }
+
+  return {
+    ...lastResult,
+    attempt: LIGHTHOUSE_FLAG_PROFILES.length * ATTEMPTS_PER_PROFILE,
+    chromeFlags: LIGHTHOUSE_FLAG_PROFILES[LIGHTHOUSE_FLAG_PROFILES.length - 1],
+  };
 }
 
 async function readLighthouseResult(filePath) {
@@ -219,48 +319,12 @@ async function main() {
   const mobilePath = path.join(REPORTS_DIR, "lighthouse-mobile.json");
   const summaryPath = path.join(REPORTS_DIR, "lighthouse-summary.json");
 
-  const preview = spawn(
-    "npm",
-    [
-      "run",
-      "preview",
-      "--",
-      "--host",
-      "127.0.0.1",
-      "--port",
-      String(PREVIEW_PORT),
-      "--strictPort",
-    ],
-    {
-      cwd: ROOT,
-      stdio: ["ignore", "pipe", "pipe"],
-      env: process.env,
-    },
-  );
-
-  let previewLogs = "";
-  preview.stdout.on("data", (chunk) => {
-    previewLogs += chunk.toString();
-  });
-  preview.stderr.on("data", (chunk) => {
-    previewLogs += chunk.toString();
-  });
-
   try {
-    await waitForServer(BASE_URL);
-    await warmupPreview(BASE_URL);
-    // Give the app one extra idle frame budget before first Lighthouse run.
-    await wait(1500);
-
     const desktopRun = await runLighthouseWithFallback({
       label: "desktop",
       outputPath: desktopPath,
       preset: "desktop",
     });
-
-    // Small pause and warm-up between desktop/mobile runs to reduce NO_FCP carry-over.
-    await wait(1000);
-    await warmupPreview(BASE_URL);
 
     const mobileRun = await runLighthouseWithFallback({
       label: "mobile",
@@ -332,15 +396,6 @@ async function main() {
 
     console.warn("Lighthouse run failed in non-strict mode.");
     console.warn(summary.error);
-  } finally {
-    preview.kill("SIGTERM");
-    await wait(300);
-    if (!preview.killed) {
-      preview.kill("SIGKILL");
-    }
-    if (previewLogs.trim()) {
-      console.log("Preview logs captured.");
-    }
   }
 }
 
