@@ -101,6 +101,14 @@ notebookSchema.index(
 );
 notebookSchema.index({ owner: 1, offlineRevision: -1 });
 
+notebookSchema.virtual("ownerId").get(function () {
+  return this.owner;
+}).set(function (v) {
+  this.owner = v;
+});
+notebookSchema.set("toJSON", { virtuals: true });
+notebookSchema.set("toObject", { virtuals: true });
+
 const Notebook = mongoose.model("Notebook", notebookSchema);
 
 export default Notebook;
