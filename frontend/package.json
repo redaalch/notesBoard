@@ -12,8 +12,11 @@
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
     "perf:bundle:report": "node scripts/perf/report-bundles.mjs",
+    "perf:vendor:verify": "node scripts/perf/verify-vendor-graph.mjs",
     "perf:lighthouse": "node scripts/perf/run-lighthouse.mjs",
     "perf:budget:check": "node scripts/perf/check-budgets.mjs",
+    "perf:smoke:prod": "npm run build && npm run perf:vendor:verify",
+    "perf:baseline:update": "node scripts/perf/update-baseline.mjs",
     "perf:baseline": "npm run build:stats && npm run perf:bundle:report && npm run perf:lighthouse",
     "perf:ci": "npm run perf:baseline && npm run perf:budget:check"
   },
