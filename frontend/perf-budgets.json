@@ -1,9 +1,9 @@
 {
   "baseline": {
-    "capturedAt": "2026-03-14T17:36:00Z",
-    "totalJsKb": 1491.59,
+    "capturedAt": "2026-03-22T15:53:31.450Z",
+    "totalJsKb": 1488.89,
     "totalCssKb": 202.9,
-    "entryJsKb": 21.8,
+    "entryJsKb": 21.43,
     "desktopLighthouseScore": null,
     "mobileLighthouseScore": null
   },
