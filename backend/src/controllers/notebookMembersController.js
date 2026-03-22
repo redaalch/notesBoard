@@ -277,7 +277,9 @@ export const inviteNotebookMember = async (req, res) => {
 
     const user = await User.findOne({ email: normalizedEmail }).lean();
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res
+        .status(400)
+        .json({ message: "Unable to send invitation. Please verify the email address." });
     }
 
     const actorRole = getActorRole(context);
@@ -325,8 +327,6 @@ export const inviteNotebookMember = async (req, res) => {
       if (user.name) {
         existing.metadata.set("name", user.name);
       }
-      existing.metadata = existing.metadata ?? new Map();
-      existing.metadata.set?.("email", user.email);
       existing.setInviteToken(rawToken, expiresAt);
       await existing.save();
     } else {
@@ -336,12 +336,11 @@ export const inviteNotebookMember = async (req, res) => {
         role: normalizedRole,
         status: "pending",
         invitedAt: now,
+        lastNotifiedAt: now,
         metadata: new Map([
           ["email", user.email],
           ["name", user.name ?? null],
         ]),
-        lastNotifiedAt: now,
-        metadata: new Map([["email", user.email]]),
       });
       member.setInviteToken(rawToken, expiresAt);
       await member.save();
