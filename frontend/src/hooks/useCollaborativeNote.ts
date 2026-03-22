@@ -180,6 +180,14 @@ export const useCollaborativeNote = (
     return hashColor(source);
   }, [user?.id]);
 
+  const accessTokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    accessTokenRef.current =
+      typeof accessToken === "string" && accessToken.trim().length > 0
+        ? accessToken
+        : null;
+  }, [accessToken]);
+
   // Auto-refresh token before expiration
   useEffect(() => {
     if (!accessToken || !refresh) {
@@ -236,9 +244,32 @@ export const useCollaborativeNote = (
   }, [accessToken, refresh]);
 
   useEffect(() => {
-    if (!noteId || !user || !accessToken) {
+    if (!noteId || !user) {
       return undefined;
     }
+
+    const resolveProviderToken = async () => {
+      const inMemory = accessTokenRef.current;
+      if (inMemory) return inMemory;
+
+      try {
+        const fromStorage = localStorage.getItem("notesboard.accessToken");
+        if (fromStorage && fromStorage.trim().length > 0) {
+          return fromStorage;
+        }
+      } catch {
+        // Ignore storage errors and fall through to refresh.
+      }
+
+      if (refresh) {
+        const refreshed = await refresh();
+        if (refreshed && refreshed.trim().length > 0) {
+          return refreshed;
+        }
+      }
+
+      return "";
+    };
 
     const yDoc = new Y.Doc();
     const awareness = new Awareness(yDoc);
@@ -246,7 +277,7 @@ export const useCollaborativeNote = (
       url: DEFAULT_COLLAB_URL,
       name: `note:${noteId}`,
       document: yDoc,
-      token: accessToken,
+      token: resolveProviderToken,
       awareness,
       onAuthenticationFailed: ({ reason }: { reason: string }) => {
         if (import.meta.env.DEV) {
@@ -349,7 +380,7 @@ export const useCollaborativeNote = (
       provider.destroy();
       yDoc.destroy();
     };
-  }, [noteId, user, accessToken, color, note]);
+  }, [noteId, user, color, note, refresh]);
 
   useEffect(() => {
     if (awarenessRef.current && user) {
