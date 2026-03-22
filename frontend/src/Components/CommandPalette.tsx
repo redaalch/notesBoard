@@ -44,31 +44,12 @@ const groupCommands = (
 };
 
 function CommandPalette() {
-  const { isOpen, setIsOpen, closePalette, commands } = useCommandPalette();
+  const { isOpen, closePalette, commands } = useCommandPalette();
   const [query, setQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const location = useLocation();
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) return;
-      const isMetaK =
-        event.key?.toLowerCase() === "k" && (event.metaKey || event.ctrlKey);
-      if (isMetaK) {
-        event.preventDefault();
-        setIsOpen(true);
-      }
-      if (event.key === "Escape" && isOpen) {
-        event.preventDefault();
-        closePalette();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [closePalette, isOpen, setIsOpen]);
 
   useEffect(() => {
     if (!isOpen) {
