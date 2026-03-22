@@ -212,7 +212,9 @@ export const addNoteCollaborator = async (req, res) => {
     const collaboratorRole = normalizeRole(role);
     const invitee = await User.findOne({ email: normalizedEmail }).lean();
     if (!invitee) {
-      return res.status(404).json({ message: "User not found" });
+      return res
+        .status(400)
+        .json({ message: "Unable to add collaborator. Please verify the email address." });
     }
 
     if (String(invitee._id) === String(access.ownerId)) {
