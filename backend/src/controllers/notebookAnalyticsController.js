@@ -6,6 +6,15 @@ import {
   getNotebookSnapshotAnalytics,
 } from "../services/notebookAnalyticsService.js";
 import { resolveNotebookMembership } from "../utils/access.js";
+import { NOTEBOOK_ANALYTICS_RANGES } from "../../../shared/analyticsTypes.js";
+
+const VALID_RANGES = new Set(NOTEBOOK_ANALYTICS_RANGES);
+
+const parseRange = (raw) => {
+  if (!raw) return undefined;
+  const normalized = String(raw).toLowerCase();
+  return VALID_RANGES.has(normalized) ? normalized : undefined;
+};
 
 const ensureAnalyticsContext = async (req) => {
   if (req.analyticsContext?.notebookId) {
@@ -39,7 +48,7 @@ const ensureAnalyticsContext = async (req) => {
 export const getNotebookAnalytics = async (req, res, next) => {
   try {
     const { notebookId, membership, memo } = await ensureAnalyticsContext(req);
-    const { range } = req.query;
+    const range = parseRange(req.query.range);
     const analytics = await getNotebookAnalyticsOverview({
       notebookId,
       range,
@@ -57,7 +66,7 @@ export const getNotebookAnalytics = async (req, res, next) => {
 export const getNotebookAnalyticsActivity = async (req, res, next) => {
   try {
     const { notebookId, membership, memo } = await ensureAnalyticsContext(req);
-    const { range } = req.query;
+    const range = parseRange(req.query.range);
     const payload = await getNotebookActivityAnalytics({
       notebookId,
       range,
@@ -74,7 +83,7 @@ export const getNotebookAnalyticsActivity = async (req, res, next) => {
 export const getNotebookAnalyticsTags = async (req, res, next) => {
   try {
     const { notebookId, membership, memo } = await ensureAnalyticsContext(req);
-    const { range } = req.query;
+    const range = parseRange(req.query.range);
     const payload = await getNotebookTagAnalytics({
       notebookId,
       range,
@@ -91,7 +100,7 @@ export const getNotebookAnalyticsTags = async (req, res, next) => {
 export const getNotebookAnalyticsCollaborators = async (req, res, next) => {
   try {
     const { notebookId, membership } = await ensureAnalyticsContext(req);
-    const { range } = req.query;
+    const range = parseRange(req.query.range);
     const payload = await getNotebookCollaboratorAnalytics({
       notebookId,
       ownerId: membership.notebook?.owner,
@@ -108,7 +117,7 @@ export const getNotebookAnalyticsCollaborators = async (req, res, next) => {
 export const getNotebookAnalyticsSnapshots = async (req, res, next) => {
   try {
     const { notebookId, memo } = await ensureAnalyticsContext(req);
-    const { range } = req.query;
+    const range = parseRange(req.query.range);
     const payload = await getNotebookSnapshotAnalytics({
       notebookId,
       range,
