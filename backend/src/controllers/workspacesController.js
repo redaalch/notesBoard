@@ -192,6 +192,12 @@ export const addWorkspaceMember = async (req, res) => {
       return res.status(403).json({ message: "Insufficient permissions" });
     }
 
+    if (desiredRole === "owner") {
+      return res
+        .status(403)
+        .json({ message: "Owner role cannot be assigned to members" });
+    }
+
     if (desiredRole === "admin" && requesterRole !== "owner") {
       return res
         .status(403)
@@ -200,7 +206,9 @@ export const addWorkspaceMember = async (req, res) => {
 
     const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res
+        .status(400)
+        .json({ message: "Unable to add member. Please verify the email address." });
     }
 
     if (String(user._id) === String(workspace.ownerId)) {
