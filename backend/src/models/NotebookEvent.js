@@ -29,7 +29,12 @@ const notebookEventSchema = new mongoose.Schema(
     eventType: {
       type: String,
       required: true,
-      maxlength: 64,
+      enum: [
+        "edit", "create", "delete", "move", "tag",
+        "notebook.create", "notebook.update", "notebook.delete",
+        "notebook.move-notes", "notebook.undo", "notebook.sync",
+        "notebook.publish", "notebook.unpublish",
+      ],
       index: true,
     },
     commandName: {
@@ -66,6 +71,7 @@ const notebookEventSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "NotebookEvent",
       default: null,
+      index: true,
     },
     version: {
       type: Number,
