@@ -1,7 +1,6 @@
 @import "tailwindcss/base";
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
-@import "tippy.js/dist/tippy.css";
 
 @layer base {
   html {
@@ -51,12 +50,6 @@
     --font-size-4xl: 2.25rem; /* 36px */
     --font-size-5xl: 3rem; /* 48px */
     --font-size-6xl: 3.75rem; /* 60px */
-
-    --line-height-tight: 1.25;
-    --line-height-snug: 1.375;
-    --line-height-normal: 1.5;
-    --line-height-relaxed: 1.625;
-    --line-height-loose: 2;
 
     --line-height-tight: 1.25;
     --line-height-snug: 1.375;
