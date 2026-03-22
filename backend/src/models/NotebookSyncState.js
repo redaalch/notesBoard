@@ -71,6 +71,10 @@ const notebookSyncStateSchema = new mongoose.Schema(
         ),
       ],
       default: [],
+      validate: {
+        validator: (v) => !v || v.length <= 500,
+        message: "pendingOperations cannot exceed 500 entries",
+      },
     },
     metadata: {
       type: Map,
