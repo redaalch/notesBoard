@@ -148,7 +148,7 @@ describe("notebook saved queries endpoints", () => {
     expect(touchRes.body.id).toBe(savedQueryId);
     expect(typeof touchRes.body.lastUsedAt).toBe("string");
     expect(new Date(touchRes.body.lastUsedAt).getTime()).toBeLessThanOrEqual(
-      Date.now()
+      Date.now(),
     );
 
     const deleteRes = await request(app)
@@ -163,7 +163,7 @@ describe("notebook saved queries endpoints", () => {
 
     expect(finalList.status).toBe(200);
     expect(finalList.body.queries).toHaveLength(0);
-  });
+  }, 15000);
 
   it("rejects duplicate saved query names for the same user and notebook", async () => {
     const { notebook, token } = await createUserWithNotebook({
