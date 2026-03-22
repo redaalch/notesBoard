@@ -135,19 +135,21 @@ function NoteCard({
   };
 
   const updateNotesCache = (updater: (prev: NoteObject[]) => NoteObject[]) => {
-    queryClient.setQueryData(
-      ["notes"],
-      (previous: NoteObject[] | undefined) => {
+    queryClient.setQueriesData<NoteObject[]>(
+      { queryKey: ["notes"] },
+      (previous) => {
         if (!Array.isArray(previous)) return previous;
         return updater(previous);
       },
     );
   };
 
-  const invalidateNotesQueries = () =>
+  const invalidateNotesQueries = ({ tags = false } = {}) =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: ["notes"] }),
-      queryClient.invalidateQueries({ queryKey: ["tag-stats"] }),
+      ...(tags
+        ? [queryClient.invalidateQueries({ queryKey: ["tag-stats"] })]
+        : []),
     ]);
 
   const openConfirm = (event: React.MouseEvent) => {
@@ -168,7 +170,7 @@ function NoteCard({
       updateNotesCache((prev) => prev.filter((item) => item._id !== note._id));
       toast.success("Your note has been deleted successfully");
       setConfirmOpen(false);
-      await invalidateNotesQueries();
+      await invalidateNotesQueries({ tags: true });
     } catch (error) {
       console.error("Error deleting the note", error);
       toast.error("Failed to delete the note");
