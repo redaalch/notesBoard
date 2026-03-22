@@ -6,9 +6,72 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+function getVendorChunkName(id: string): string | null {
+  if (!id.includes("node_modules")) return null;
+
+  const isPackage = (pkg: string) =>
+    id.includes(`/node_modules/${pkg}/`) ||
+    id.includes(`/node_modules/.pnpm/${pkg}@`);
+
+  if (isPackage("react") || isPackage("react-dom") || isPackage("scheduler")) {
+    return "vendor-react";
+  }
+
+  if (id.includes("react-router") || id.includes("@remix-run/router")) {
+    return "vendor-router";
+  }
+
+  if (id.includes("@tanstack/")) {
+    return "vendor-query";
+  }
+
+  if (id.includes("sonner")) {
+    return "vendor-sonner";
+  }
+
+  if (
+    id.includes("@tiptap/") ||
+    id.includes("prosemirror-") ||
+    id.includes("highlight.js") ||
+    id.includes("lowlight") ||
+    id.includes("tippy.js") ||
+    id.includes("@hocuspocus/") ||
+    id.includes("yjs") ||
+    id.includes("y-prosemirror") ||
+    id.includes("y-protocols") ||
+    id.includes("lib0")
+  ) {
+    return "vendor-editor";
+  }
+
+  if (id.includes("framer-motion") || id.includes("motion")) {
+    return "vendor-motion";
+  }
+
+  if (id.includes("@dnd-kit/")) {
+    return "vendor-dnd";
+  }
+
+  if (id.includes("lucide-react")) {
+    return "vendor-icons";
+  }
+
+  return "vendor-misc";
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        onlyExplicitManualChunks: true,
+        manualChunks(id) {
+          return getVendorChunkName(id);
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@shared": path.resolve(__dirname, "../shared"),
