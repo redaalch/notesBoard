@@ -29,7 +29,10 @@ export const getWorkspacePredictions = async (req, res) => {
         .json({ message: "Workspace not found or not accessible" });
     }
 
-    const days = Number(req.query.days) || 90;
+    const rawDays = Number(req.query.days);
+    const days = Number.isFinite(rawDays) && rawDays > 0
+      ? Math.min(Math.floor(rawDays), 365)
+      : 90;
 
     const predictions = await generateWorkspacePredictions(workspaceId, {
       days,
