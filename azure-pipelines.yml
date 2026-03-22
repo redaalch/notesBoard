@@ -9,6 +9,11 @@ trigger:
 pool:
   vmImage: ubuntu-latest
 
+variables:
+  # Phase 6.2: enforce perf budgets and Lighthouse in CI.
+  PERF_ENFORCE: "true"
+  LIGHTHOUSE_STRICT: "true"
+
 steps:
   - task: NodeTool@0
     inputs:
@@ -24,8 +29,10 @@ steps:
   - script: |
       npm run perf:baseline --prefix frontend
       npm run perf:budget:check --prefix frontend
-    displayName: "Frontend perf baseline (report-only)"
-    continueOnError: true
+    displayName: "Frontend perf checks (enforced)"
+    env:
+      PERF_ENFORCE: $(PERF_ENFORCE)
+      LIGHTHOUSE_STRICT: $(LIGHTHOUSE_STRICT)
 
   - task: PublishBuildArtifacts@1
     displayName: "Publish frontend perf reports"
