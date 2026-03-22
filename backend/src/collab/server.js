@@ -136,8 +136,16 @@ const collabServer = Server.configure({
       throw new Error("Missing authentication token");
     }
 
-    const payload = verifyAccessToken(token);
-    const userId = payload.sub;
+    let payload;
+    try {
+      payload = verifyAccessToken(token);
+    } catch (err) {
+      throw new Error("Invalid or expired token");
+    }
+    const userId = payload?.sub;
+    if (!userId) {
+      throw new Error("Token missing required claims");
+    }
     const noteId = parseDocumentName(data.documentName);
     if (!noteId) {
       throw new Error("Invalid document requested");
@@ -216,9 +224,20 @@ const collabServer = Server.configure({
     // Cursor/selection changes fire many times per second — writing each one
     // to MongoDB is wasteful.  We batch into a single write after 5s of calm.
     const payload = awarenessToPayload(awareness);
-    const participants = Object.values(payload).filter(
-      (state) => !!state?.user?.id,
-    );
+
+    // Guard: drop oversized awareness payloads (>100 KB serialised)
+    const payloadSize = JSON.stringify(payload).length;
+    if (payloadSize > 100_000) {
+      logger.warn("Awareness payload too large, dropping", {
+        documentName,
+        size: payloadSize,
+      });
+      return;
+    }
+
+    const participants = Object.values(payload)
+      .filter((state) => !!state?.user?.id)
+      .slice(0, 50);
 
     const flush = async () => {
       awarenessTimers.delete(documentName);
@@ -278,6 +297,15 @@ const collabServer = Server.configure({
         ? update
         : coerceState(state, document, { documentName, handler: "onChange" });
     if (!historyState) {
+      return;
+    }
+
+    // Guard: reject oversized history diffs (>2 MB) to prevent DB bloat
+    if (historyState.byteLength > 2 * 1024 * 1024) {
+      logger.warn("Collab history state too large, skipping write", {
+        documentName,
+        size: historyState.byteLength,
+      });
       return;
     }
 
