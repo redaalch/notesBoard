@@ -592,15 +592,72 @@ export const updateNote = async (req, res) => {
       changes.push("notebook");
     }
 
-    await NoteHistory.create({
-      noteId: updatedNote._id,
-      workspaceId: updatedNote.workspaceId ?? access.workspaceId ?? null,
-      boardId: updatedNote.boardId ?? access.boardId ?? null,
-      actorId: req.user.id,
-      eventType,
-      summary:
-        changes.length === 0 ? "Edited note" : `Updated ${changes.join(", ")}`,
-    });
+    let historyWorkspaceId =
+      updatedNote.workspaceId ??
+      updates.workspaceId ??
+      access.workspaceId ??
+      access.note.workspaceId ??
+      null;
+    let historyBoardId =
+      updatedNote.boardId ??
+      updates.boardId ??
+      access.boardId ??
+      access.note.boardId ??
+      null;
+
+    // Legacy notes may miss board/workspace. Try deriving from current board or user default board.
+    if (!historyWorkspaceId || !historyBoardId) {
+      const fallbackBoardId = historyBoardId ?? req.user?.defaultBoard;
+      if (fallbackBoardId) {
+        const fallbackBoardContext = await resolveBoardForUser(
+          fallbackBoardId,
+          req.user.id,
+        );
+        if (fallbackBoardContext) {
+          historyWorkspaceId =
+            historyWorkspaceId ?? fallbackBoardContext.workspace._id;
+          historyBoardId = historyBoardId ?? fallbackBoardContext.board._id;
+        }
+      }
+    }
+
+    // Backfill note context so subsequent updates don't repeat fallback work.
+    if (
+      historyWorkspaceId &&
+      historyBoardId &&
+      (!updatedNote.workspaceId || !updatedNote.boardId)
+    ) {
+      await Note.updateOne(
+        { _id: updatedNote._id },
+        {
+          $set: {
+            workspaceId: historyWorkspaceId,
+            boardId: historyBoardId,
+          },
+        },
+      );
+      updatedNote.workspaceId = historyWorkspaceId;
+      updatedNote.boardId = historyBoardId;
+    }
+
+    if (historyWorkspaceId && historyBoardId) {
+      await NoteHistory.create({
+        noteId: updatedNote._id,
+        workspaceId: historyWorkspaceId,
+        boardId: historyBoardId,
+        actorId: req.user.id,
+        eventType,
+        summary:
+          changes.length === 0
+            ? "Edited note"
+            : `Updated ${changes.join(", ")}`,
+      });
+    } else {
+      logger.warn("Skipping note history entry due to missing context", {
+        noteId: String(updatedNote._id),
+        userId: req.user.id,
+      });
+    }
 
     const previousNotebookId = access.note.notebookId;
     const currentNotebookId = updatedNote.notebookId;
