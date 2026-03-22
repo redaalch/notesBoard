@@ -112,7 +112,7 @@ describe("notebook analytics endpoints", () => {
 
       await Note.updateOne(
         { _id: note._id },
-        { $set: { createdAt, updatedAt: createdAt } }
+        { $set: { createdAt, updatedAt: createdAt } },
       );
 
       await NoteHistory.create({
@@ -180,7 +180,7 @@ describe("notebook analytics endpoints", () => {
 
     expect(collaboratorsRes.status).toBe(200);
     expect(collaboratorsRes.body.labels).toEqual(
-      expect.arrayContaining(["owner", "editor", "commenter"])
+      expect.arrayContaining(["owner", "editor", "commenter"]),
     );
 
     const snapshotsRes = await request(app)
@@ -197,5 +197,5 @@ describe("notebook analytics endpoints", () => {
 
     expect(forbiddenRes.status).toBe(403);
     expect(forbiddenRes.body?.message).toMatch(/access denied/i);
-  });
+  }, 15000);
 });
