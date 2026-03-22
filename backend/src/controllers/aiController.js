@@ -17,10 +17,10 @@ const NOTE_NOT_FOUND = { message: "Note not found" };
 const INVALID_NOTE_ID = { message: "Invalid note id" };
 const AI_UNAVAILABLE = {
   message:
-    "AI features are not configured. Set the GEMINI_API_KEY environment variable.",
+    "AI features are not configured. Set the GROQ_API_KEY environment variable.",
 };
 
-const isAiConfigured = () => Boolean(process.env.GEMINI_API_KEY);
+const isAiConfigured = () => Boolean(process.env.GROQ_API_KEY);
 
 /* ─────── POST /api/ai/notes/:id/summary ─────── */
 export const summarizeNote = async (req, res) => {
@@ -48,11 +48,17 @@ export const summarizeNote = async (req, res) => {
 
     const result = await generateNoteSummary(note);
 
-    if (!result) {
-      return res.status(200).json({
+    if (result?.skipped) {
+      const messages = {
+        too_short: "Note is too short to summarise.",
+        ai_unavailable: "AI summarisation is temporarily unavailable. Please try again later.",
+        no_note: "Note not found.",
+      };
+      const statusCode = result.reason === "ai_unavailable" ? 503 : 200;
+      return res.status(statusCode).json({
         summary: null,
         actionItems: [],
-        message: "Note is too short to summarise.",
+        message: messages[result.reason] ?? "Unable to generate summary.",
       });
     }
 
