@@ -41,6 +41,12 @@ npm run perf:baseline
 
 This command runs a production build, writes bundle size summaries (`bundle-report.json` and `bundle-report.md`), starts a preview server, and generates desktop/mobile Lighthouse reports with a `lighthouse-summary.json` rollup.
 
+To persist the latest run as the tracked baseline in `perf-budgets.json`:
+
+```bash
+npm run perf:baseline:update
+```
+
 If Lighthouse cannot render a frame in headless environments, the script writes a failure-state summary and continues in non-strict mode. Use strict mode to fail the run:
 
 ```bash
@@ -59,4 +65,38 @@ npm run perf:budget:check
 PERF_ENFORCE=true npm run perf:budget:check
 ```
 
+In report-only mode, missing Lighthouse scores are reported as warnings (non-blocking). Set `PERF_ENFORCE=true` to treat them as failures.
+
 Use `npm run perf:ci` to run baseline + budget checks in one flow.
+
+## Repeatable Local Perf Workflow
+
+Use this checklist when validating performance changes so results are comparable across refactors.
+
+1. Start from a clean state.
+   - Close heavy apps/tabs and keep CPU load low.
+   - Use the same branch and dependency lockfile state.
+2. Generate baseline artifacts.
+   - `npm run perf:baseline`
+   - Confirm files were updated in `perf-reports/`.
+3. Run budget checks in report-only mode.
+   - `npm run perf:budget:check`
+   - Keep `PERF_ENFORCE` disabled during refactor iterations.
+4. Re-run baseline at least one more time.
+   - Compare the two `lighthouse-summary.json` runs to catch one-off spikes.
+   - If Lighthouse reports `NO_FCP`, rerun once after closing extra windows/apps.
+5. Capture React DevTools Profiler traces for target interactions.
+   - Record each flow separately: search typing, tag toggle, sort change, selection mode toggle, bulk action.
+   - Save traces with clear names (`home-search-before`, `home-search-after`, etc.).
+   - Compare commit duration and render count, not just FPS.
+6. Update tracked baseline only after intentional improvements.
+   - `npm run perf:baseline:update`
+   - Include before/after numbers in PR notes.
+
+This workflow keeps thresholds stable while still surfacing warning-level regressions during active optimization work.
+
+## Optimization Changelog
+
+Phase-by-phase outcomes, before/after metrics, and trade-offs are tracked in:
+
+- `frontend/docs/OPTIMIZATION_CHANGELOG.md`
