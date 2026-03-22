@@ -9,6 +9,7 @@ import {
   ensureNotebookOwnership,
   normalizeObjectId,
 } from "../utils/notebooks.js";
+import { getWorkspaceMembership } from "../utils/access.js";
 import {
   isAllowedNotebookColor,
   isAllowedNotebookIcon,
@@ -418,12 +419,49 @@ export const instantiateNotebookTemplate = async (req, res) => {
     } = req.body ?? {};
 
     const normalizedWorkspaceId = normalizeObjectId(workspaceId);
+
+    // Verify the user has access to the target workspace
+    if (normalizedWorkspaceId) {
+      const wsMembership = await getWorkspaceMembership(normalizedWorkspaceId, ownerId);
+      if (!wsMembership) {
+        return res
+          .status(403)
+          .json({ message: "You do not have access to the target workspace" });
+      }
+    }
+
     const sanitizedWorkspaceMappings =
       workspaceMappings && typeof workspaceMappings === "object"
         ? workspaceMappings
         : {};
     const sanitizedBoardMappings =
       boardMappings && typeof boardMappings === "object" ? boardMappings : {};
+
+    // Validate all mapped workspace IDs belong to the user
+    for (const targetWsId of Object.values(sanitizedWorkspaceMappings)) {
+      const wsObjId = normalizeObjectId(targetWsId);
+      if (wsObjId) {
+        const access = await getWorkspaceMembership(wsObjId, ownerId);
+        if (!access) {
+          return res
+            .status(403)
+            .json({ message: "Invalid workspace in mappings" });
+        }
+      }
+    }
+
+    // Validate all mapped board IDs belong to the user
+    for (const targetBoardId of Object.values(sanitizedBoardMappings)) {
+      const boardObjId = normalizeObjectId(targetBoardId);
+      if (boardObjId) {
+        const board = await Board.findOne({ _id: boardObjId, owner: ownerId }).lean();
+        if (!board) {
+          return res
+            .status(403)
+            .json({ message: "Invalid board in mappings" });
+        }
+      }
+    }
 
     let targetColor = template.color ?? null;
     if (desiredColor !== undefined) {
