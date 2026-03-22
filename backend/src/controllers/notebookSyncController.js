@@ -278,6 +278,15 @@ export const pushNotebookSyncState = async (req, res) => {
       const serverRevision = notebook.offlineRevision ?? 0;
       const clientRevision = Number.parseInt(baseRevision, 10) || 0;
 
+      if (clientRevision < 0 || clientRevision > serverRevision) {
+        const mismatchError = new Error("REVISION_CONFLICT");
+        mismatchError.serverRevision = serverRevision;
+        mismatchError.snapshotHash = notebook.offlineSnapshotHash ?? null;
+        mismatchError.snapshotUpdatedAt =
+          notebook.offlineSnapshotUpdatedAt ?? null;
+        throw mismatchError;
+      }
+
       if (clientRevision < serverRevision) {
         const conflictError = new Error("REVISION_CONFLICT");
         conflictError.serverRevision = serverRevision;
