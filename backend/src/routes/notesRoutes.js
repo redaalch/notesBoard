@@ -113,9 +113,9 @@ router.post(
   validate([
     validationRules.objectId("id"),
     validationRules.email(),
-    body("permission")
-      .isIn(["view", "edit"])
-      .withMessage("Permission must be view or edit"),
+    body("role")
+      .isIn(["viewer", "commenter", "editor"])
+      .withMessage("Role must be viewer, commenter, or editor"),
   ]),
   addNoteCollaborator,
 );

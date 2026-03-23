@@ -95,7 +95,7 @@ async function createIsolatedChromeFlags(baseChromeFlags) {
   const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "lh-profile-"));
   return {
     userDataDir,
-    chromeFlags: `${baseChromeFlags} --remote-debugging-port=0 --user-data-dir=${userDataDir}`,
+    chromeFlags: `${baseChromeFlags} --user-data-dir=${userDataDir}`,
   };
 }
 

@@ -19,7 +19,7 @@ const noteCollaboratorSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: NOTE_COLLAB_ROLES,
-      default: "editor",
+      default: "viewer",
     },
     invitedBy: {
       type: mongoose.Schema.Types.ObjectId,

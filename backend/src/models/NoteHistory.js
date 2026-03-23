@@ -55,16 +55,31 @@ const noteHistorySchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: null,
     },
+    expiresAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true },
 );
 
+const AUDIT_CRITICAL_EVENTS = new Set(["create", "delete"]);
+
+noteHistorySchema.pre("save", function setExpiry(next) {
+  if (!this.expiresAt && !AUDIT_CRITICAL_EVENTS.has(this.eventType)) {
+    this.expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+  }
+  next();
+});
+
 noteHistorySchema.index({ noteId: 1, createdAt: -1 });
 noteHistorySchema.index({ boardId: 1, createdAt: -1 });
-// Auto-delete history entries older than 90 days
 noteHistorySchema.index(
-  { createdAt: 1 },
-  { expireAfterSeconds: 90 * 24 * 60 * 60 },
+  { expiresAt: 1 },
+  {
+    expireAfterSeconds: 0,
+    partialFilterExpression: { expiresAt: { $type: "date" } },
+  },
 );
 
 const NoteHistory = mongoose.model("NoteHistory", noteHistorySchema);

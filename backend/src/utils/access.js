@@ -41,7 +41,9 @@ export const getWorkspaceMembership = async (workspaceId, userId) => {
   }
 
   const member = (workspace.members ?? []).find(
-    (entry) => String(entry.userId) === String(userId),
+    (entry) =>
+      String(entry.userId) === String(userId) &&
+      (entry.status ?? "active") === "active",
   );
   if (!member) {
     return null;
@@ -162,16 +164,13 @@ export const resolveNoteForUser = async (noteId, userId) => {
     return null;
   }
 
-  const workspaceId = note.workspaceId ?? note.owner;
-  if (!workspaceId) {
-    return null;
-  }
+  const workspaceId = note.workspaceId ?? null;
 
   const isOwner = String(note.owner) === String(userId);
 
   // Parallelize the three independent lookups (was 3 sequential awaits)
   const [membership, notebookMembership, collaborator] = await Promise.all([
-    getWorkspaceMembership(workspaceId, userId),
+    workspaceId ? getWorkspaceMembership(workspaceId, userId) : Promise.resolve(null),
     note.notebookId
       ? getNotebookMembership(note.notebookId, userId)
       : Promise.resolve(null),
@@ -210,7 +209,7 @@ export const resolveNoteForUser = async (noteId, userId) => {
   } else if (canEdit) {
     effectiveRole = "editor";
   } else if (canComment) {
-    effectiveRole = "viewer";
+    effectiveRole = "commenter";
   } else {
     effectiveRole = "viewer";
   }

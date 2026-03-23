@@ -107,10 +107,9 @@ export const normalizeNotebookPublicSlug = (value) => {
 
 export const generateNotebookPublicSlug = (length = 16) => {
   const safeLength = Math.max(6, Math.min(32, Number(length) || 16));
+  const hexLength = Math.ceil(safeLength / 2);
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    const bytes = crypto.randomBytes(Math.ceil((safeLength * 5) / 8));
-    const encoded = bytes.toString("base64url").replace(/[^a-z0-9]/gi, "");
-    const candidate = encoded.slice(0, safeLength).padEnd(safeLength, "0");
+    const candidate = crypto.randomBytes(hexLength).toString("hex").slice(0, safeLength);
     const normalized = normalizeNotebookPublicSlug(candidate);
     if (normalized) {
       return normalized;
@@ -118,7 +117,7 @@ export const generateNotebookPublicSlug = (length = 16) => {
   }
 
   return normalizeNotebookPublicSlug(
-    `notebook-${Date.now().toString(36).slice(-safeLength)}`
+    crypto.randomBytes(hexLength).toString("hex").slice(0, safeLength),
   );
 };
 

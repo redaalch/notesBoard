@@ -29,8 +29,20 @@ const getAccessSecret = () => {
 
 const getAccessTtl = () => process.env.JWT_ACCESS_TTL || "15m";
 
-const getRefreshTtlMs = () =>
-  parseInt(process.env.JWT_REFRESH_TTL_MS || "604800000", 10); // 7 days
+const DEFAULT_REFRESH_TTL_MS = 604_800_000; // 7 days
+
+const getRefreshTtlMs = () => {
+  const raw = Number(process.env.JWT_REFRESH_TTL_MS);
+  if (!Number.isFinite(raw) || raw <= 0) {
+    if (process.env.JWT_REFRESH_TTL_MS) {
+      logger.warn("Invalid JWT_REFRESH_TTL_MS, using default", {
+        value: process.env.JWT_REFRESH_TTL_MS,
+      });
+    }
+    return DEFAULT_REFRESH_TTL_MS;
+  }
+  return raw;
+};
 
 export const hashToken = (token) =>
   crypto.createHash("sha256").update(token).digest("hex");

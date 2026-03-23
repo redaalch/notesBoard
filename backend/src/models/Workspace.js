@@ -8,6 +8,8 @@ export const WORKSPACE_ROLES = [
   "viewer",
 ];
 
+export const WORKSPACE_MEMBER_STATUSES = ["pending", "active", "revoked"];
+
 const memberSchema = new mongoose.Schema(
   {
     userId: {
@@ -44,6 +46,11 @@ const memberSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
       index: true,
+    },
+    status: {
+      type: String,
+      enum: WORKSPACE_MEMBER_STATUSES,
+      default: "active",
     },
   },
   { _id: false },

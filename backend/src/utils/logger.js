@@ -1,3 +1,14 @@
+const safeStringify = (value) => {
+  const seen = new WeakSet();
+  return JSON.stringify(value, (_key, val) => {
+    if (val !== null && typeof val === "object") {
+      if (seen.has(val)) return "[Circular]";
+      seen.add(val);
+    }
+    return val;
+  });
+};
+
 const serialize = (level, message, meta) => {
   const payload = {
     level,
@@ -9,7 +20,7 @@ const serialize = (level, message, meta) => {
     payload.meta = meta;
   }
 
-  return JSON.stringify(payload);
+  return safeStringify(payload);
 };
 
 const logAt = (level) => (message, meta) => {

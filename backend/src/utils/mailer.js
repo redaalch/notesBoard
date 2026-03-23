@@ -1,12 +1,19 @@
 import nodemailer from "nodemailer";
 import logger from "./logger.js";
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const isValidSmtpUrl = (url) => {
+  if (!url || typeof url !== "string") return false;
+  return /^smtps?:\/\//i.test(url) || /^smtp\+starttls:/i.test(url);
+};
+
 let transporter;
 
 const buildTransporter = () => {
   const mailerUrl = process.env.MAILER_TO_GO_URL || process.env.MAILERTOGO_URL;
 
-  if (!mailerUrl) {
+  if (!mailerUrl || !isValidSmtpUrl(mailerUrl)) {
     logger.warn(
       "MAILER_TO_GO_URL/MAILERTOGO_URL is not configured. Email sending is disabled."
     );
@@ -31,6 +38,11 @@ const getTransporter = () => {
 };
 
 export const sendMail = async (options) => {
+  if (options?.to && !EMAIL_RE.test(options.to)) {
+    logger.warn("Invalid recipient email, skipping send", { to: options.to });
+    return null;
+  }
+
   const transport = getTransporter();
 
   try {

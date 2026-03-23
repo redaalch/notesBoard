@@ -82,7 +82,7 @@ export const buildNotebookVector = (notes = [], options = {}) => {
     };
   }
 
-  const tokenizedDocuments = notes.map((note) => {
+  const tokenizedDocuments = notes.filter((n) => n && typeof n === "object").map((note) => {
     const segments = [];
     if (note?.title) {
       segments.push(String(note.title));
