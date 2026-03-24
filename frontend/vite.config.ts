@@ -30,18 +30,31 @@ function getVendorChunkName(id: string): string | null {
   }
 
   if (
-    id.includes("@tiptap/") ||
-    id.includes("prosemirror-") ||
-    id.includes("highlight.js") ||
-    id.includes("lowlight") ||
-    id.includes("tippy.js") ||
     id.includes("@hocuspocus/") ||
-    id.includes("yjs") ||
     id.includes("y-prosemirror") ||
     id.includes("y-protocols") ||
-    id.includes("lib0")
+    id.includes("y-indexeddb") ||
+    id.includes("lib0") ||
+    (id.includes("yjs") && !id.includes("highlight.js")) ||
+    id.includes("@tiptap/extension-collaboration")
   ) {
-    return "vendor-editor";
+    return "vendor-editor-collab";
+  }
+
+  if (
+    id.includes("highlight.js") ||
+    id.includes("lowlight") ||
+    id.includes("@tiptap/extension-code-block-lowlight")
+  ) {
+    return "vendor-editor-highlight";
+  }
+
+  if (
+    id.includes("@tiptap/") ||
+    id.includes("prosemirror-") ||
+    id.includes("tippy.js")
+  ) {
+    return "vendor-editor-core";
   }
 
   if (id.includes("framer-motion") || id.includes("motion")) {
@@ -63,6 +76,7 @@ function getVendorChunkName(id: string): string | null {
 export default defineConfig({
   plugins: [react()],
   build: {
+    target: "es2022",
     rollupOptions: {
       output: {
         onlyExplicitManualChunks: true,
