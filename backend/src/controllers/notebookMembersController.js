@@ -635,19 +635,19 @@ export const acceptNotebookInvitation = async (req, res) => {
       return res.status(404).json({ message: "Invitation not found" });
     }
 
+    if (
+      member.inviteExpiresAt &&
+      member.inviteExpiresAt.getTime() < Date.now()
+    ) {
+      return res.status(410).json({ message: "Invitation has expired" });
+    }
+
     if (member.status === "revoked") {
       return res.status(410).json({ message: "Invitation has been revoked" });
     }
 
     if (member.isActive()) {
       return res.status(409).json({ message: "Invitation already accepted" });
-    }
-
-    if (
-      member.inviteExpiresAt &&
-      member.inviteExpiresAt.getTime() < Date.now()
-    ) {
-      return res.status(410).json({ message: "Invitation has expired" });
     }
 
     if (String(member.userId) !== String(req.user.id)) {
