@@ -1,0 +1,422 @@
+.
+├── azure-pipelines.yml
+├── backend
+│   ├── CLAUDE.md
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── README.md
+│   ├── scripts
+│   │   ├── loginTest.mjs
+│   │   └── verifySmtp.mjs
+│   ├── src
+│   │   ├── app.js
+│   │   ├── collab
+│   │   │   ├── CLAUDE.md
+│   │   │   └── server.js
+│   │   ├── config
+│   │   │   ├── CLAUDE.md
+│   │   │   ├── database.js
+│   │   │   ├── env.js
+│   │   │   └── upstash.js
+│   │   ├── controllers
+│   │   │   ├── aiController.js
+│   │   │   ├── authController.js
+│   │   │   ├── boardsController.js
+│   │   │   ├── CLAUDE.md
+│   │   │   ├── notebookAnalyticsController.js
+│   │   │   ├── notebookMembersController.js
+│   │   │   ├── notebookPublishingController.js
+│   │   │   ├── notebookSavedQueriesController.js
+│   │   │   ├── notebooksController.js
+│   │   │   ├── notebookShareLinksController.js
+│   │   │   ├── notebookSyncController.js
+│   │   │   ├── notebookTemplatesController.js
+│   │   │   ├── noteCollaboratorsController.js
+│   │   │   ├── notePublishingController.js
+│   │   │   ├── notesController.js
+│   │   │   ├── publishedNotebooksController.js
+│   │   │   ├── publishedNotesController.js
+│   │   │   ├── workspacePredictionsController.js
+│   │   │   └── workspacesController.js
+│   │   ├── middleware
+│   │   │   ├── analyticsContext.js
+│   │   │   ├── asyncHandler.js
+│   │   │   ├── auth.js
+│   │   │   ├── CLAUDE.md
+│   │   │   ├── errorHandler.js
+│   │   │   ├── notFound.js
+│   │   │   ├── privateCacheHeaders.js
+│   │   │   ├── rateLimiter.js
+│   │   │   ├── requestLogger.js
+│   │   │   └── validation.js
+│   │   ├── models
+│   │   │   ├── Board.js
+│   │   │   ├── CLAUDE.md
+│   │   │   ├── CollabDocument.js
+│   │   │   ├── NotebookAnalyticsSnapshot.js
+│   │   │   ├── NotebookEvent.js
+│   │   │   ├── NotebookIndex.js
+│   │   │   ├── Notebook.js
+│   │   │   ├── NotebookMember.js
+│   │   │   ├── NotebookPublication.js
+│   │   │   ├── NotebookSyncState.js
+│   │   │   ├── NotebookTemplate.js
+│   │   │   ├── NoteCollaborator.js
+│   │   │   ├── NoteHistory.js
+│   │   │   ├── Note.js
+│   │   │   ├── NotePublication.js
+│   │   │   ├── SavedNotebookQuery.js
+│   │   │   ├── ShareLink.js
+│   │   │   ├── User.js
+│   │   │   └── Workspace.js
+│   │   ├── routes
+│   │   │   ├── aiRoutes.js
+│   │   │   ├── authRoutes.js
+│   │   │   ├── boardRoutes.js
+│   │   │   ├── CLAUDE.md
+│   │   │   ├── notebookRoutes.js
+│   │   │   ├── notebookTemplateRoutes.js
+│   │   │   ├── notesRoutes.js
+│   │   │   ├── publishedRoutes.js
+│   │   │   └── workspaceRoutes.js
+│   │   ├── scripts
+│   │   │   ├── backfillEmbeddings.js
+│   │   │   ├── backfillNotebookMembers.js
+│   │   │   ├── bootstrapOwner.js
+│   │   │   ├── generateNotebookAnalyticsSnapshots.js
+│   │   │   └── seedNotebookAnalyticsFixtures.js
+│   │   ├── server.js
+│   │   ├── services
+│   │   │   ├── aiService.js
+│   │   │   ├── analyticsService.js
+│   │   │   ├── cacheService.js
+│   │   │   ├── CLAUDE.md
+│   │   │   ├── embeddingService.js
+│   │   │   ├── notebookAnalyticsFixture.js
+│   │   │   ├── notebookAnalyticsService.js
+│   │   │   ├── notebookAnalyticsShared.js
+│   │   │   ├── notebookAnalyticsSnapshotService.js
+│   │   │   ├── notebookEventService.js
+│   │   │   ├── notebookRecommendationService.js
+│   │   │   ├── notebookSmartService.js
+│   │   │   ├── notebookUndoService.js
+│   │   │   └── productivityPredictionService.js
+│   │   ├── tasks
+│   │   │   ├── analyticsSnapshotScheduler.js
+│   │   │   ├── CLAUDE.md
+│   │   │   └── notebookIndexingWorker.js
+│   │   └── utils
+│   │       ├── access.js
+│   │       ├── CLAUDE.md
+│   │       ├── constants.js
+│   │       ├── http.js
+│   │       ├── http.ts
+│   │       ├── logger.js
+│   │       ├── mailer.js
+│   │       ├── notebooks.js
+│   │       ├── slugify.js
+│   │       ├── textAnalytics.js
+│   │       ├── tokenService.js
+│   │       └── validators.js
+│   ├── tests
+│   │   ├── auth.notes.e2e.test.js
+│   │   ├── notebook.analytics.controller.test.js
+│   │   ├── notebook.analytics.performance.test.js
+│   │   ├── notebook.analytics.service.test.js
+│   │   ├── notebook.savedQueries.controller.test.js
+│   │   ├── notebook.undo.service.test.js
+│   │   └── note.validation.test.js
+│   └── tsconfig.json
+├── backend-backup.tgz
+├── CLAUDE.md
+├── docs
+│   ├── notesboard-thumbnail.png
+│   └── notesboard-thumbnail.svg
+├── frontend
+│   ├── CLAUDE.md
+│   ├── COMPONENT_SHOWCASE.md
+│   ├── coverage
+│   │   ├── AnimatedButton.jsx.html
+│   │   ├── base.css
+│   │   ├── block-navigation.js
+│   │   ├── BulkActionsBar.jsx.html
+│   │   ├── CollaborativeEditor.jsx.html
+│   │   ├── CommandPalette.jsx.html
+│   │   ├── ConfirmDialog.jsx.html
+│   │   ├── EmptyState.jsx.html
+│   │   ├── ErrorState.jsx.html
+│   │   ├── favicon.png
+│   │   ├── FloatingActionButton.jsx.html
+│   │   ├── index.html
+│   │   ├── LazyImage.jsx.html
+│   │   ├── Logo.jsx.html
+│   │   ├── MobileBottomNav.jsx.html
+│   │   ├── Navbar.jsx.html
+│   │   ├── NotebookAnalyticsDialog.jsx.html
+│   │   ├── NotebookHistoryDialog.jsx.html
+│   │   ├── NotebookInsightsDrawer.jsx.html
+│   │   ├── NotebookPublishDialog.jsx.html
+│   │   ├── NotebookShareDialog.jsx.html
+│   │   ├── NotebookTemplateGalleryModal.jsx.html
+│   │   ├── NoteCard.jsx.html
+│   │   ├── NoteCollaboratorsCard.jsx.html
+│   │   ├── NoteHistoryTimeline.jsx.html
+│   │   ├── NoteSkeleton.jsx.html
+│   │   ├── NotesNotFound.jsx.html
+│   │   ├── NotesStats.jsx.html
+│   │   ├── PageTransition.jsx.html
+│   │   ├── PresenceAvatars.jsx.html
+│   │   ├── prettify.css
+│   │   ├── prettify.js
+│   │   ├── RateLimitedUI.jsx.html
+│   │   ├── RequireAuth.jsx.html
+│   │   ├── SavedNotebookQueryDialog.jsx.html
+│   │   ├── SaveNotebookTemplateDialog.jsx.html
+│   │   ├── Skeleton.jsx.html
+│   │   ├── SkipToContent.jsx.html
+│   │   ├── SlashCommands.jsx.html
+│   │   ├── sort-arrow-sprite.png
+│   │   ├── sorter.js
+│   │   ├── Sparkline.jsx.html
+│   │   ├── TagInput.jsx.html
+│   │   ├── TemplateGalleryModal.jsx.html
+│   │   ├── TypingIndicator.jsx.html
+│   │   └── WorkspaceMembersCard.jsx.html
+│   ├── DESIGN_SYSTEM.md
+│   ├── dist
+│   │   ├── assets
+│   │   │   ├── AiSummaryCard-0LRpwn8u.js
+│   │   │   ├── AiTagSuggestions-DPcgZ3n6.js
+│   │   │   ├── BulkActionsBar-C8qYcSai.js
+│   │   │   ├── BulkMoveDialog-CXNbTzCR.js
+│   │   │   ├── BulkMoveNotebookDialog-XnQHUIb8.js
+│   │   │   ├── BulkTagDialog-MyGiGr_i.js
+│   │   │   ├── cn-Bh0Q7MAP.js
+│   │   │   ├── ConfirmDialog-vYSbWEn8.js
+│   │   │   ├── CreatePage-byVSIqtM.js
+│   │   │   ├── DashboardPage-BgZXFFvC.js
+│   │   │   ├── ForgotPasswordPage-CTHpbzm0.js
+│   │   │   ├── HomePage-BrdbJiBe.js
+│   │   │   ├── index-CmblylL8.css
+│   │   │   ├── index-DbLYUGyo.js
+│   │   │   ├── LandingPage-Di9Lcw_s.js
+│   │   │   ├── LoginPage-qN01bZeb.js
+│   │   │   ├── Logo-pC2CK4Oc.js
+│   │   │   ├── lowlight-BNpMZczc.css
+│   │   │   ├── lowlight-hP51xdoT.js
+│   │   │   ├── Navbar-DdXHMNzy.js
+│   │   │   ├── NotebookAnalyticsDialog-BX1UHmLo.js
+│   │   │   ├── NotebookDeleteDialog-CZDs5Vge.js
+│   │   │   ├── NotebookFormDialog-D-ylqXdU.js
+│   │   │   ├── NotebookHistoryDialog-CaGHmxds.js
+│   │   │   ├── NotebookInsightsDrawer-B9hSjqsa.js
+│   │   │   ├── NotebookInvitePage-oyeXEzXu.js
+│   │   │   ├── NotebookPublishDialog-Cvn8i0x1.js
+│   │   │   ├── NotebookShareDialog-DzD1ZtXS.js
+│   │   │   ├── NotebookTemplateGalleryModal-wNan9pCZ.js
+│   │   │   ├── NoteCollaboratorsCard-LxyUj-R5.js
+│   │   │   ├── NoteDetailPage-BPMFBL9v.js
+│   │   │   ├── NoteSkeleton-nKLvZazy.js
+│   │   │   ├── noteTemplates-C5LDAH05.js
+│   │   │   ├── PrivacyPage-Cfv7Dlab.js
+│   │   │   ├── ProfilePage-DvEz9Aac.js
+│   │   │   ├── published-notebook-page-BlYsXpi0.js
+│   │   │   ├── published-note-page-DR0MGS81.js
+│   │   │   ├── RegisterPage-B5WBsObM.js
+│   │   │   ├── ResetPasswordPage-DjtbVhBZ.js
+│   │   │   ├── SavedNotebookQueryDialog-Dxmg3t9V.js
+│   │   │   ├── SaveNotebookTemplateDialog-C19HKtHM.js
+│   │   │   ├── TagInput-BtVqoHd0.js
+│   │   │   ├── TemplateGalleryModal-Cv2vm8k6.js
+│   │   │   ├── TermsPage-6Mr_m8e7.js
+│   │   │   ├── Utils-v3_xAkOK.js
+│   │   │   ├── vendor-dnd-BerAIXsy.js
+│   │   │   ├── vendor-editor-collab-BEnETitx.js
+│   │   │   ├── vendor-editor-core-BHH8rdGj.css
+│   │   │   ├── vendor-editor-core-CFmKLCFQ.js
+│   │   │   ├── vendor-editor-highlight-DyCdMpl_.js
+│   │   │   ├── vendor-icons-BxmRNk0H.js
+│   │   │   ├── vendor-misc-D6B6qKf2.js
+│   │   │   ├── vendor-motion-Z7jb46jD.js
+│   │   │   ├── vendor-query-DPQJw_Pr.js
+│   │   │   ├── vendor-react-DZvsoyFN.js
+│   │   │   ├── vendor-router-l34TrQdk.js
+│   │   │   ├── vendor-sonner-Do0lescf.js
+│   │   │   └── VerifyEmailPage-D_T4OhgQ.js
+│   │   ├── index.html
+│   │   ├── logo.svg
+│   │   ├── manifest.webmanifest
+│   │   ├── sw.js
+│   │   └── vite.svg
+│   ├── docs
+│   │   └── OPTIMIZATION_CHANGELOG.md
+│   ├── eslint.config.js
+│   ├── IMPLEMENTATION_GUIDE.md
+│   ├── index.html
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── perf-budgets.json
+│   ├── perf-reports
+│   │   ├── budget-check.json
+│   │   ├── bundle-report.json
+│   │   ├── bundle-report.md
+│   │   ├── lighthouse-desktop.json
+│   │   ├── lighthouse-mobile.json
+│   │   └── lighthouse-summary.json
+│   ├── postcss.config.js
+│   ├── public
+│   │   ├── logo.svg
+│   │   ├── manifest.webmanifest
+│   │   ├── sw.js
+│   │   └── vite.svg
+│   ├── README.md
+│   ├── scripts
+│   │   └── perf
+│   │       ├── check-budgets.mjs
+│   │       ├── report-bundles.mjs
+│   │       ├── run-lighthouse.mjs
+│   │       ├── update-baseline.mjs
+│   │       └── verify-vendor-graph.mjs
+│   ├── src
+│   │   ├── App.tsx
+│   │   ├── assets
+│   │   │   └── logo.svg
+│   │   ├── Components
+│   │   │   ├── AiSummaryCard.tsx
+│   │   │   ├── AiTagSuggestions.tsx
+│   │   │   ├── AnimatedButton.tsx
+│   │   │   ├── BulkActionsBar.tsx
+│   │   │   ├── CLAUDE.md
+│   │   │   ├── CollaborativeEditor.tsx
+│   │   │   ├── CommandPalette.tsx
+│   │   │   ├── ConfirmDialog.tsx
+│   │   │   ├── EmptyState.tsx
+│   │   │   ├── ErrorState.tsx
+│   │   │   ├── FilterPopover.tsx
+│   │   │   ├── FloatingActionButton.tsx
+│   │   │   ├── LazyImage.tsx
+│   │   │   ├── Logo.tsx
+│   │   │   ├── MobileBottomNav.tsx
+│   │   │   ├── Navbar.tsx
+│   │   │   ├── NotebookAnalyticsDialog.tsx
+│   │   │   ├── NotebookHistoryDialog.tsx
+│   │   │   ├── NotebookInsightsDrawer.tsx
+│   │   │   ├── NotebookPublishDialog.tsx
+│   │   │   ├── NotebookShareDialog.tsx
+│   │   │   ├── NotebookTemplateGalleryModal.tsx
+│   │   │   ├── NoteCard.tsx
+│   │   │   ├── NoteCollaboratorsCard.tsx
+│   │   │   ├── NoteHistoryTimeline.tsx
+│   │   │   ├── NoteSkeleton.tsx
+│   │   │   ├── NotesNotFound.tsx
+│   │   │   ├── NotesStats.tsx
+│   │   │   ├── PageTransition.tsx
+│   │   │   ├── PresenceAvatars.tsx
+│   │   │   ├── RateLimitedUI.tsx
+│   │   │   ├── RequireAuth.tsx
+│   │   │   ├── SavedNotebookQueryDialog.tsx
+│   │   │   ├── SaveNotebookTemplateDialog.tsx
+│   │   │   ├── Sidebar.tsx
+│   │   │   ├── SimpleEditor.tsx
+│   │   │   ├── Skeleton.tsx
+│   │   │   ├── SkipToContent.tsx
+│   │   │   ├── SlashCommands.tsx
+│   │   │   ├── Sparkline.tsx
+│   │   │   ├── TagInput.tsx
+│   │   │   ├── TemplateGalleryModal.tsx
+│   │   │   ├── __tests__
+│   │   │   │   ├── NotebookHistoryDialog.test.tsx
+│   │   │   │   ├── NotebookInsightsDrawer.test.tsx
+│   │   │   │   └── NotebookPublishDialog.test.tsx
+│   │   │   ├── Toolbar.tsx
+│   │   │   ├── TypingIndicator.tsx
+│   │   │   ├── ui
+│   │   │   │   ├── Button.tsx
+│   │   │   │   ├── Card.tsx
+│   │   │   │   ├── Chip.tsx
+│   │   │   │   ├── Container.tsx
+│   │   │   │   ├── Icon.tsx
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── MetricTile.tsx
+│   │   │   │   ├── Section.tsx
+│   │   │   │   ├── Stack.tsx
+│   │   │   │   ├── Surface.tsx
+│   │   │   │   └── Tag.tsx
+│   │   │   └── WorkspaceMembersCard.tsx
+│   │   ├── contexts
+│   │   │   ├── authContext.ts
+│   │   │   ├── AuthContext.tsx
+│   │   │   ├── CLAUDE.md
+│   │   │   ├── CommandPaletteContext.tsx
+│   │   │   ├── offlineSyncContext.ts
+│   │   │   └── OfflineSyncContext.tsx
+│   │   ├── hooks
+│   │   │   ├── useAiFeatures.ts
+│   │   │   ├── useAuth.ts
+│   │   │   ├── useCollaborativeNote.ts
+│   │   │   ├── useOfflineSync.ts
+│   │   │   ├── useScrollReveal.ts
+│   │   │   └── useSemanticSearch.ts
+│   │   ├── index.css
+│   │   ├── lib
+│   │   │   ├── axios.ts
+│   │   │   ├── cn.ts
+│   │   │   ├── lowlight.ts
+│   │   │   ├── notebookSyncClient.ts
+│   │   │   ├── noteTemplates.ts
+│   │   │   ├── offlineDB.ts
+│   │   │   ├── offlineSyncManager.ts
+│   │   │   ├── serviceWorkerLifecycle.ts
+│   │   │   └── Utils.ts
+│   │   ├── main.tsx
+│   │   ├── pages
+│   │   │   ├── CLAUDE.md
+│   │   │   ├── CreatePage.tsx
+│   │   │   ├── DashboardPage.tsx
+│   │   │   ├── ForgotPasswordPage.tsx
+│   │   │   ├── home
+│   │   │   │   ├── BulkMoveDialog.tsx
+│   │   │   │   ├── BulkMoveNotebookDialog.tsx
+│   │   │   │   ├── BulkTagDialog.tsx
+│   │   │   │   ├── HomePageDnD.tsx
+│   │   │   │   ├── homePageUtils.ts
+│   │   │   │   ├── NotebookDeleteDialog.tsx
+│   │   │   │   └── NotebookFormDialog.tsx
+│   │   │   ├── HomePage.tsx
+│   │   │   ├── LandingPage.tsx
+│   │   │   ├── LoginPage.tsx
+│   │   │   ├── NotebookInvitePage.tsx
+│   │   │   ├── NoteDetailPage.tsx
+│   │   │   ├── PrivacyPage.tsx
+│   │   │   ├── ProfilePage.tsx
+│   │   │   ├── published-notebook-page.tsx
+│   │   │   ├── PublishedNotebookPage.tsx
+│   │   │   ├── published-note-page.tsx
+│   │   │   ├── RegisterPage.tsx
+│   │   │   ├── ResetPasswordPage.tsx
+│   │   │   ├── TermsPage.tsx
+│   │   │   ├── __tests__
+│   │   │   │   └── HomePage.test.tsx
+│   │   │   └── VerifyEmailPage.tsx
+│   │   ├── styles
+│   │   │   └── editor.css
+│   │   ├── test
+│   │   │   └── setupTests.ts
+│   │   └── vite-env.d.ts
+│   ├── tailwind.config.js
+│   ├── tsconfig.json
+│   ├── vite.config.ts
+│   ├── vite-env.d.ts
+│   └── vitest.config.js
+├── package.json
+├── package-lock.json
+├── shared
+│   ├── analyticsTypes.js
+│   ├── analyticsTypes.ts
+│   ├── CLAUDE.md
+│   ├── notebookOptions.js
+│   └── notebookOptions.ts
+├── tree.txt
+└── tsconfig.json
+
+38 directories, 381 files
