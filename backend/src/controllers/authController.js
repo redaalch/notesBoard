@@ -17,6 +17,16 @@ import slugify from "../utils/slugify.js";
 const REFRESH_COOKIE = "nb_refresh_token";
 const isProduction = process.env.NODE_ENV === "production";
 
+// Escape characters that have special meaning in HTML to prevent injection
+// in email templates where user-supplied values are interpolated.
+const escapeHtml = (str) =>
+  str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+
 const INTERNAL_SERVER_ERROR = { message: "Internal server error" };
 const EMAIL_REQUIRED = { message: "Email is required" };
 const EMAIL_AND_PASSWORD_REQUIRED = {
@@ -129,16 +139,22 @@ const shouldUseSecureCookies = (req) => {
   return true;
 };
 
+const VALID_DOMAIN_RE = /^\.?[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$/;
+
 const baseCookieOptions = (req) => {
   const secure = shouldUseSecureCookies(req);
   const configuredDomain = process.env.COOKIE_DOMAIN?.trim();
+  const domain =
+    configuredDomain && VALID_DOMAIN_RE.test(configuredDomain)
+      ? configuredDomain
+      : undefined;
   return {
     httpOnly: true,
     secure,
     sameSite: secure ? "strict" : "lax",
     path: "/",
     priority: "high",
-    ...(configuredDomain ? { domain: configuredDomain } : {}),
+    ...(domain ? { domain } : {}),
   };
 };
 
@@ -353,9 +369,9 @@ const sendEmailVerification = async (user, req, token, redirectUrl) => {
     text: `Hi ${
       user.name || "there"
     },\n\nThanks for signing up for NotesBoard! Please confirm your email address by visiting the link below:\n${verifyLink}\n\nIf you did not sign up, you can safely ignore this email.`,
-    html: `<!doctype html><html><body><p>Hi ${
-      user.name || "there"
-    },</p><p>Thanks for signing up for NotesBoard! Please confirm your email address by clicking the link below:</p><p><a href="${verifyLink}">Confirm your email</a></p><p>If you did not sign up, you can safely ignore this email.</p></body></html>`,
+    html: `<!doctype html><html><body><p>Hi ${escapeHtml(
+      user.name || "there",
+    )},</p><p>Thanks for signing up for NotesBoard! Please confirm your email address by clicking the link below:</p><p><a href="${escapeHtml(verifyLink)}">Confirm your email</a></p><p>If you did not sign up, you can safely ignore this email.</p></body></html>`,
   });
 };
 
@@ -379,7 +395,6 @@ const issueSession = async (user, req, res, meta = {}) => {
     token: hashed,
     expiresAt,
     userAgent: meta.userAgent,
-    ip: meta.ip,
   });
   await user.save();
 
@@ -425,7 +440,12 @@ export const register = async (req, res) => {
     const existing = await User.findOne({ email: normalizedEmail });
 
     if (existing && existing.emailVerified) {
-      return res.status(409).json({ message: "Email already registered" });
+      // Return the same response as a successful new registration to prevent
+      // enumeration of which email addresses have verified accounts.
+      // The existing verified account is not modified.
+      return res.status(202).json({
+        message: "Account created. Check your email to confirm your address.",
+      });
     }
 
     const verification = generateEmailVerificationToken();
@@ -636,7 +656,6 @@ export const login = async (req, res) => {
 
     const session = await issueSession(user, req, res, {
       userAgent: req.get("user-agent"),
-      ip: req.ip,
     });
 
     return res.status(200).json({
@@ -659,7 +678,7 @@ export const verifyEmail = async (req, res) => {
   try {
     const { token } = req.body ?? {};
 
-    if (!token || typeof token !== "string" || token.length < 20) {
+    if (!token || typeof token !== "string" || token.length !== 64) {
       return res.status(400).json({ message: "A valid token is required" });
     }
 
@@ -681,7 +700,6 @@ export const verifyEmail = async (req, res) => {
 
     const session = await issueSession(user, req, res, {
       userAgent: req.get("user-agent"),
-      ip: req.ip,
     });
 
     return res.status(200).json({
@@ -704,7 +722,7 @@ export const resetPassword = async (req, res) => {
   try {
     const { token, password } = req.body ?? {};
 
-    if (!token || typeof token !== "string" || token.length < 20) {
+    if (!token || typeof token !== "string" || token.length !== 64) {
       return res.status(400).json({ message: "A valid token is required" });
     }
 
@@ -774,7 +792,6 @@ export const refresh = async (req, res) => {
 
     const session = await issueSession(user, req, res, {
       userAgent: req.get("user-agent"),
-      ip: req.ip,
     });
 
     return res.status(200).json({
@@ -878,7 +895,6 @@ export const updateProfile = async (req, res) => {
           emailVerification: user.emailVerification
             ? { ...user.emailVerification }
             : undefined,
-          refreshTokens: [...user.refreshTokens],
         };
 
         user.email = normalizedEmail;
@@ -888,7 +904,6 @@ export const updateProfile = async (req, res) => {
           verification.hashed,
           verification.expiresAt,
         );
-        user.clearRefreshTokens();
 
         verificationToken = verification.token;
         emailChanged = true;
@@ -929,14 +944,18 @@ export const updateProfile = async (req, res) => {
           user.emailVerified = previousState.emailVerified;
           user.emailVerifiedAt = previousState.emailVerifiedAt;
           user.emailVerification = previousState.emailVerification;
-          user.refreshTokens = previousState.refreshTokens;
           await user.save();
+          invalidateUserCache(user.id);
         }
 
         return res.status(500).json({
           message: "Failed to send verification email to the new address.",
         });
       }
+
+      user.clearRefreshTokens();
+      await user.save();
+      invalidateUserCache(user.id);
 
       session = await issueSession(user, req, res, {
         userAgent: req.get("user-agent"),
@@ -1007,7 +1026,6 @@ export const changePassword = async (req, res) => {
 
     const session = await issueSession(user, req, res, {
       userAgent: req.get("user-agent"),
-      ip: req.ip,
     });
 
     return res.status(200).json({
