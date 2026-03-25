@@ -7,6 +7,7 @@ import logger from "../utils/logger.js";
 import { normalizeEmail, isValidObjectId } from "../utils/validators.js";
 import { resolveNoteForUser } from "../utils/access.js";
 import { sendMail } from "../utils/mailer.js";
+import { revokeCollabAccess } from "../collab/server.js";
 
 const COLLABORATOR_ROLE_DEFAULT = "editor";
 
@@ -73,9 +74,12 @@ const buildNoteLink = (noteId) => {
   return `http://localhost:5173/note/${noteId}`;
 };
 
+const MAX_COLLABORATORS = 200;
+
 const buildCollaboratorPayload = async (noteId) => {
   const collaborators = await NoteCollaborator.find({ noteId })
     .sort({ invitedAt: 1 })
+    .limit(MAX_COLLABORATORS)
     .lean();
 
   if (!collaborators.length) {
@@ -284,6 +288,10 @@ export const removeNoteCollaborator = async (req, res) => {
       noteId: access.note._id,
       userId: new mongoose.Types.ObjectId(collaboratorId),
     });
+
+    // Terminate any active collab WebSocket session for the removed user
+    // immediately, rather than waiting for the next onChange permission re-check.
+    revokeCollabAccess(collaboratorId, id);
 
     const collaborators = await buildCollaboratorPayload(access.note._id);
 
