@@ -10,7 +10,11 @@ import { verifyAccessToken } from "../utils/tokenService.js";
 import CollabDocument from "../models/CollabDocument.js";
 import Note from "../models/Note.js";
 import NoteHistory from "../models/NoteHistory.js";
-import { resolveNoteForUser, touchWorkspaceMember } from "../utils/access.js";
+import {
+  resolveNoteForUser,
+  touchWorkspaceMember,
+} from "../utils/access.js";
+import { isValidObjectId } from "../utils/validators.js";
 
 // ── Debounce / throttle helpers ──────────────────────────────────────────────
 
@@ -33,15 +37,20 @@ const historyPending = new Map(); // documentName → { timer, data }
 /**
  * Per-document cache for loadNoteForDocument to avoid repeated DB reads
  * on every onChange (which fires per keystroke).
- * Entries expire after 5 minutes.
+ * Entries expire after 60 seconds.
  */
-const NOTE_CACHE_TTL_MS = 5 * 60_000;
+const NOTE_CACHE_TTL_MS = 60_000;
 const noteInfoCache = new Map(); // documentName → { noteInfo, expiresAt }
+
+const MAX_DISPLAY_NAME_LENGTH = 100;
+const ALLOWED_COLOR_RE = /^#[0-9a-fA-F]{3,8}$/;
 
 const parseDocumentName = (documentName) => {
   if (typeof documentName !== "string") return null;
   if (documentName.startsWith("note:")) {
-    return documentName.slice(5);
+    const noteId = documentName.slice(5);
+    if (!isValidObjectId(noteId)) return null;
+    return noteId;
   }
   return null;
 };
@@ -58,7 +67,11 @@ const awarenessToPayload = (awareness) => {
   try {
     if (!awareness) return {};
     if (typeof awareness.getStates === "function") {
-      return Object.fromEntries(awareness.getStates().entries());
+      const states = awareness.getStates();
+      if (states && typeof states.entries === "function") {
+        return Object.fromEntries(states.entries());
+      }
+      return {};
     }
     if (awareness instanceof Map) {
       return Object.fromEntries(awareness.entries());
@@ -114,6 +127,68 @@ const coerceState = (state, document, logContext) => {
     stateType: typeof state,
   });
   return null;
+};
+
+/**
+ * Sanitize a display name from awareness payload.
+ * Returns a safe string or undefined if invalid.
+ */
+const sanitizeDisplayName = (name) => {
+  if (typeof name !== "string") return undefined;
+  const trimmed = name.trim().slice(0, MAX_DISPLAY_NAME_LENGTH);
+  return trimmed || undefined;
+};
+
+/**
+ * Sanitize an avatar color from awareness payload.
+ * Only allows valid hex color strings.
+ */
+const sanitizeAvatarColor = (color) => {
+  if (typeof color !== "string") return undefined;
+  return ALLOWED_COLOR_RE.test(color) ? color : undefined;
+};
+
+/**
+ * Close a specific connection by socketId within a document.
+ * Uses the public `getConnections()` API on the Hocuspocus Document.
+ */
+const forceCloseConnection = (instance, documentName, socketId) => {
+  try {
+    const doc = instance.documents.get(documentName);
+    if (!doc) return;
+    for (const conn of doc.getConnections()) {
+      if (conn.socketId === socketId) {
+        conn.close({ code: 4403, reason: "Permission revoked" });
+        break;
+      }
+    }
+  } catch (err) {
+    logger.warn("Failed to force-close connection", {
+      documentName,
+      socketId,
+      message: err?.message,
+    });
+  }
+};
+
+/**
+ * Clean up all in-memory state for a given document.
+ */
+const cleanupDocument = (documentName) => {
+  const awarenessTimer = awarenessTimers.get(documentName);
+  if (awarenessTimer) {
+    clearTimeout(awarenessTimer);
+    awarenessTimers.delete(documentName);
+  }
+
+  const pending = historyPending.get(documentName);
+  if (pending?.timer) {
+    clearTimeout(pending.timer);
+  }
+  historyPending.delete(documentName);
+
+  historyLastWrite.delete(documentName);
+  noteInfoCache.delete(documentName);
 };
 
 const collabServer = Server.configure({
@@ -235,30 +310,50 @@ const collabServer = Server.configure({
       return;
     }
 
-    const participants = Object.values(payload)
-      .filter((state) => !!state?.user?.id)
-      .slice(0, 50);
+    // Only allow the authenticated user's own awareness data to touch workspace
+    // records. Client-controlled awareness payloads can spoof other user IDs.
+    const authenticatedUserId = context?.userId;
 
     const flush = async () => {
       awarenessTimers.delete(documentName);
       try {
-        if (context?.workspaceId && participants.length) {
-          await Promise.all(
-            participants.map((state) =>
-              touchWorkspaceMember(context.workspaceId, state.user.id, {
-                lastActiveAt: new Date(),
-                displayName: state.user.name,
-                avatarColor: state.user.color,
-              }),
-            ),
+        // Re-read awareness at flush time to get the freshest state
+        // instead of using the stale snapshot from 5s ago.
+        const freshPayload = awarenessToPayload(awareness);
+
+        if (context?.workspaceId && authenticatedUserId) {
+          // Only update workspace presence for the authenticated user
+          const selfState = Object.values(freshPayload).find(
+            (state) => state?.user?.id === authenticatedUserId,
           );
+
+          if (selfState) {
+            const displayName = sanitizeDisplayName(selfState.user.name);
+            const avatarColor = sanitizeAvatarColor(selfState.user.color);
+
+            const patch = { lastActiveAt: new Date() };
+            if (displayName !== undefined) patch.displayName = displayName;
+            if (avatarColor !== undefined) patch.avatarColor = avatarColor;
+
+            await touchWorkspaceMember(
+              context.workspaceId,
+              authenticatedUserId,
+              patch,
+            ).catch((err) =>
+              logger.error("Awareness workspace member update failed", {
+                documentName,
+                userId: authenticatedUserId,
+                message: err?.message,
+              }),
+            );
+          }
         }
 
         await CollabDocument.findOneAndUpdate(
           { name: documentName },
           {
             $set: {
-              awareness: payload,
+              awareness: freshPayload,
               updatedAt: new Date(),
             },
           },
@@ -279,6 +374,29 @@ const collabServer = Server.configure({
   },
   async onChange({ documentName, context, state, document, update }) {
     if (!context?.userId) {
+      return;
+    }
+
+    // Re-verify that the user still has edit permission.
+    // Permissions may have been revoked since the WebSocket connected.
+    try {
+      const access = await resolveNoteForUser(context.noteId, context.userId);
+      if (!access?.permissions?.canEdit) {
+        logger.warn("Permission revoked during active session", {
+          documentName,
+          userId: context.userId,
+        });
+        // Force-close this specific connection so the client cannot continue
+        // making changes after access is revoked.
+        forceCloseConnection(data.instance, documentName, data.socketId);
+        return;
+      }
+    } catch (err) {
+      logger.error("Permission re-check failed in onChange", {
+        documentName,
+        userId: context.userId,
+        message: err?.message,
+      });
       return;
     }
 
@@ -377,6 +495,9 @@ const collabServer = Server.configure({
       historyPending.set(documentName, { timer, data: historyState });
     }
   },
+  async onDestroy({ documentName }) {
+    cleanupDocument(documentName);
+  },
 });
 
 export const startCollabServer = async ({
@@ -412,7 +533,14 @@ export const startCollabServer = async ({
             wss.emit("connection", ws, request);
           });
         } catch (error) {
-          socket.destroy();
+          logger.warn("WebSocket upgrade rejected", {
+            url: request?.url,
+            message: error?.message,
+          });
+          if (!socket.destroyed) {
+            socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+            socket.destroy();
+          }
         }
       });
 
@@ -440,6 +568,34 @@ export const startCollabServer = async ({
       stack: error?.stack,
     });
     throw error;
+  }
+};
+
+/**
+ * Immediately disconnect all active collab connections for a given user on a
+ * specific note. Call this when a collaborator is removed or their role is
+ * downgraded to read-only, so the revocation takes effect instantly rather
+ * than waiting until the next edit triggers the onChange permission re-check.
+ *
+ * @param {string} userId  - the user whose connections should be terminated
+ * @param {string} noteId  - the note they should be disconnected from
+ */
+export const revokeCollabAccess = (userId, noteId) => {
+  const documentName = `note:${noteId}`;
+  try {
+    const doc = collabServer.documents.get(documentName);
+    if (!doc) return;
+    for (const conn of doc.getConnections()) {
+      if (conn.context?.userId === userId) {
+        conn.close({ code: 4403, reason: "Permission revoked" });
+      }
+    }
+  } catch (err) {
+    logger.warn("revokeCollabAccess failed", {
+      userId,
+      documentName,
+      message: err?.message,
+    });
   }
 };
 
