@@ -81,15 +81,18 @@ app.use(
 app.use(
   cors({
     origin: (origin, cb) => {
-      if (!origin) return cb(null, true);
+      // Supertest (integration tests) never sends an Origin header — allow
+      // in the test environment only.
+      if (!origin) {
+        if (process.env.NODE_ENV === "test") return cb(null, true);
+        return cb(new Error("CORS: requests without an Origin are not allowed"));
+      }
       cb(null, allowedOrigins.includes(origin));
     },
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   }),
 );
-app.options("*", cors());
 
 // Compress all HTTP responses (gzip/deflate)
 app.use(compression());
