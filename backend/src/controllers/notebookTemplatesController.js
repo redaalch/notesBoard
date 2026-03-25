@@ -454,7 +454,7 @@ export const instantiateNotebookTemplate = async (req, res) => {
     for (const targetBoardId of Object.values(sanitizedBoardMappings)) {
       const boardObjId = normalizeObjectId(targetBoardId);
       if (boardObjId) {
-        const board = await Board.findOne({ _id: boardObjId, owner: ownerId }).lean();
+        const board = await Board.findOne({ _id: boardObjId, createdBy: ownerId }).lean();
         if (!board) {
           return res
             .status(403)
