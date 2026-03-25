@@ -11,6 +11,7 @@ import {
 } from "../services/embeddingService.js";
 import logger from "../utils/logger.js";
 import { isValidObjectId } from "../utils/validators.js";
+import { resolveNoteForUser } from "../utils/access.js";
 
 const INTERNAL_SERVER_ERROR = { message: "Internal server error" };
 const NOTE_NOT_FOUND = { message: "Note not found" };
@@ -22,6 +23,32 @@ const AI_UNAVAILABLE = {
 
 const isAiConfigured = () => Boolean(process.env.GROQ_API_KEY);
 
+/**
+ * Resolve note access for the current user.
+ * Returns { note, permissions } or sends an error response and returns null.
+ */
+const resolveNoteAccess = async (req, res, { requireEdit = false } = {}) => {
+  const { id } = req.params;
+  if (!isValidObjectId(id)) {
+    res.status(400).json(INVALID_NOTE_ID);
+    return null;
+  }
+
+  const userId = req.user.id;
+  const access = await resolveNoteForUser(id, userId);
+  if (!access) {
+    res.status(404).json(NOTE_NOT_FOUND);
+    return null;
+  }
+
+  if (requireEdit && !access.permissions?.canEdit) {
+    res.status(403).json({ message: "Insufficient permissions" });
+    return null;
+  }
+
+  return access;
+};
+
 /* ─────── POST /api/ai/notes/:id/summary ─────── */
 export const summarizeNote = async (req, res) => {
   try {
@@ -29,22 +56,10 @@ export const summarizeNote = async (req, res) => {
       return res.status(503).json(AI_UNAVAILABLE);
     }
 
-    const { id } = req.params;
-    if (!isValidObjectId(id)) {
-      return res.status(400).json(INVALID_NOTE_ID);
-    }
+    const access = await resolveNoteAccess(req, res);
+    if (!access) return;
 
-    const userId = req.user.id;
-    const note = await Note.findOne({
-      _id: id,
-      $or: [{ owner: new mongoose.Types.ObjectId(userId) }],
-    })
-      .select({ title: 1, content: 1, contentText: 1, tags: 1, aiSummary: 1 })
-      .lean();
-
-    if (!note) {
-      return res.status(404).json(NOTE_NOT_FOUND);
-    }
+    const { note } = access;
 
     const result = await generateNoteSummary(note);
 
@@ -66,7 +81,7 @@ export const summarizeNote = async (req, res) => {
 
     // Persist the structured summary on the note document
     await Note.updateOne(
-      { _id: id },
+      { _id: note._id },
       {
         $set: {
           "aiSummary.summary": result.summary,
@@ -77,7 +92,7 @@ export const summarizeNote = async (req, res) => {
     );
 
     // Re-read so Mongoose assigns _id to each action item
-    const updated = await Note.findById(id).select("aiSummary").lean();
+    const updated = await Note.findById(note._id).select("aiSummary").lean();
 
     return res.status(200).json({
       summary: result.summary,
@@ -99,28 +114,16 @@ export const suggestTags = async (req, res) => {
       return res.status(503).json(AI_UNAVAILABLE);
     }
 
-    const { id } = req.params;
-    if (!isValidObjectId(id)) {
-      return res.status(400).json(INVALID_NOTE_ID);
-    }
+    const access = await resolveNoteAccess(req, res);
+    if (!access) return;
 
+    const { note } = access;
     const userId = req.user.id;
     const userObjectId = new mongoose.Types.ObjectId(userId);
 
-    const note = await Note.findOne({
-      _id: id,
-      $or: [{ owner: userObjectId }],
-    })
-      .select({ title: 1, content: 1, contentText: 1, tags: 1 })
-      .lean();
-
-    if (!note) {
-      return res.status(404).json(NOTE_NOT_FOUND);
-    }
-
-    // Gather the user's existing tag vocabulary
+    // Gather the user's existing tag vocabulary (scoped to owned notes for relevance)
     const existingTagDocs = await Note.aggregate([
-      { $match: { owner: userObjectId } },
+      { $match: { owner: userObjectId, tags: { $exists: true, $ne: [] } } },
       { $unwind: "$tags" },
       { $group: { _id: "$tags" } },
       { $sort: { _id: 1 } },
@@ -139,7 +142,7 @@ export const suggestTags = async (req, res) => {
 
     // Persist suggestions on the note
     await Note.updateOne(
-      { _id: id },
+      { _id: note._id },
       {
         $set: {
           "suggestedTags.tags": suggestedTags,
@@ -168,22 +171,10 @@ export const regenerateEmbedding = async (req, res) => {
       return res.status(503).json(AI_UNAVAILABLE);
     }
 
-    const { id } = req.params;
-    if (!isValidObjectId(id)) {
-      return res.status(400).json(INVALID_NOTE_ID);
-    }
+    const access = await resolveNoteAccess(req, res, { requireEdit: true });
+    if (!access) return;
 
-    const userId = req.user.id;
-    const note = await Note.findOne({
-      _id: id,
-      $or: [{ owner: new mongoose.Types.ObjectId(userId) }],
-    })
-      .select({ title: 1, content: 1, contentText: 1, tags: 1 })
-      .lean();
-
-    if (!note) {
-      return res.status(404).json(NOTE_NOT_FOUND);
-    }
+    const { note } = access;
 
     const text = buildNoteEmbeddingText(note);
     const embedding = await embedText(text);
@@ -196,7 +187,7 @@ export const regenerateEmbedding = async (req, res) => {
     }
 
     await Note.updateOne(
-      { _id: id },
+      { _id: note._id },
       {
         $set: {
           embedding,
@@ -226,12 +217,10 @@ export const toggleActionItem = async (req, res) => {
       return res.status(400).json(INVALID_NOTE_ID);
     }
 
-    const userId = req.user.id;
-    const note = await Note.findOne({
-      _id: id,
-      $or: [{ owner: new mongoose.Types.ObjectId(userId) }],
-    }).select("aiSummary");
+    const access = await resolveNoteAccess(req, res, { requireEdit: true });
+    if (!access) return;
 
+    const note = await Note.findById(id).select("aiSummary");
     if (!note) {
       return res.status(404).json(NOTE_NOT_FOUND);
     }
