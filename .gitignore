@@ -7,6 +7,9 @@
 # Keep an example to document required env vars
 !.env.example
 
+.claudeignore
+CLAUDE.md
+
 # Node dependencies
 **/node_modules/
 backend/node_modules/
