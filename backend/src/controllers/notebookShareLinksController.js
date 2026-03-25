@@ -123,6 +123,7 @@ export const listNotebookShareLinks = async (req, res) => {
       resourceType: "notebook",
     })
       .sort({ createdAt: -1 })
+      .limit(200)
       .lean();
 
     const userMap = await toLeanUserMap(links);
@@ -253,6 +254,7 @@ export const revokeNotebookShareLink = async (req, res) => {
       resourceType: "notebook",
     })
       .sort({ createdAt: -1 })
+      .limit(200)
       .lean();
 
     const userMap = await toLeanUserMap(links);
