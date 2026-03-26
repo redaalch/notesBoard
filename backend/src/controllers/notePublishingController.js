@@ -156,7 +156,7 @@ export const publishNote = async (req, res) => {
   if (responsePayload) {
     return res.status(200).json(responsePayload);
   }
-  return undefined;
+  return res.status(500).json(INTERNAL_SERVER_ERROR);
 };
 
 export const unpublishNote = async (req, res) => {
@@ -211,7 +211,7 @@ export const unpublishNote = async (req, res) => {
   if (responsePayload) {
     return res.status(200).json(responsePayload);
   }
-  return undefined;
+  return res.status(500).json(INTERNAL_SERVER_ERROR);
 };
 
 export default {
