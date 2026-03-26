@@ -54,14 +54,19 @@ const rateLimiter = async (req, res, next) => {
     }
     next();
   } catch (error) {
-    logger.error("Rate limiter failure", {
+    // Fail-closed: if the rate-limiter backend (Upstash/Redis) is unreachable,
+    // reject the request to prevent brute-force attacks during outages.
+    // The error is logged so ops can react quickly.
+    logger.error("Rate limiter failure — failing closed", {
       error: error?.message,
       stack: error?.stack,
       clientId,
       route: routeKey,
       identifier,
     });
-    next();
+    return res.status(503).json({
+      message: "Service temporarily unavailable. Please try again shortly.",
+    });
   }
 };
 export default rateLimiter;
