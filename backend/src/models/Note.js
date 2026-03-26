@@ -81,7 +81,6 @@ const noteSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
     },
     workspaceId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -113,11 +112,8 @@ const noteSchema = new mongoose.Schema(
     content: {
       type: String,
       required: true,
+      maxlength: 50000,
       set: trimSetter,
-      validate: {
-        validator: isSafeText,
-        message: "Content contains disallowed content.",
-      },
     },
     tags: {
       type: [String],
@@ -142,10 +138,18 @@ const noteSchema = new mongoose.Schema(
     richContent: {
       type: mongoose.Schema.Types.Mixed,
       default: null,
+      validate: {
+        validator: (v) => {
+          if (v == null) return true;
+          try { return JSON.stringify(v).length <= 512_000; } catch { return false; }
+        },
+        message: "richContent exceeds the 512 KB size limit",
+      },
     },
     contentText: {
       type: String,
       default: "",
+      maxlength: 50000,
     },
 
     /* ── Semantic Embeddings ── */
@@ -153,6 +157,10 @@ const noteSchema = new mongoose.Schema(
       type: [Number],
       default: undefined,
       select: false,
+      validate: {
+        validator: (v) => !v || v.length <= 2048,
+        message: "embedding cannot exceed 2048 dimensions",
+      },
     },
     embeddingUpdatedAt: {
       type: Date,
