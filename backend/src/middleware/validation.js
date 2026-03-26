@@ -2,6 +2,25 @@ import { body, param, query, validationResult } from "express-validator";
 import { NOTEBOOK_ANALYTICS_RANGES } from "../../../shared/analyticsTypes.js";
 
 /**
+ * Recursively strip keys that start with "$" or contain "." from an object.
+ * Prevents NoSQL operator injection when the object is later used in queries.
+ */
+const stripMongoOperators = (obj) => {
+  if (Array.isArray(obj)) {
+    return obj.map(stripMongoOperators);
+  }
+  if (obj !== null && typeof obj === "object") {
+    const cleaned = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (key.startsWith("$") || key.includes(".")) continue;
+      cleaned[key] = stripMongoOperators(value);
+    }
+    return cleaned;
+  }
+  return obj;
+};
+
+/**
  * Validation middleware creator
  * Validates request and returns errors if any
  */
@@ -15,11 +34,11 @@ export const validate = (validations) => {
       return next();
     }
 
-    // Format errors
+    // Format errors — do NOT echo back err.value; it could contain passwords,
+    // tokens, or other sensitive input submitted in the wrong field.
     const formattedErrors = errors.array().map((err) => ({
       field: err.path || err.param,
       message: err.msg,
-      value: err.value,
     }));
 
     return res.status(400).json({
@@ -95,6 +114,8 @@ export const validationRules = {
       .withMessage("Tags must be an array")
       .custom((tags) => tags.every((tag) => typeof tag === "string"))
       .withMessage("All tags must be strings")
+      .custom((tags) => tags.every((tag) => tag.length <= 50))
+      .withMessage("Each tag must be 50 characters or fewer")
       .custom((tags) => tags.length <= 20)
       .withMessage("Maximum 20 tags allowed"),
 
@@ -116,11 +137,11 @@ export const validationRules = {
       .isLength({ max: 500 })
       .withMessage("Description must not exceed 500 characters"),
 
-  // Role validation
+  // Role validation — "owner" is assigned only at creation time, never via invite/update payloads.
   memberRole: () =>
     body("role")
-      .isIn(["owner", "editor", "viewer"])
-      .withMessage("Role must be one of: owner, editor, viewer"),
+      .isIn(["editor", "viewer"])
+      .withMessage("Role must be one of: editor, viewer"),
 
   // Date validation
   dateRange: () => [
@@ -133,7 +154,10 @@ export const validationRules = {
       .isISO8601()
       .withMessage("End date must be a valid ISO 8601 date")
       .custom((endDate, { req }) => {
-        if (req.query.startDate && endDate < req.query.startDate) {
+        if (
+          req.query.startDate &&
+          new Date(endDate) < new Date(req.query.startDate)
+        ) {
           throw new Error("End date must be after start date");
         }
         return true;
@@ -157,7 +181,9 @@ export const validationRules = {
       .isString()
       .trim()
       .isLength({ min: 6, max: 64 })
-      .withMessage("Slug must be between 6 and 64 characters"),
+      .withMessage("Slug must be between 6 and 64 characters")
+      .matches(/^[a-z0-9-]+$/)
+      .withMessage("Slug may only contain lowercase letters, numbers, and hyphens"),
 
   syncClientId: (field = "clientId") =>
     body(field)
@@ -192,11 +218,17 @@ export const validationRules = {
     body("filters")
       .optional({ nullable: true })
       .isObject()
-      .withMessage("filters must be an object"),
+      .withMessage("filters must be an object")
+      .customSanitizer((value) =>
+        value && typeof value === "object" ? stripMongoOperators(value) : value,
+      ),
     body("sort")
       .optional({ nullable: true })
       .isObject()
-      .withMessage("sort must be an object"),
+      .withMessage("sort must be an object")
+      .customSanitizer((value) =>
+        value && typeof value === "object" ? stripMongoOperators(value) : value,
+      ),
     body("scope")
       .optional()
       .isString()
