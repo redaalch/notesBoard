@@ -218,36 +218,49 @@ export const addWorkspaceMember = async (req, res) => {
     }
 
     const now = new Date();
-    if (!Array.isArray(workspace.members)) {
-      workspace.members = [];
-    }
+    const userObjectId = new mongoose.Types.ObjectId(user._id);
 
-    const existingIndex = workspace.members.findIndex(
-      (member) => String(member.userId) === String(user._id)
+    // Use atomic operations to avoid read-modify-save race conditions
+    const existingMember = (workspace.members ?? []).find(
+      (member) => String(member.userId) === String(user._id),
     );
 
-    if (existingIndex >= 0) {
-      workspace.members[existingIndex].role = desiredRole;
-      workspace.members[existingIndex].joinedAt =
-        workspace.members[existingIndex].joinedAt ?? now;
-      workspace.members[existingIndex].invitedAt =
-        workspace.members[existingIndex].invitedAt ?? now;
+    if (existingMember) {
+      // Atomically update the existing member's role
+      await Workspace.updateOne(
+        { _id: workspace._id, "members.userId": userObjectId },
+        {
+          $set: {
+            "members.$.role": desiredRole,
+            "members.$.joinedAt": existingMember.joinedAt ?? now,
+            "members.$.invitedAt": existingMember.invitedAt ?? now,
+          },
+        },
+      );
     } else {
-      workspace.members.push({
-        userId: user._id,
-        role: desiredRole,
-        invitedAt: now,
-        joinedAt: now,
-        displayName: user.name ?? "",
-        avatarColor: "",
-        lastActiveAt: now,
-      });
+      // Atomically push a new member entry
+      await Workspace.updateOne(
+        { _id: workspace._id },
+        {
+          $push: {
+            members: {
+              userId: userObjectId,
+              role: desiredRole,
+              invitedAt: now,
+              joinedAt: now,
+              displayName: user.name ?? "",
+              avatarColor: "",
+              lastActiveAt: now,
+            },
+          },
+        },
+      );
     }
 
-    await workspace.save();
-
-    const payload = await serializeMembers(workspace);
-    return res.status(existingIndex >= 0 ? 200 : 201).json({
+    // Re-fetch for serialization
+    const updatedWorkspace = await Workspace.findById(workspace._id).lean();
+    const payload = await serializeMembers(updatedWorkspace);
+    return res.status(existingMember ? 200 : 201).json({
       ...payload,
       membershipRole: requesterRole,
       canManage: MANAGE_ROLES.has(requesterRole),
