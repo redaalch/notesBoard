@@ -122,18 +122,22 @@ export const getAllNotes = async (req, res) => {
     const requestedNotebookId = req.query?.notebookId;
     const userObjectId = new mongoose.Types.ObjectId(userId);
 
-    // Parallelize independent membership lookups
+    // Parallelize independent membership lookups.
+    // Both queries are capped to prevent building massive $in arrays that degrade
+    // MongoDB query performance when a user has thousands of memberships.
     const [notebookMemberships, collaboratorDocs] = await Promise.all([
       NotebookMember.find({
         userId: userObjectId,
         status: "active",
       })
         .select({ notebookId: 1, role: 1 })
+        .limit(500)
         .lean(),
       NoteCollaborator.find({
         userId: userObjectId,
       })
         .select({ noteId: 1, role: 1 })
+        .limit(500)
         .lean(),
     ]);
 
@@ -972,30 +976,31 @@ export const bulkUpdateNotes = async (req, res) => {
       });
     }
 
-    const membershipCache = new Map();
-    const resolveRole = async (workspaceId) => {
-      if (!workspaceId) return null;
-      const key = workspaceId.toString();
-      if (membershipCache.has(key)) {
-        return membershipCache.get(key);
-      }
-      const membership = await getWorkspaceMembership(workspaceId, ownerId);
-      const role = membership?.member?.role ?? (membership ? "owner" : null);
-      membershipCache.set(key, role);
-      return role;
-    };
+    // Batch-load all unique workspace memberships in parallel instead of
+    // resolving them one-by-one inside the loop (eliminates N+1 DB queries).
+    const uniqueWorkspaceIds = [
+      ...new Set(
+        candidateNotes.map((n) => n.workspaceId?.toString()).filter(Boolean),
+      ),
+    ];
 
-    const permittedNotes = [];
-    for (const note of candidateNotes) {
-      const isOwner = String(note.owner) === String(ownerId);
-      let role = null;
-      if (note.workspaceId) {
-        role = await resolveRole(note.workspaceId);
-      }
-      if (isOwner || (role && EDIT_ROLES.has(role))) {
-        permittedNotes.push(note);
-      }
-    }
+    const membershipResults = await Promise.all(
+      uniqueWorkspaceIds.map((wsId) => getWorkspaceMembership(wsId, ownerId)),
+    );
+
+    const membershipRoleByWorkspace = new Map();
+    uniqueWorkspaceIds.forEach((wsId, i) => {
+      const membership = membershipResults[i];
+      const role = membership?.member?.role ?? (membership ? "owner" : null);
+      membershipRoleByWorkspace.set(wsId, role);
+    });
+
+    const permittedNotes = candidateNotes.filter((note) => {
+      if (String(note.owner) === String(ownerId)) return true;
+      if (!note.workspaceId) return false;
+      const role = membershipRoleByWorkspace.get(note.workspaceId.toString());
+      return role && EDIT_ROLES.has(role);
+    });
 
     const allowedIds = permittedNotes.map((note) => note._id);
     if (!allowedIds.length) {
@@ -1171,6 +1176,10 @@ export const bulkUpdateNotes = async (req, res) => {
     }
 
     if (action === "move") {
+      if (!boardId || !isValidObjectId(boardId)) {
+        return res.status(400).json({ message: "Valid boardId is required for move action" });
+      }
+
       const boardContext = await resolveBoardForUser(boardId, ownerId);
       if (!boardContext) {
         return res
@@ -1219,6 +1228,9 @@ export const bulkUpdateNotes = async (req, res) => {
     if (action === "moveNotebook") {
       let targetNotebookId = null;
       if (notebookId && notebookId !== "uncategorized") {
+        if (!isValidObjectId(notebookId)) {
+          return res.status(400).json({ message: "Valid notebookId is required" });
+        }
         const notebook = await ensureNotebookOwnership(notebookId, ownerId);
         if (!notebook) {
           return res.status(404).json({ message: "Notebook not found" });
@@ -1413,9 +1425,17 @@ export const updateNoteLayout = async (req, res) => {
     }
 
     if (notebookId && notebookId !== "uncategorized") {
-      const notebook = await ensureNotebookOwnership(notebookId, userId);
-      if (!notebook) {
+      const access = await getNotebookMembership(notebookId, userId);
+      if (!access) {
         return res.status(404).json({ message: "Notebook not found" });
+      }
+
+      const { notebook, membership } = access;
+      const role = membership?.role;
+      if (role !== "owner" && role !== "editor") {
+        return res
+          .status(403)
+          .json({ message: "You do not have permission to reorder notes in this notebook" });
       }
 
       if (!normalizedObjectIds.length) {
@@ -1423,27 +1443,40 @@ export const updateNoteLayout = async (req, res) => {
         return res.status(200).json({ noteIds: [] });
       }
 
-      const candidates = await Note.find(
-        {
-          _id: { $in: normalizedObjectIds },
-          owner: userObjectId,
-          notebookId: notebook._id,
-        },
-        { _id: 1 },
-      ).lean();
+      const session = await mongoose.startSession();
+      try {
+        let filteredIds;
+        await session.withTransaction(async () => {
+          const candidates = await Note.find(
+            {
+              _id: { $in: normalizedObjectIds },
+              notebookId: notebook._id,
+            },
+            { _id: 1 },
+          )
+            .session(session)
+            .lean();
 
-      const allowedSet = new Set(candidates.map((note) => note._id.toString()));
-      const filteredIds = normalizedIds.filter((id) => allowedSet.has(id));
+          const allowedSet = new Set(
+            candidates.map((note) => note._id.toString()),
+          );
+          filteredIds = normalizedIds.filter((id) => allowedSet.has(id));
 
-      const notebookOrder = filteredIds.map(
-        (id) => new mongoose.Types.ObjectId(id),
-      );
+          const notebookOrder = filteredIds.map(
+            (id) => new mongoose.Types.ObjectId(id),
+          );
 
-      await Notebook.findByIdAndUpdate(notebook._id, {
-        noteOrder: notebookOrder,
-      });
+          await Notebook.findByIdAndUpdate(
+            notebook._id,
+            { noteOrder: notebookOrder },
+            { session },
+          );
+        });
 
-      return res.status(200).json({ noteIds: filteredIds });
+        return res.status(200).json({ noteIds: filteredIds });
+      } finally {
+        await session.endSession();
+      }
     }
 
     if (!normalizedObjectIds.length) {
@@ -1454,30 +1487,47 @@ export const updateNoteLayout = async (req, res) => {
       return res.status(200).json({ noteIds: [] });
     }
 
-    const candidates = await Note.find(
-      {
-        _id: { $in: normalizedObjectIds },
-        $or: orConditions,
-      },
-      { _id: 1 },
-    ).lean();
+    const session = await mongoose.startSession();
+    try {
+      let filteredIds;
+      await session.withTransaction(async () => {
+        const candidates = await Note.find(
+          {
+            _id: { $in: normalizedObjectIds },
+            $or: orConditions,
+          },
+          { _id: 1 },
+        )
+          .session(session)
+          .lean();
 
-    const allowedSet = new Set(candidates.map((note) => note._id.toString()));
-    const filteredIds = normalizedIds.filter((id) => allowedSet.has(id));
+        const allowedSet = new Set(
+          candidates.map((note) => note._id.toString()),
+        );
+        filteredIds = normalizedIds.filter((id) => allowedSet.has(id));
 
-    const objectIdOrder = filteredIds.map(
-      (id) => new mongoose.Types.ObjectId(id),
-    );
+        const objectIdOrder = filteredIds.map(
+          (id) => new mongoose.Types.ObjectId(id),
+        );
 
-    await User.findByIdAndUpdate(userId, {
-      customNoteOrder: objectIdOrder,
-    });
+        await User.findByIdAndUpdate(
+          userId,
+          { customNoteOrder: objectIdOrder },
+          { session },
+        );
+      });
 
-    if (req.userDocument) {
-      req.userDocument.customNoteOrder = objectIdOrder;
+      if (req.userDocument) {
+        const objectIdOrder = filteredIds.map(
+          (id) => new mongoose.Types.ObjectId(id),
+        );
+        req.userDocument.customNoteOrder = objectIdOrder;
+      }
+
+      return res.status(200).json({ noteIds: filteredIds });
+    } finally {
+      await session.endSession();
     }
-
-    return res.status(200).json({ noteIds: filteredIds });
   } catch (error) {
     logger.error("Failed to update note layout", {
       error: error?.message,
@@ -1501,15 +1551,18 @@ export const searchNotes = async (req, res) => {
 
     const userObjectId = new mongoose.Types.ObjectId(userId);
 
-    // Build the same access filter used by getAllNotes
+    // Build the same access filter used by getAllNotes.
+    // Capped at 500 to prevent building massive $in arrays on heavily-shared accounts.
     const [workspaceIds, collaboratorDocs, notebookMemberships] =
       await Promise.all([
         listAccessibleWorkspaceIds(userId),
         NoteCollaborator.find({ userId: userObjectId })
           .select({ noteId: 1 })
+          .limit(500)
           .lean(),
         NotebookMember.find({ userId: userObjectId, status: "active" })
           .select({ notebookId: 1 })
+          .limit(500)
           .lean(),
       ]);
 
