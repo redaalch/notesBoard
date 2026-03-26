@@ -19,19 +19,31 @@ export default function privateCacheHeaders(_req, res, next) {
     // Error responses must never be cached or return 304.
     if (res.statusCode >= 200 && res.statusCode < 300) {
       const serialised = typeof body === "string" ? body : JSON.stringify(body);
+      // md5 is sufficient for ETags — they only need collision resistance for
+      // the same resource over time, not cryptographic security, and it's ~3×
+      // faster than sha256.
       const etag = `"${crypto.createHash("md5").update(serialised).digest("hex")}"`;
 
       res.set("Cache-Control", "private, no-cache, must-revalidate");
       res.set("ETag", etag);
+      // Vary: Accept-Encoding tells caches to store separate entries per
+      // encoding (gzip/br/identity) so they don't serve gzip to clients
+      // that don't support it.
+      res.set("Vary", "Accept-Encoding");
 
       const ifNoneMatch = _req.headers["if-none-match"];
       if (ifNoneMatch && ifNoneMatch === etag) {
         return res.status(304).end();
       }
-    } else {
-      // Prevent browsers from caching error responses
-      res.set("Cache-Control", "no-store");
+
+      // Send the already-serialised string directly to avoid Express
+      // calling JSON.stringify a second time inside res.json().
+      res.set("Content-Type", "application/json");
+      return res.send(serialised);
     }
+
+    // Prevent browsers from caching error responses
+    res.set("Cache-Control", "no-store");
 
     return originalJson(body);
   };
