@@ -3,13 +3,26 @@ import { verifyAccessToken } from "../utils/tokenService.js";
 import logger from "../utils/logger.js";
 import { extractBearerToken } from "../utils/http.js";
 import NodeCache from "node-cache";
+import {
+  MAX_TOKEN_BYTES,
+  USER_CACHE_TTL_SECONDS,
+  USER_CACHE_MAX_KEYS,
+} from "../utils/constants.js";
 
 // Short-lived cache to avoid hitting MongoDB on every authenticated request.
-// TTL 30s balances freshness vs eliminating redundant DB lookups.
+// TTL 10s: shorter window means role/permission changes propagate faster.
+// Note: this is an in-process cache — in a multi-instance deployment, each
+// server has its own cache and changes won't immediately propagate to other
+// instances. Explicit invalidation via invalidateUserCache() covers the
+// common cases (password change, role update). For stricter consistency,
+// replace with a shared Redis cache.
+// useClones: true — each get() returns a deep copy so controller mutations
+// (e.g. req.userDocument.customNoteOrder = ...) never corrupt the cached entry.
 const userCache = new NodeCache({
-  stdTTL: 30,
-  checkperiod: 15,
-  useClones: false,
+  stdTTL: USER_CACHE_TTL_SECONDS,
+  checkperiod: USER_CACHE_TTL_SECONDS,
+  useClones: true,
+  maxKeys: USER_CACHE_MAX_KEYS,
 });
 
 const USER_PROJECTION = "name email role defaultWorkspace defaultBoard";
@@ -19,6 +32,12 @@ const auth = async (req, res, next) => {
     const token = extractBearerToken(req.headers.authorization);
 
     if (!token) {
+      return res.status(401).json({ message: "Authorization required" });
+    }
+
+    // Guard against oversized tokens — JWTs are typically <1 KB. Parsing an
+    // attacker-supplied multi-MB string in jwt.verify is expensive.
+    if (token.length > MAX_TOKEN_BYTES) {
       return res.status(401).json({ message: "Authorization required" });
     }
 
