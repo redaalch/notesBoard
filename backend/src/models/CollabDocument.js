@@ -19,6 +19,13 @@ const collabDocumentSchema = new mongoose.Schema(
     awareness: {
       type: mongoose.Schema.Types.Mixed,
       default: {},
+      validate: {
+        validator: (v) => {
+          if (v == null || (typeof v === "object" && !Object.keys(v).length)) return true;
+          try { return JSON.stringify(v).length <= 64_000; } catch { return false; }
+        },
+        message: "awareness exceeds the 64 KB size limit",
+      },
     },
     updatedAt: {
       type: Date,
