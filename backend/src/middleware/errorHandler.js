@@ -12,16 +12,26 @@ const errorHandler = (err, req, res, next) => {
     method: req.method,
     path: req.path,
     userId: req.user?.id,
-    statusCode: err.statusCode || err.status || 500,
   };
 
   logger.error("Error occurred", errorContext);
 
   // Handle specific error types
+  if (err.type === "entity.too.large") {
+    return res.status(413).json({
+      message: "Request body too large",
+    });
+  }
+
   if (err.name === "ValidationError") {
     return res.status(400).json({
       message: "Validation error",
-      errors: Object.values(err.errors).map((e) => e.message),
+      // Strip the "Path `fieldname` (`value`) " prefix that Mongoose prepends
+      // to generated messages — it leaks internal schema field names to clients.
+      errors: Object.values(err.errors).map((e) => {
+        const msg = e.message || "Validation error";
+        return msg.replace(/^Path `[^`]+` (\([^)]+\) )?/, "");
+      }),
     });
   }
 
@@ -34,7 +44,6 @@ const errorHandler = (err, req, res, next) => {
   if (err.code === 11000) {
     return res.status(409).json({
       message: "Duplicate entry",
-      field: Object.keys(err.keyPattern || {})[0],
     });
   }
 
@@ -52,7 +61,13 @@ const errorHandler = (err, req, res, next) => {
 
   // Default error response
   const statusCode = err.statusCode || err.status || 500;
-  const message = err.message || "Internal server error";
+  // Never expose raw error messages for server errors in production — they can
+  // leak DB query details, internal paths, or library internals to clients.
+  const isServerError = statusCode >= 500;
+  const message =
+    isServerError && process.env.NODE_ENV === "production"
+      ? "Internal server error"
+      : err.message || "Internal server error";
 
   res.status(statusCode).json({
     message,
