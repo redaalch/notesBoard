@@ -1,5 +1,5 @@
 import { body, param, query, validationResult } from "express-validator";
-import { NOTEBOOK_ANALYTICS_RANGES } from "../../../shared/analyticsTypes.js";
+import { NOTEBOOK_ANALYTICS_RANGES } from "../../../shared/analyticsTypes.ts";
 
 /**
  * Recursively strip keys that start with "$" or contain "." from an object.
