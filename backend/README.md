@@ -10,11 +10,11 @@ Copy `.env.example` to `.env` and configure the following variables before runni
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `MONGO_URI`                                          | Connection string for the primary MongoDB deployment.                                                      |
 | `MONGO_DB`                                           | Optional database name override when the URI does not embed one.                                           |
-| `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`            | Secrets for signing JWT tokens.                                                                            |
+| `JWT_ACCESS_SECRET`                                  | Secret for signing JWT access tokens (min 32 bytes). Refresh tokens are random hex strings, not JWTs.      |
 | `JWT_ACCESS_TTL`, `JWT_REFRESH_TTL_MS`               | Access and refresh token lifetimes.                                                                        |
 | `PASSWORD_RESET_URL`                                 | Base URL used in password reset emails.                                                                    |
 | `NODE_ENV`                                           | Set to `production` in production environments.                                                            |
-| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis credentials for distributed rate limiting. Falls back to a pass-through limiter when absent. |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis credentials for distributed rate limiting. Required in production; falls back to in-memory limiter in dev/test. |
 | `NOTEBOOK_ANALYTICS_SNAPSHOT_DAYS`                   | (Optional) Overrides how many days the snapshot cron ingests per run.                                      |
 | `NOTEBOOK_ANALYTICS_SEED_OWNER_EMAIL`                | (Optional) Default owner email for analytics fixture seeding.                                              |
 | `NOTEBOOK_ANALYTICS_SEED_OWNER_NAME`                 | (Optional) Display name for the seed owner account.                                                        |
@@ -94,11 +94,11 @@ src/
 - `POST /logout` – invalidate session
 - `POST /password/forgot` – request password reset email
 - `POST /password/reset` – reset password with token
+- `POST /verify-email` – verify email with token
 - `POST /verify-email/resend` – resend verification email
-- `GET /verify-email` – verify email with token
 - `GET /me` – current user profile
-- `PUT /me` – update profile (name, email)
-- `PUT /me/password` – change password
+- `PUT /profile` – update profile (name)
+- `POST /password/change` – change password (requires current password)
 
 ### Notes (`/api/notes`)
 
@@ -109,8 +109,16 @@ src/
 - `DELETE /:id` – delete note
 - `POST /bulk` – bulk operations (move, delete, tag, archive)
 - `GET /tags/stats` – tag usage statistics
+- `GET /search` – semantic/keyword note search
 - `GET /layout` – get custom note ordering
 - `PUT /layout` – update custom note ordering
+- `GET /:id/history` – note version history
+- `GET /:id/collaborators` – list note collaborators
+- `POST /:id/collaborators` – add collaborator
+- `DELETE /:id/collaborators/:collaboratorId` – remove collaborator
+- `GET /:id/publish` – get publishing state
+- `POST /:id/publish` – publish note
+- `DELETE /:id/publish` – unpublish note
 
 ### Notebooks (`/api/notebooks`)
 
@@ -129,30 +137,27 @@ src/
 - `GET /collaborators` – collaborator role breakdown
 - `GET /snapshots` – raw snapshot series including coverage metadata
 
-Supply the `range` query parameter using shared values from `shared/analyticsTypes.js` (`7d`, `30d`, `90d`, `365d`).
+Supply the `range` query parameter using shared values from `shared/analyticsTypes.ts` (`7d`, `30d`, `90d`, `365d`).
 
 ### Boards (`/api/boards`)
 
 - `GET /` – list boards across user workspaces
-- `POST /` – create board
-- `PUT /:id` – update board
-- `DELETE /:id` – delete board
 
 ### Workspaces (`/api/workspaces`)
 
 - `GET /` – list user workspaces
-- `POST /` – create workspace
 - `GET /:id/members` – list workspace members
+- `GET /:id/predictions` – productivity predictions
 - `POST /:id/members` – invite member
 
-### Notebook Templates (`/api/notebook-templates`)
+### Notebook Templates (`/api/templates`)
 
 - `GET /` – list templates
-- `POST /` – create template from notebook
 - `GET /:id` – get template details
-- `PUT /:id` – update template
 - `DELETE /:id` – delete template
 - `POST /:id/instantiate` – create notebook from template
+
+Templates are created via `POST /api/notebooks/:id/templates` (export notebook as template).
 
 ### Published Notebooks (`/api/published`)
 
@@ -177,7 +182,7 @@ Rate limiting is powered by Upstash Redis (distributed) with an in-process fallb
 - Applied globally to all `/api` routes.
 - Keys are bucketed by **route pattern** (not full URL) to prevent per-ID bucket dilution on REST endpoints.
 - Returns standard `X-RateLimit-*` response headers.
-- Fails open on limiter errors to avoid blocking legitimate traffic.
+- Fails closed on limiter errors — requests are rejected with HTTP 503 when the Redis backend is unreachable, preventing brute-force attacks during outages.
 
 ## Real-Time Collaboration
 
