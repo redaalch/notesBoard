@@ -6,7 +6,7 @@ import {
   getNotebookSnapshotAnalytics,
 } from "../services/notebookAnalyticsService.js";
 import { resolveNotebookMembership } from "../utils/access.js";
-import { NOTEBOOK_ANALYTICS_RANGES } from "../../../shared/analyticsTypes.js";
+import { NOTEBOOK_ANALYTICS_RANGES } from "../../../shared/analyticsTypes.ts";
 
 const VALID_RANGES = new Set(NOTEBOOK_ANALYTICS_RANGES);
 
