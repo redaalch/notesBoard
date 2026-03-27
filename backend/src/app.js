@@ -51,7 +51,7 @@ if (publicHost) {
 
 const cspDirectives = {
   defaultSrc: ["'self'"],
-  scriptSrc: ["'self'", "'unsafe-inline'"],
+  scriptSrc: ["'self'"],
   styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
   imgSrc: ["'self'", "data:", "blob:", "https://bg.ibelick.com"],
   connectSrc: ["'self'", ...collabSources],
