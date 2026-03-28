@@ -11,13 +11,13 @@ const noteHistorySchema = new mongoose.Schema(
     workspaceId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Workspace",
-      required: true,
+      default: null,
       index: true,
     },
     boardId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Board",
-      required: true,
+      default: null,
       index: true,
     },
     actorId: {
@@ -50,10 +50,24 @@ const noteHistorySchema = new mongoose.Schema(
     diff: {
       type: mongoose.Schema.Types.Mixed,
       default: null,
+      validate: {
+        validator: (v) => {
+          if (v == null) return true;
+          try { return JSON.stringify(v).length <= 256_000; } catch { return false; }
+        },
+        message: "diff exceeds the 256 KB size limit",
+      },
     },
     awarenessState: {
       type: mongoose.Schema.Types.Mixed,
       default: null,
+      validate: {
+        validator: (v) => {
+          if (v == null) return true;
+          try { return JSON.stringify(v).length <= 32_000; } catch { return false; }
+        },
+        message: "awarenessState exceeds the 32 KB size limit",
+      },
     },
     expiresAt: {
       type: Date,
