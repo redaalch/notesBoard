@@ -69,6 +69,10 @@ const workspaceSchema = new mongoose.Schema(
       required: true,
       unique: true,
       index: true,
+      validate: {
+        validator: (v) => /^[a-z0-9][a-z0-9_-]*$/.test(v),
+        message: "Slug may only contain lowercase letters, numbers, hyphens, and underscores",
+      },
     },
     ownerId: {
       type: mongoose.Schema.Types.ObjectId,
