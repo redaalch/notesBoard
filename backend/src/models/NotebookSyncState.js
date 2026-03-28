@@ -43,6 +43,13 @@ const notebookSyncStateSchema = new mongoose.Schema(
     snapshot: {
       type: mongoose.Schema.Types.Mixed,
       default: null,
+      validate: {
+        validator: (v) => {
+          if (v == null) return true;
+          try { return JSON.stringify(v).length <= 1_048_576; } catch { return false; }
+        },
+        message: "snapshot exceeds the 1 MB size limit",
+      },
     },
     pendingOperations: {
       type: [
@@ -61,6 +68,13 @@ const notebookSyncStateSchema = new mongoose.Schema(
             payload: {
               type: mongoose.Schema.Types.Mixed,
               default: null,
+              validate: {
+                validator: (v) => {
+                  if (v == null) return true;
+                  try { return JSON.stringify(v).length <= 32_000; } catch { return false; }
+                },
+                message: "Operation payload exceeds the 32 KB size limit",
+              },
             },
             createdAt: {
               type: Date,
@@ -80,6 +94,13 @@ const notebookSyncStateSchema = new mongoose.Schema(
       type: Map,
       of: mongoose.Schema.Types.Mixed,
       default: () => new Map(),
+      validate: {
+        validator: (v) => {
+          if (!v || v.size === 0) return true;
+          try { return JSON.stringify(Object.fromEntries(v)).length <= 16_000; } catch { return false; }
+        },
+        message: "metadata exceeds the 16 KB size limit",
+      },
     },
   },
   { timestamps: true }
