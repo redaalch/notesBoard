@@ -2,7 +2,15 @@ import mongoose from "mongoose";
 import {
   NOTEBOOK_COLOR_VALUES,
   NOTEBOOK_ICON_NAMES,
-} from "../../../shared/notebookOptions.js";
+} from "../../../shared/notebookOptions.ts";
+
+const SCRIPT_LIKE_PATTERN =
+  /<\/?\s*(script|iframe|object|embed|link|style|meta|form)\b/i;
+
+const isSafeName = (value) => {
+  if (typeof value !== "string" || !value.trim().length) return false;
+  return !SCRIPT_LIKE_PATTERN.test(value);
+};
 
 const notebookSchema = new mongoose.Schema(
   {
@@ -23,12 +31,20 @@ const notebookSchema = new mongoose.Schema(
       required: true,
       trim: true,
       maxlength: 120,
+      validate: {
+        validator: isSafeName,
+        message: "Name contains disallowed content.",
+      },
     },
     description: {
       type: String,
       default: "",
       trim: true,
       maxlength: 500,
+      validate: {
+        validator: (v) => !v || !SCRIPT_LIKE_PATTERN.test(v),
+        message: "Description contains disallowed content.",
+      },
     },
     isPublic: {
       type: Boolean,
@@ -39,6 +55,10 @@ const notebookSchema = new mongoose.Schema(
       type: String,
       default: null,
       maxlength: 64,
+      validate: {
+        validator: (v) => v === null || /^[a-z0-9-]+$/.test(v),
+        message: "Slug may only contain lowercase letters, numbers, and hyphens",
+      },
     },
     publishedAt: {
       type: Date,
@@ -47,6 +67,13 @@ const notebookSchema = new mongoose.Schema(
     publicMetadata: {
       type: mongoose.Schema.Types.Mixed,
       default: null,
+      validate: {
+        validator: (v) => {
+          if (v == null) return true;
+          try { return JSON.stringify(v).length <= 32_000; } catch { return false; }
+        },
+        message: "publicMetadata exceeds the 32 KB size limit",
+      },
     },
     color: {
       type: String,
