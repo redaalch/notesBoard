@@ -42,7 +42,6 @@ const userSchema = new mongoose.Schema(
             expiresAt: { type: Date, required: true },
             createdAt: { type: Date, default: Date.now },
             userAgent: { type: String },
-            ip: { type: String },
           },
           { _id: false },
         ),
@@ -109,6 +108,10 @@ userSchema.methods.setPassword = async function setPassword(password) {
 userSchema.methods.addRefreshToken = function addRefreshToken(entry) {
   this.refreshTokens.push(entry);
   if (this.refreshTokens.length > REFRESH_TOKEN_LIMIT) {
+    // Evict oldest sessions first (by createdAt) to keep the most recent ones.
+    this.refreshTokens.sort(
+      (a, b) => (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0),
+    );
     this.refreshTokens = this.refreshTokens.slice(-REFRESH_TOKEN_LIMIT);
   }
 };
@@ -162,7 +165,11 @@ userSchema.methods.markEmailVerified = function markEmailVerified() {
   this.clearEmailVerificationToken();
 };
 
-// Indexes for token-based lookups (password reset, email verification)
+// Indexes for token-based lookups (password reset, email verification, refresh)
+userSchema.index(
+  { "refreshTokens.token": 1 },
+  { name: "refresh_token_lookup" },
+);
 userSchema.index(
   { "passwordReset.token": 1 },
   { sparse: true, name: "password_reset_token" },
