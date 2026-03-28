@@ -2,7 +2,9 @@ import mongoose from "mongoose";
 import {
   NOTEBOOK_COLOR_VALUES,
   NOTEBOOK_ICON_NAMES,
-} from "../../../shared/notebookOptions.js";
+} from "../../../shared/notebookOptions.ts";
+
+const MAX_TEMPLATE_TAGS = 20;
 
 const templateNoteSchema = new mongoose.Schema(
   {
@@ -16,6 +18,7 @@ const templateNoteSchema = new mongoose.Schema(
       type: String,
       required: true,
       default: "",
+      maxlength: 50000,
     },
     richContent: {
       type: mongoose.Schema.Types.Mixed,
@@ -24,6 +27,10 @@ const templateNoteSchema = new mongoose.Schema(
     tags: {
       type: [String],
       default: [],
+      validate: {
+        validator: (v) => !v || v.length <= 8,
+        message: "Template note tags cannot exceed 8 entries",
+      },
     },
     pinned: {
       type: Boolean,
@@ -86,6 +93,10 @@ const notebookTemplateSchema = new mongoose.Schema(
     tags: {
       type: [String],
       default: [],
+      validate: {
+        validator: (v) => !v || v.length <= MAX_TEMPLATE_TAGS,
+        message: `Template tags cannot exceed ${MAX_TEMPLATE_TAGS} entries`,
+      },
     },
     noteCount: {
       type: Number,
@@ -100,6 +111,10 @@ const notebookTemplateSchema = new mongoose.Schema(
     notes: {
       type: [templateNoteSchema],
       default: [],
+      validate: {
+        validator: (v) => !v || v.length <= 100,
+        message: "Template cannot contain more than 100 notes",
+      },
     },
     lastUsedAt: {
       type: Date,
