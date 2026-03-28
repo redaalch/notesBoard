@@ -82,6 +82,13 @@ const notebookIndexSchema = new mongoose.Schema(
       type: Map,
       of: mongoose.Schema.Types.Mixed,
       default: () => new Map(),
+      validate: {
+        validator: (v) => {
+          if (!v || v.size === 0) return true;
+          try { return JSON.stringify(Object.fromEntries(v)).length <= 16_000; } catch { return false; }
+        },
+        message: "metadata exceeds the 16 KB size limit",
+      },
     },
   },
   { timestamps: true }
