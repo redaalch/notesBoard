@@ -28,6 +28,13 @@ const notePublicationSchema = new mongoose.Schema(
     snapshot: {
       type: mongoose.Schema.Types.Mixed,
       default: null,
+      validate: {
+        validator: (v) => {
+          if (v == null) return true;
+          try { return JSON.stringify(v).length <= 1_048_576; } catch { return false; }
+        },
+        message: "snapshot exceeds the 1 MB size limit",
+      },
     },
     snapshotHash: {
       type: String,
