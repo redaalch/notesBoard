@@ -26,6 +26,7 @@ import auth from "../middleware/auth.js";
 import { validate, validationRules } from "../middleware/validation.js";
 import { body, query } from "express-validator";
 import cacheService from "../services/cacheService.js";
+import { BULK_NOTE_ACTIONS } from "../utils/constants.js";
 
 const router = express.Router();
 
@@ -89,7 +90,9 @@ router.post(
       .isArray({ min: 1 })
       .withMessage("noteIds must be a non-empty array"),
     body("noteIds.*").isMongoId().withMessage("Each noteId must be valid"),
-    body("action").isString().withMessage("Action is required"),
+    body("action")
+      .isIn(BULK_NOTE_ACTIONS)
+      .withMessage(`action must be one of: ${BULK_NOTE_ACTIONS.join(", ")}`),
   ]),
   bulkUpdateNotes,
 );
