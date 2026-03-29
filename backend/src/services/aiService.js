@@ -16,10 +16,15 @@ const MAX_INPUT_CHARS = 12_000;
 const GROQ_TIMEOUT_MS = 30_000;
 const SUMMARY_WORD_THRESHOLD = 150; // Only summarise notes above this word count
 
+/** Retry config: up to 3 attempts with exponential backoff for transient errors. */
+const MAX_RETRY_ATTEMPTS = 3;
+const RETRY_BASE_MS = 1_000;
+
 const getApiKey = () => process.env.GROQ_API_KEY ?? null;
 
 /**
  * Send a prompt to Groq and return the text response.
+ * Retries on 429 (rate-limit) and 5xx (server error) with exponential backoff.
  */
 const callLLM = async (systemPrompt, userPrompt) => {
   const apiKey = getApiKey();
@@ -28,47 +33,64 @@ const callLLM = async (systemPrompt, userPrompt) => {
     return null;
   }
 
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), GROQ_TIMEOUT_MS);
+  for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
+    const isLastAttempt = attempt === MAX_RETRY_ATTEMPTS - 1;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), GROQ_TIMEOUT_MS);
+      let response;
+      try {
+        response = await fetch(GROQ_API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model: GROQ_MODEL,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt.slice(0, MAX_INPUT_CHARS) },
+            ],
+            temperature: 0.3,
+            max_tokens: 1024,
+            response_format: { type: "json_object" },
+          }),
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
-    const response = await fetch(GROQ_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt.slice(0, MAX_INPUT_CHARS) },
-        ],
-        temperature: 0.3,
-        max_tokens: 1024,
-        response_format: { type: "json_object" },
-      }),
-    });
+      if (response.ok) {
+        const data = await response.json();
+        return data?.choices?.[0]?.message?.content ?? null;
+      }
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
+      const isTransient = response.status === 429 || response.status >= 500;
       const errorBody = await response.text().catch(() => "");
       logger.warn("Groq generation request failed", {
         status: response.status,
+        attempt: attempt + 1,
         body: errorBody.slice(0, 500),
       });
-      return null;
+
+      if (!isTransient || isLastAttempt) return null;
+    } catch (error) {
+      logger.warn("Groq generation error", {
+        message: error?.message,
+        attempt: attempt + 1,
+      });
+      if (isLastAttempt) return null;
     }
 
-    const data = await response.json();
-    const text = data?.choices?.[0]?.message?.content ?? null;
-    return text;
-  } catch (error) {
-    logger.warn("Groq generation error", { message: error?.message });
-    return null;
+    // Exponential backoff before next attempt
+    await new Promise((r) =>
+      setTimeout(r, RETRY_BASE_MS * Math.pow(2, attempt)),
+    );
   }
+
+  return null;
 };
 
 /**
