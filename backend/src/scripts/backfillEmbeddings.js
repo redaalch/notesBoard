@@ -6,7 +6,7 @@
  * Usage:
  *   node backend/src/scripts/backfillEmbeddings.js
  *
- * Requires GEMINI_API_KEY and MONGO_URI in .env
+ * Requires an enabled embedding provider and MONGO_URI in .env
  */
 import "../config/env.js";
 import mongoose from "mongoose";
@@ -16,6 +16,7 @@ import {
   embedBatch,
   buildNoteEmbeddingText,
   EMBEDDING_DIMENSIONS,
+  isEmbeddingEnabled,
 } from "../services/embeddingService.js";
 
 const BATCH_SIZE = 20;
@@ -28,8 +29,10 @@ const run = async () => {
   console.log("  NotesBoard – Embedding Backfill Migration");
   console.log("═══════════════════════════════════════════════════════════\n");
 
-  if (!process.env.GEMINI_API_KEY) {
-    console.error("❌ GEMINI_API_KEY is not set. Aborting.");
+  if (!isEmbeddingEnabled()) {
+    console.error(
+      "❌ Embedding provider is not configured. Set EMBEDDING_PROVIDER to groq or gemini and provide an API key.",
+    );
     process.exit(1);
   }
 
