@@ -9,6 +9,7 @@
  */
 import express from "express";
 import auth from "../middleware/auth.js";
+import { validate, validationRules } from "../middleware/validation.js";
 import {
   summarizeNote,
   suggestTags,
@@ -26,15 +27,19 @@ router.use(auth);
 router.get("/status", getAiStatus);
 
 // Summarisation & action items
-router.post("/notes/:id/summary", summarizeNote);
+router.post("/notes/:id/summary", validate([validationRules.objectId("id")]), summarizeNote);
 
 // Predictive tag suggestions
-router.post("/notes/:id/suggest-tags", suggestTags);
+router.post("/notes/:id/suggest-tags", validate([validationRules.objectId("id")]), suggestTags);
 
 // On-demand embedding regeneration
-router.post("/notes/:id/embed", regenerateEmbedding);
+router.post("/notes/:id/embed", validate([validationRules.objectId("id")]), regenerateEmbedding);
 
 // Toggle action item completed state
-router.patch("/notes/:id/action-items/:itemId", toggleActionItem);
+router.patch(
+  "/notes/:id/action-items/:itemId",
+  validate([validationRules.objectId("id"), validationRules.objectId("itemId")]),
+  toggleActionItem,
+);
 
 export default router;
