@@ -192,6 +192,7 @@ export default {
         tablet: "768px",
         laptop: "1024px",
         desktop: "1280px",
+        wide: "1440px",
       },
       maxWidth: {
         "8xl": "88rem",
