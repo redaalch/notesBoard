@@ -26,6 +26,7 @@ import {
 import {
   embedText,
   buildNoteEmbeddingText,
+  isEmbeddingEnabled,
 } from "../services/embeddingService.js";
 
 /**
@@ -33,7 +34,7 @@ import {
  * Non-blocking – failures are silently logged.
  */
 const generateEmbeddingAsync = (noteId, noteData) => {
-  if (!process.env.GEMINI_API_KEY) return;
+  if (!isEmbeddingEnabled()) return;
   setImmediate(async () => {
     try {
       const text = buildNoteEmbeddingText(noteData);
@@ -1177,7 +1178,9 @@ export const bulkUpdateNotes = async (req, res) => {
 
     if (action === "move") {
       if (!boardId || !isValidObjectId(boardId)) {
-        return res.status(400).json({ message: "Valid boardId is required for move action" });
+        return res
+          .status(400)
+          .json({ message: "Valid boardId is required for move action" });
       }
 
       const boardContext = await resolveBoardForUser(boardId, ownerId);
@@ -1229,7 +1232,9 @@ export const bulkUpdateNotes = async (req, res) => {
       let targetNotebookId = null;
       if (notebookId && notebookId !== "uncategorized") {
         if (!isValidObjectId(notebookId)) {
-          return res.status(400).json({ message: "Valid notebookId is required" });
+          return res
+            .status(400)
+            .json({ message: "Valid notebookId is required" });
         }
         const notebook = await ensureNotebookOwnership(notebookId, ownerId);
         if (!notebook) {
@@ -1435,7 +1440,10 @@ export const updateNoteLayout = async (req, res) => {
       if (role !== "owner" && role !== "editor") {
         return res
           .status(403)
-          .json({ message: "You do not have permission to reorder notes in this notebook" });
+          .json({
+            message:
+              "You do not have permission to reorder notes in this notebook",
+          });
       }
 
       if (!normalizedObjectIds.length) {
@@ -1603,7 +1611,7 @@ export const searchNotes = async (req, res) => {
     let results = null;
     let searchMode = "keyword";
 
-    if (process.env.GEMINI_API_KEY) {
+    if (isEmbeddingEnabled()) {
       try {
         const queryEmbedding = await embedText(rawQuery);
         if (queryEmbedding) {
