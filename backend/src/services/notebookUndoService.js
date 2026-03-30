@@ -55,12 +55,21 @@ const toDate = (value) => {
   return parsed;
 };
 
+/** Maximum byte size accepted for a Yjs collaborative document state buffer. */
+const MAX_COLLAB_STATE_BYTES = 5 * 1024 * 1024; // 5 MB
+
 const decodeStateBuffer = (encoded) => {
   if (!encoded || typeof encoded !== "string") {
     return null;
   }
   try {
-    return Buffer.from(encoded, "base64");
+    const buf = Buffer.from(encoded, "base64");
+    // Reject empty buffers and buffers that exceed the size cap to prevent
+    // storing crafted or oversized payloads in the ColabDocument collection.
+    if (buf.length === 0 || buf.length > MAX_COLLAB_STATE_BYTES) {
+      return null;
+    }
+    return buf;
   } catch (_error) {
     return null;
   }
@@ -352,11 +361,19 @@ const restoreNotebook = async ({ notebook, inverse, event, session }) => {
   for (const notePayload of notesToUpdate) {
     const updateSet = { ...notePayload };
     delete updateSet._id;
-    await Note.updateOne(
+    const result = await Note.updateOne(
       { _id: notePayload._id },
       { $set: updateSet },
-      { session }
+      { session },
     );
+    // matchedCount === 0 means the note was deleted between the existence check
+    // and this update. Throw so the session transaction rolls back entirely,
+    // leaving the notebook in a consistent state rather than partially restored.
+    if (result.matchedCount === 0) {
+      throw new Error(
+        `Undo failed: note ${notePayload._id} not found during restoration`,
+      );
+    }
   }
 
   for (const [previousNotebookId, noteIdsForNotebook] of previousNotebookIds) {
@@ -424,7 +441,8 @@ const restoreNotebook = async ({ notebook, inverse, event, session }) => {
   if (inverse.deleteCollaborative && Array.isArray(inverse.collabDocuments)) {
     const collabDocs = inverse.collabDocuments
       .map((doc) => {
-        if (!doc?.name) {
+        // Validate name is a non-empty string before trusting it
+        if (!doc?.name || typeof doc.name !== "string" || doc.name.length > 512) {
           return null;
         }
         const state = decodeStateBuffer(doc.state);
