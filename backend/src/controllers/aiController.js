@@ -251,6 +251,7 @@ export const getAiStatus = async (_req, res) => {
       semanticSearch: isAiConfigured(),
       summarization: isAiConfigured(),
       predictiveTags: isAiConfigured(),
+      voiceInput: isAiConfigured(),
     },
   });
 };
