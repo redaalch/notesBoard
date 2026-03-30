@@ -98,8 +98,8 @@
     --color-surface-1: 248 250 252; /* Base canvas */
     --color-surface-2: 255 255 255; /* Raised cards */
     --color-surface-3: 249 251 254; /* Overlays, dialogs */
-    --color-border-subtle: 226 232 240;
-    --color-border-medium: 203 213 225;
+    --color-border-subtle: 210 218 230;
+    --color-border-medium: 185 197 213;
     --color-border-strong: 148 163 184;
 
     /* Text tokens - Light Mode */
@@ -130,20 +130,26 @@
     --shadow-medium: var(--shadow-lg);
     --shadow-large: var(--shadow-2xl);
 
-    /* Border radius tokens */
-    --radius-xs: 0.375rem; /* 6px */
-    --radius-sm: 0.5rem; /* 8px */
-    --radius-md: 0.75rem; /* 12px */
-    --radius-lg: 1rem; /* 16px */
-    --radius-xl: 1.25rem; /* 20px */
-    --radius-2xl: 1.5rem; /* 24px */
-    --radius-3xl: 2rem; /* 32px */
+    /* Border radius tokens — tighter for a sharper, more professional feel */
+    --radius-xs: 0.25rem; /* 4px */
+    --radius-sm: 0.375rem; /* 6px */
+    --radius-md: 0.5rem; /* 8px */
+    --radius-lg: 0.625rem; /* 10px */
+    --radius-xl: 0.75rem; /* 12px */
+    --radius-2xl: 0.875rem; /* 14px */
+    --radius-3xl: 1rem; /* 16px */
     --radius-full: 9999px;
 
     /* Focus ring */
     --focus-ring: 75 107 251;
     --focus-ring-offset: 2px;
     --focus-ring-width: 3px;
+
+    /* Card shadows */
+    --shadow-glow-card: 0 1px 3px rgb(0 0 0 / 0.08),
+      0 1px 2px rgb(0 0 0 / 0.1);
+    --shadow-glow-card-hover: 0 4px 12px rgb(0 0 0 / 0.14),
+      0 1px 3px rgb(0 0 0 / 0.1);
   }
 
   [data-theme="notesDark"] {
@@ -185,6 +191,12 @@
     --shadow-large: var(--shadow-2xl);
 
     --focus-ring: 147 180 255;
+
+    /* Card shadows — dark */
+    --shadow-glow-card: 0 1px 3px rgb(0 0 0 / 0.25),
+      0 1px 2px rgb(0 0 0 / 0.2);
+    --shadow-glow-card-hover: 0 4px 12px rgb(0 0 0 / 0.45),
+      0 1px 3px rgb(0 0 0 / 0.3);
   }
 
   body {
@@ -262,6 +274,64 @@
     color: #fff !important;
   }
 
+  /* Premium card — clean surface, subtle shadow */
+  .premium-card {
+    background-color: rgb(var(--color-surface-2));
+    border: 1px solid rgb(var(--color-border-subtle));
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-glow-card);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  }
+  .premium-card:hover {
+    box-shadow: var(--shadow-glow-card-hover);
+    border-color: rgb(var(--color-border-medium));
+  }
+
+  /* Pinned — amber left accent + warm surface */
+  .premium-card--pinned {
+    border-left: 3px solid rgb(245 158 11 / 0.7);
+    background: rgb(var(--color-surface-2));
+    box-shadow: var(--shadow-glow-card), inset 24px 0 32px -24px rgb(245 158 11 / 0.06);
+  }
+  .premium-card--pinned:hover {
+    border-left-color: rgb(245 158 11 / 0.9);
+    box-shadow: var(--shadow-glow-card-hover), inset 24px 0 32px -24px rgb(245 158 11 / 0.08);
+  }
+
+  /* Selected — brand ring, tinted background */
+  .premium-card--selected {
+    border-color: rgb(var(--color-brand-500) / 0.7) !important;
+    box-shadow: 0 0 0 3px rgb(var(--color-brand-500) / 0.18), var(--shadow-glow-card);
+    background: rgb(var(--color-brand-500) / 0.04);
+  }
+
+  /* Glass card — frosted glass variant */
+  .glass-card {
+    background-color: rgb(var(--color-surface-2) / 0.7);
+    backdrop-filter: blur(16px) saturate(1.4);
+    border: 1px solid rgb(var(--color-border-subtle) / 0.4);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Section label — uppercase muted small heading */
+  .section-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgb(var(--color-text-secondary));
+  }
+
+  /* Section heading — paired with section-label */
+  .section-heading {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: rgb(var(--color-text-primary));
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
 }
 
 @layer utilities {
@@ -298,190 +368,6 @@ html.theme-changing *::after {
   animation-delay: 0s !important;
 }
 
-/* TipTap Editor Styles */
-.ProseMirror {
-  outline: none;
-  user-select: text;
-  -webkit-user-select: text;
-}
-
-.ProseMirror * {
-  user-select: text;
-  -webkit-user-select: text;
-}
-
-.ProseMirror ::selection,
-.ProseMirror *::selection {
-  background-color: rgba(99, 102, 241, 0.35);
-  color: inherit;
-}
-
-.ProseMirror ::-moz-selection,
-.ProseMirror *::-moz-selection {
-  background-color: rgba(99, 102, 241, 0.35);
-  color: inherit;
-}
-
-.ProseMirror-hideselection ::selection,
-.ProseMirror-hideselection *::selection,
-.ProseMirror-hideselection ::-moz-selection,
-.ProseMirror-hideselection *::-moz-selection {
-  background-color: rgba(99, 102, 241, 0.35) !important;
-  color: inherit !important;
-}
-
-.ProseMirror[contenteditable="false"] {
-  user-select: text;
-  cursor: text;
-  pointer-events: auto;
-}
-
-.ProseMirror ul,
-.ProseMirror ol {
-  padding-left: 1.5rem;
-  margin: 0.75rem 0;
-}
-
-.ProseMirror ul {
-  list-style-type: disc;
-}
-
-.ProseMirror ol {
-  list-style-type: decimal;
-}
-
-.ProseMirror li {
-  margin: 0.25rem 0;
-}
-
-.ProseMirror li p {
-  margin: 0;
-}
-
-.ProseMirror blockquote {
-  border-left: 3px solid hsl(var(--bc) / 0.3);
-  padding-left: 1rem;
-  margin: 1rem 0;
-  font-style: italic;
-  color: hsl(var(--bc) / 0.7);
-}
-
-.ProseMirror code {
-  background-color: hsl(var(--bc) / 0.1);
-  padding: 0.125rem 0.25rem;
-  border-radius: 0.25rem;
-  font-size: 0.875em;
-  font-family: "Courier New", monospace;
-}
-
-.ProseMirror pre {
-  background-color: hsl(var(--bc) / 0.05);
-  border-radius: 0.5rem;
-  padding: 1rem;
-  margin: 1rem 0;
-  overflow-x: auto;
-}
-
-.ProseMirror pre code {
-  background: none;
-  padding: 0;
-  font-size: 0.875rem;
-  color: inherit;
-}
-
-.ProseMirror h1,
-.ProseMirror h2,
-.ProseMirror h3,
-.ProseMirror h4,
-.ProseMirror h5,
-.ProseMirror h6 {
-  margin-top: 1.5rem;
-  margin-bottom: 0.75rem;
-  font-weight: 700;
-  line-height: 1.3;
-}
-
-.ProseMirror h1 {
-  font-size: 2rem;
-}
-
-.ProseMirror h2 {
-  font-size: 1.5rem;
-}
-
-.ProseMirror h3 {
-  font-size: 1.25rem;
-}
-
-.ProseMirror p {
-  margin: 0.75rem 0;
-}
-
-.ProseMirror p:first-child {
-  margin-top: 0;
-}
-
-.ProseMirror p:last-child {
-  margin-bottom: 0;
-}
-
-/* Task list styles */
-.ProseMirror ul[data-type="taskList"] {
-  list-style: none;
-  padding-left: 0;
-}
-
-.ProseMirror ul[data-type="taskList"] li {
-  display: flex;
-  align-items: flex-start;
-}
-
-.ProseMirror ul[data-type="taskList"] li > label {
-  margin-right: 0.5rem;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.ProseMirror ul[data-type="taskList"] li > div {
-  flex: 1;
-}
-
-/* Placeholder */
-.ProseMirror p.is-editor-empty:first-child::before {
-  content: attr(data-placeholder);
-  float: left;
-  color: hsl(var(--bc) / 0.4);
-  pointer-events: none;
-  height: 0;
-}
-
-/* Collaboration cursor */
-.collaboration-cursor__caret {
-  position: relative;
-  margin-left: -1px;
-  margin-right: -1px;
-  border-left: 1px solid #0d0d0d;
-  border-right: 1px solid #0d0d0d;
-  word-break: normal;
-  pointer-events: none;
-}
-
-.collaboration-cursor__label {
-  position: absolute;
-  top: -1.4em;
-  left: -1px;
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 600;
-  line-height: normal;
-  user-select: none;
-  -webkit-user-select: none;
-  color: #fff;
-  padding: 0.1rem 0.3rem;
-  border-radius: 3px 3px 3px 0;
-  white-space: nowrap;
-}
-
 /* Sonner Toast Notifications - Highly Visible */
 [data-sonner-toaster] {
   z-index: 9999 !important;
@@ -514,7 +400,7 @@ html.theme-changing *::after {
   border: 2px solid var(--normal-border) !important;
   color: var(--normal-text) !important;
   padding: 16px 20px !important;
-  border-radius: 16px !important;
+  border-radius: 10px !important;
   box-shadow:
     0 10px 40px rgba(0, 0, 0, 0.25),
     0 0 0 1px rgba(0, 0, 0, 0.05) !important;
