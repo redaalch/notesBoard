@@ -133,15 +133,12 @@ const ensureDailySeries = async ({
       snapshotAnalysis.dayCounts.set(dateKey, liveValue);
     });
 
-    if (!snapshotAnalysis.snapshotCount) {
-      snapshotAnalysis.notesTotal = Array.from(
-        snapshotAnalysis.dayCounts.values(),
-      ).reduce((acc, value) => acc + value, 0);
-    } else {
-      snapshotAnalysis.notesTotal += Array.from(
-        snapshotAnalysis.missingDates,
-      ).reduce((acc, dateKey) => acc + (liveCounts.get(dateKey) ?? 0), 0);
-    }
+    // Always recalculate from the merged dayCounts map. The previous approach
+    // added missing-day live counts on top of the existing snapshot total,
+    // producing inflated values when partial snapshots existed.
+    snapshotAnalysis.notesTotal = Array.from(
+      snapshotAnalysis.dayCounts.values(),
+    ).reduce((acc, value) => acc + value, 0);
   }
 
   const dailySeries = [];
@@ -283,10 +280,12 @@ const computeTopTags = async ({
   });
 };
 
-// Include viewerContext hash in cache key to prevent cross-user data leaks
+// Serialize the full viewerContext so that array/object workspaceId values
+// never produce the same key as a different caller (prevents cross-workspace
+// cache collisions that could leak analytics data to the wrong user).
 const cacheKey = (notebookId, rangeKey, viewerContext) => {
   const ctxSegment = viewerContext
-    ? `:${viewerContext.userId || "anon"}:${viewerContext.workspaceId || ""}`
+    ? `:${viewerContext.userId || "anon"}:${JSON.stringify(viewerContext.workspaceId ?? null)}`
     : "";
   return `notebook:${notebookId}:analytics:${rangeKey}${ctxSegment}`;
 };
