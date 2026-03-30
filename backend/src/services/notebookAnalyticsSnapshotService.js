@@ -15,6 +15,21 @@ const TAG_LIMIT = 20;
 
 export const resolveNotebookCollaborators = async (notebookId, ownerId) => {
   const notebookObjectId = toObjectId(notebookId);
+
+  // Guard: verify the provided ownerId actually owns this notebook before
+  // exposing its full member list. Callers always pass the notebook owner's
+  // ID, so a mismatch indicates a miscall or a tampered payload.
+  if (ownerId) {
+    const ownerObjectId = toObjectId(ownerId);
+    const ownershipVerified = await Notebook.exists({
+      _id: notebookObjectId,
+      owner: ownerObjectId,
+    });
+    if (!ownershipVerified) {
+      return {};
+    }
+  }
+
   const activeMembers = await NotebookMember.aggregate([
     {
       $match: {
@@ -35,20 +50,10 @@ export const resolveNotebookCollaborators = async (notebookId, ownerId) => {
     return acc;
   }, {});
 
-  if (ownerId) {
-    const ownerObjectId = toObjectId(ownerId);
-    const ownerAlreadyTracked = await NotebookMember.exists({
-      notebookId: notebookObjectId,
-      userId: ownerObjectId,
-      status: "active",
-    });
-    if (!ownerAlreadyTracked) {
-      roleCounts.owner = (roleCounts.owner ?? 0) + 1;
-    }
-  }
-
+  // Ensure the notebook owner appears in the role counts exactly once,
+  // regardless of whether they have an explicit NotebookMember entry.
   if (ownerId && roleCounts.owner === undefined) {
-    roleCounts.owner = (roleCounts.owner ?? 0) + 1;
+    roleCounts.owner = 1;
   }
 
   return roleCounts;
@@ -248,19 +253,28 @@ export const collectNotebookSnapshotsForRange = async ({
   notebook,
   viewerContext,
 }) => {
-  const snapshots = [];
+  // Build the full list of dates first
+  const dates = [];
   let cursor = startOfUtcDay(startDate);
   const end = startOfUtcDay(endExclusive ?? new Date());
-
   while (cursor < end) {
-    const result = await upsertNotebookSnapshot({
-      notebookId,
-      notebook,
-      date: cursor,
-      viewerContext,
-    });
-    snapshots.push(result);
+    dates.push(new Date(cursor));
     cursor = addUtcDays(cursor, 1);
+  }
+
+  // Process in parallel batches of 7 (one week at a time). This is faster
+  // than pure sequential processing and reduces the window for concurrent
+  // mutations to produce inconsistent per-day counts across iterations.
+  const BATCH_SIZE = 7;
+  const snapshots = [];
+  for (let i = 0; i < dates.length; i += BATCH_SIZE) {
+    const batch = dates.slice(i, i + BATCH_SIZE);
+    const results = await Promise.all(
+      batch.map((date) =>
+        upsertNotebookSnapshot({ notebookId, notebook, date, viewerContext }),
+      ),
+    );
+    snapshots.push(...results);
   }
 
   return snapshots;
