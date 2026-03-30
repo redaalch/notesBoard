@@ -28,7 +28,11 @@ export const getWorkspaceMembership = async (workspaceId, userId) => {
     return null;
   }
 
-  const workspace = await Workspace.findById(workspaceId).lean();
+  // #4 — Project only fields needed for membership checks; excludes metadata,
+  // description, and other large/irrelevant fields.
+  const workspace = await Workspace.findById(workspaceId)
+    .select({ ownerId: 1, members: 1, name: 1, updatedAt: 1 })
+    .lean();
   if (!workspace) {
     return null;
   }
@@ -165,10 +169,35 @@ export const resolveNoteForUser = async (noteId, userId) => {
   }
 
   const workspaceId = note.workspaceId ?? null;
-
   const isOwner = String(note.owner) === String(userId);
 
-  // Parallelize the three independent lookups (was 3 sequential awaits)
+  // #5 — Owners have full access; skip the three extra DB roundtrips that are
+  // only needed to resolve collaborator/workspace/notebook roles.
+  if (isOwner) {
+    return {
+      note,
+      workspaceId,
+      boardId: note.boardId ?? null,
+      notebookId: note.notebookId ?? null,
+      ownerId: note.owner,
+      membership: null,
+      notebookMembership: null,
+      collaborator: null,
+      permissions: {
+        isOwner: true,
+        workspaceRole: null,
+        collaboratorRole: null,
+        notebookRole: null,
+        canView: true,
+        canComment: true,
+        canEdit: true,
+        canManageCollaborators: true,
+        effectiveRole: "owner",
+      },
+    };
+  }
+
+  // Parallelize the three independent lookups for non-owners.
   const [membership, notebookMembership, collaborator] = await Promise.all([
     workspaceId ? getWorkspaceMembership(workspaceId, userId) : Promise.resolve(null),
     note.notebookId
@@ -182,7 +211,7 @@ export const resolveNoteForUser = async (noteId, userId) => {
       .catch(() => null),
   ]);
 
-  if (!isOwner && !membership && !collaborator && !notebookMembership) {
+  if (!membership && !collaborator && !notebookMembership) {
     return null;
   }
 
@@ -190,7 +219,6 @@ export const resolveNoteForUser = async (noteId, userId) => {
   const collaboratorRole = collaborator?.role ?? null;
   const notebookRole = notebookMembership?.membership?.role ?? null;
   const canEdit =
-    isOwner ||
     (workspaceRole && WORKSPACE_EDIT_ROLES.has(workspaceRole)) ||
     (collaboratorRole && NOTE_COLLAB_EDIT_ROLES.has(collaboratorRole)) ||
     (notebookRole && NOTEBOOK_EDIT_ROLES.has(notebookRole));
@@ -199,24 +227,14 @@ export const resolveNoteForUser = async (noteId, userId) => {
     (collaboratorRole && NOTE_COLLAB_COMMENT_ROLES.has(collaboratorRole)) ||
     (notebookRole && NOTEBOOK_VIEW_ROLES.has(notebookRole));
   const canManageCollaborators =
-    isOwner ||
     (workspaceRole && WORKSPACE_MANAGE_ROLES.has(workspaceRole)) ||
     notebookRole === "owner";
 
-  let effectiveRole = "viewer";
-  if (isOwner) {
-    effectiveRole = "owner";
-  } else if (canEdit) {
-    effectiveRole = "editor";
-  } else if (canComment) {
-    effectiveRole = "commenter";
-  } else {
-    effectiveRole = "viewer";
-  }
+  const effectiveRole = canEdit ? "editor" : canComment ? "commenter" : "viewer";
 
   return {
     note,
-    workspaceId: note.workspaceId ?? null,
+    workspaceId,
     boardId: note.boardId ?? null,
     notebookId: note.notebookId ?? null,
     ownerId: note.owner,
@@ -224,7 +242,7 @@ export const resolveNoteForUser = async (noteId, userId) => {
     notebookMembership,
     collaborator,
     permissions: {
-      isOwner,
+      isOwner: false,
       workspaceRole,
       collaboratorRole,
       notebookRole,
