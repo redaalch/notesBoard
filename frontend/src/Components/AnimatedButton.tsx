@@ -1,8 +1,8 @@
 import { type ComponentPropsWithoutRef, type ReactNode } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 
 interface AnimatedButtonProps
-  extends Omit<ComponentPropsWithoutRef<typeof motion.button>, "children"> {
+  extends Omit<ComponentPropsWithoutRef<typeof m.button>, "children"> {
   children: ReactNode;
   variant?: string;
   size?: string;
@@ -21,7 +21,7 @@ export const AnimatedButton = ({
   ...props
 }: AnimatedButtonProps) => {
   return (
-    <motion.button
+    <m.button
       whileHover={!disabled && !loading ? { scale: 1.02 } : {}}
       whileTap={!disabled && !loading ? { scale: 0.98 } : {}}
       transition={{ type: "spring", stiffness: 400, damping: 17 }}
@@ -30,31 +30,31 @@ export const AnimatedButton = ({
       {...props}
     >
       {loading ? (
-        <motion.div
+        <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="loading loading-spinner"
         />
       ) : (
-        <motion.span
+        <m.span
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
           {children}
-        </motion.span>
+        </m.span>
       )}
 
       {/* Ripple effect on click */}
       {!disabled && !loading && (
-        <motion.span
+        <m.span
           className="absolute inset-0 bg-white/20 rounded-full"
           initial={{ scale: 0, opacity: 0 }}
           whileTap={{ scale: 2, opacity: [0.5, 0] }}
           transition={{ duration: 0.4 }}
         />
       )}
-    </motion.button>
+    </m.button>
   );
 };
 
