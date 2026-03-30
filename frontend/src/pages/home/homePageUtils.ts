@@ -1,3 +1,4 @@
+import type React from "react";
 import {
   AlertTriangleIcon,
   BookmarkIcon,
@@ -129,7 +130,7 @@ export const BULK_SUCCESS_MESSAGES: Record<string, string> = {
   moveNotebook: "Updated notebooks for selected notes",
 };
 
-export const notebookIconComponents: Record<string, any> = {
+export const notebookIconComponents: Record<string, React.ComponentType<{ className?: string }>> = {
   Notebook: NotebookIcon,
   NotebookPen: NotebookPenIcon,
   Sparkles: SparklesIcon,
