@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { LoaderIcon, UserPlusIcon } from "lucide-react";
 import useAuth from "../hooks/useAuth";
+import Logo from "../Components/Logo";
 
 const RegisterPage = () => {
   const { register, user, initializing } = useAuth();
@@ -70,13 +71,18 @@ const RegisterPage = () => {
         className="flex min-h-screen items-center justify-center px-4 py-12"
       >
         <div className="w-full max-w-md">
-          <div className="card bg-base-100 shadow-xl">
+          <div className="mb-6 flex justify-center">
+            <Link to="/" aria-label="NotesBoard home">
+              <Logo size="2.5rem" />
+            </Link>
+          </div>
+          <div className="card border border-base-content/[0.08] bg-base-100 shadow-md">
             <div className="card-body space-y-6">
               <div className="text-center space-y-2">
-                <h1 className="text-2xl font-semibold">
+                <h1 className="text-2xl font-bold tracking-tight">
                   Create your workspace
                 </h1>
-                <p className="text-base-content/70 text-sm">
+                <p className="text-base-content/60 text-sm">
                   A few quick details and your notes will sync across devices.
                 </p>
               </div>
@@ -135,7 +141,7 @@ const RegisterPage = () => {
                     type="password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    placeholder="8+ characters with a mix of letters & numbers"
+                    placeholder="8+ chars, upper & lowercase, and a number"
                     className="input input-bordered"
                     required
                     autoComplete="new-password"
