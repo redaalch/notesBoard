@@ -1,5 +1,7 @@
 import {
   type ChangeEvent,
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -31,15 +33,17 @@ import * as Y from "yjs";
 import { TiptapTransformer } from "@hocuspocus/transformer";
 
 import api from "../lib/axios";
-import ConfirmDialog from "../Components/ConfirmDialog";
 import CollaborativeEditor, {
   type CollaborativeEditorUser,
 } from "../Components/CollaborativeEditor";
 import PresenceAvatars from "../Components/PresenceAvatars";
 import TypingIndicator from "../Components/TypingIndicator";
-import NoteCollaboratorsCard from "../Components/NoteCollaboratorsCard";
-import AiSummaryCard from "../Components/AiSummaryCard";
-import AiTagSuggestions from "../Components/AiTagSuggestions";
+
+// ── Lazy-loaded components (behind user actions / conditional renders) ──
+const ConfirmDialog = lazy(() => import("../Components/ConfirmDialog"));
+const NoteCollaboratorsCard = lazy(() => import("../Components/NoteCollaboratorsCard"));
+const AiSummaryCard = lazy(() => import("../Components/AiSummaryCard"));
+const AiTagSuggestions = lazy(() => import("../Components/AiTagSuggestions"));
 import { countWords, formatDate, formatRelativeTime } from "../lib/Utils";
 import useCollaborativeNote, {
   buildInitialNode,
@@ -984,23 +988,27 @@ function NoteDetailPage() {
 
           {/* ─── AI Tag Suggestions ─── */}
           {!isReadOnly && aiConfigured && (
-            <AiTagSuggestions
-              suggestions={suggestedTags}
-              currentTags={tags}
-              onApplyTag={(tag) => handleTagsChange([...tags, tag])}
-              onDismiss={clearSuggestedTags}
-              loading={aiTagsLoading}
-            />
+            <Suspense fallback={null}>
+              <AiTagSuggestions
+                suggestions={suggestedTags}
+                currentTags={tags}
+                onApplyTag={(tag) => handleTagsChange([...tags, tag])}
+                onDismiss={clearSuggestedTags}
+                loading={aiTagsLoading}
+              />
+            </Suspense>
           )}
 
           {/* ─── AI Summary Card ─── */}
           {aiSummary && (
-            <AiSummaryCard
-              summary={aiSummary.summary}
-              actionItems={aiSummary.actionItems}
-              generatedAt={aiSummary.generatedAt}
-              onToggleItem={toggleActionItem}
-            />
+            <Suspense fallback={null}>
+              <AiSummaryCard
+                summary={aiSummary.summary}
+                actionItems={aiSummary.actionItems}
+                generatedAt={aiSummary.generatedAt}
+                onToggleItem={toggleActionItem}
+              />
+            </Suspense>
           )}
 
           {/* ─── Generate Summary Button ─── */}
@@ -1149,13 +1157,15 @@ function NoteDetailPage() {
           {/* Body */}
           <div className="px-6 py-5">
             {note && (
-              <NoteCollaboratorsCard
-                noteId={note._id}
-                canManage={canManageNoteCollaborators}
-                owner={
-                  user ? { name: user.name, email: user.email } : undefined
-                }
-              />
+              <Suspense fallback={null}>
+                <NoteCollaboratorsCard
+                  noteId={note._id}
+                  canManage={canManageNoteCollaborators}
+                  owner={
+                    user ? { name: user.name, email: user.email } : undefined
+                  }
+                />
+              </Suspense>
             )}
           </div>
         </div>
@@ -1167,16 +1177,18 @@ function NoteDetailPage() {
       </dialog>
 
       {/* ─── Delete confirmation ─── */}
-      <ConfirmDialog
-        open={confirmOpen}
-        title="Delete this note?"
-        description="This will permanently remove the note and all of its content."
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        confirmLoading={deleting}
-        onCancel={closeConfirm}
-        onConfirm={handleDelete}
-      />
+      <Suspense fallback={null}>
+        <ConfirmDialog
+          open={confirmOpen}
+          title="Delete this note?"
+          description="This will permanently remove the note and all of its content."
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          confirmLoading={deleting}
+          onCancel={closeConfirm}
+          onConfirm={handleDelete}
+        />
+      </Suspense>
 
       {/* ─── Unsaved Changes Navigation Modal ─── */}
       <dialog
