@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import DOMPurify from "dompurify";
 import api from "../lib/axios";
 import Navbar from "../Components/Navbar";
 
@@ -134,7 +135,7 @@ const PublishedNotePage = () => {
           {note.richContent ? (
             <div
               className="prose prose-lg max-w-none leading-relaxed text-base-content"
-              dangerouslySetInnerHTML={{ __html: note.richContent }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(note.richContent) }}
             />
           ) : (
             <div className="prose prose-lg max-w-none whitespace-pre-wrap leading-relaxed text-base-content">
