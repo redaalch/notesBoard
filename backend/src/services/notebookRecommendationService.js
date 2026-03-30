@@ -152,16 +152,14 @@ export const getNotebookRecommendations = async ({
     return [];
   }
 
-  const ownedNotebooks = await Notebook.find({ owner: ownerObjectId })
-    .select({ _id: 1, name: 1, description: 1, updatedAt: 1 })
-    .lean();
-
-  const membershipDocs = await NotebookMember.find({
-    userId: ownerObjectId,
-    status: "active",
-  })
-    .select({ notebookId: 1, role: 1 })
-    .lean();
+  const [ownedNotebooks, membershipDocs] = await Promise.all([
+    Notebook.find({ owner: ownerObjectId })
+      .select({ _id: 1, name: 1, description: 1, updatedAt: 1 })
+      .lean(),
+    NotebookMember.find({ userId: ownerObjectId, status: "active" })
+      .select({ notebookId: 1, role: 1 })
+      .lean(),
+  ]);
 
   const candidateNotebookIds = new Set(
     ownedNotebooks.map((doc) => doc._id.toString())
