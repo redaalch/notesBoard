@@ -64,6 +64,9 @@ const windowLabel = (w) =>
  * Returns an array of { _id: { dow: 1-7, hour: 0-23 }, count: N } where
  * dow 1 = Sunday … 7 = Saturday (matches MongoDB $dayOfWeek convention).
  */
+/** Hard cap on documents scanned per collection to prevent OOM on huge workspaces. */
+const AGGREGATION_DOC_LIMIT = 100_000;
+
 const aggregateTimeSlots = async (Model, workspaceObjectId, since) => {
   return Model.aggregate([
     {
@@ -72,6 +75,7 @@ const aggregateTimeSlots = async (Model, workspaceObjectId, since) => {
         createdAt: { $gte: since },
       },
     },
+    { $limit: AGGREGATION_DOC_LIMIT },
     {
       $group: {
         _id: {
@@ -112,6 +116,7 @@ const aggregateDailyTotals = async (Model, workspaceObjectId, since) => {
         createdAt: { $gte: since },
       },
     },
+    { $limit: AGGREGATION_DOC_LIMIT },
     {
       $group: {
         _id: {
