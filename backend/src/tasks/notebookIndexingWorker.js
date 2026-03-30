@@ -13,12 +13,23 @@ import {
   buildNoteEmbeddingText,
 } from "../services/embeddingService.js";
 
+// ── Queue cap to prevent OOM under sustained load ──
+const MAX_QUEUE_SIZE = 200;
+const NOTE_BATCH_LIMIT = 5_000;
+
 const jobQueue = [];
 const enqueuedNotebooks = new Set();
+const pendingRejobs = new Set();
 let processing = false;
+let lastLoggedQueueThreshold = 0;
 let changeStream = null;
 let backfillTask = null;
 let initialized = false;
+
+// Track recent notebookIds from deleted notes so the change-stream delete
+// handler can re-index the parent notebook even though fullDocument is null.
+const recentNoteNotebookMap = new Map();
+const RECENT_MAP_TTL = 5 * 60 * 1000; // 5 minutes
 
 const normalizeId = (value) => {
   if (!value) return null;
@@ -95,7 +106,15 @@ const runNotebookIndexJob = async (job) => {
       tags: 1,
       embeddingUpdatedAt: 1,
     })
+    .limit(NOTE_BATCH_LIMIT)
     .lean();
+
+  if (notes.length === NOTE_BATCH_LIMIT) {
+    logger.warn("Notebook note fetch hit limit; index may be incomplete", {
+      notebookId: notebookId.toString(),
+      limit: NOTE_BATCH_LIMIT,
+    });
+  }
 
   const vectorResult = buildNotebookVector(notes, job.vectorOptions);
   const tagResult = computeTagFrequencies(notes);
@@ -194,6 +213,7 @@ const processQueue = async () => {
 
   processing = true;
   const key = toKey(job.notebookId);
+  const startMs = Date.now();
 
   try {
     await runNotebookIndexJob(job);
@@ -215,8 +235,39 @@ const processQueue = async () => {
   } finally {
     if (key) {
       enqueuedNotebooks.delete(key);
+
+      // Re-enqueue if a new change arrived while this job was running
+      if (pendingRejobs.has(key)) {
+        pendingRejobs.delete(key);
+        setImmediate(() =>
+          enqueueNotebookIndexJob({ notebookId: job.notebookId, reason: "re-index" }).catch(
+            (error) => {
+              logger.warn("Failed to re-enqueue pending notebook index job", {
+                message: error?.message,
+              });
+            },
+          ),
+        );
+      }
     }
     processing = false;
+
+    // Log queue depth on threshold crossings (25%/50%/75%/100%) rather than modulo
+    const thresholds = [0.25, 0.5, 0.75, 1.0].map((p) =>
+      Math.floor(p * MAX_QUEUE_SIZE),
+    );
+    const currentThreshold = thresholds.filter((t) => jobQueue.length >= t).at(-1) ?? 0;
+    if (currentThreshold > 0 && currentThreshold !== lastLoggedQueueThreshold) {
+      lastLoggedQueueThreshold = currentThreshold;
+      logger.info("Notebook indexing queue depth", {
+        pending: jobQueue.length,
+        thresholdPct: Math.round((currentThreshold / MAX_QUEUE_SIZE) * 100),
+        durationMs: Date.now() - startMs,
+      });
+    } else if (jobQueue.length === 0 && lastLoggedQueueThreshold > 0) {
+      lastLoggedQueueThreshold = 0;
+    }
+
     setImmediate(processQueue);
   }
 };
@@ -234,6 +285,17 @@ export const enqueueNotebookIndexJob = async ({
 
   const key = toKey(normalizedId);
   if (!force && enqueuedNotebooks.has(key)) {
+    pendingRejobs.add(key);
+    return;
+  }
+
+  // Cap queue size to prevent OOM
+  if (jobQueue.length >= MAX_QUEUE_SIZE) {
+    logger.warn("Notebook indexing queue full, dropping job", {
+      notebookId: key,
+      reason,
+      queueSize: jobQueue.length,
+    });
     return;
   }
 
@@ -284,17 +346,50 @@ export const enqueueNotebookIndexJob = async ({
   setImmediate(processQueue);
 };
 
+// Cache note → notebook mapping for delete events (fullDocument is null on deletes)
+const trackNoteNotebook = (noteId, notebookId) => {
+  if (!noteId || !notebookId) return;
+  const key = noteId.toString();
+  recentNoteNotebookMap.set(key, {
+    notebookId,
+    expiresAt: Date.now() + RECENT_MAP_TTL,
+  });
+  // Prune stale entries periodically (keep map bounded)
+  if (recentNoteNotebookMap.size > 100) {
+    const now = Date.now();
+    for (const [k, v] of recentNoteNotebookMap) {
+      if (v.expiresAt < now) recentNoteNotebookMap.delete(k);
+    }
+  }
+};
+
 const handleNoteChange = (change) => {
   try {
     if (!change) return;
 
-    if (
-      change.operationType === "insert" ||
-      change.operationType === "update" ||
-      change.operationType === "replace"
-    ) {
+    const opType = change.operationType;
+
+    if (opType === "insert" || opType === "update" || opType === "replace") {
       const notebookId = change.fullDocument?.notebookId;
       if (notebookId) {
+        const noteId = change.documentKey?._id;
+
+        // If the note was moved between notebooks, re-index the source notebook too
+        const prevEntry = recentNoteNotebookMap.get(noteId?.toString());
+        if (prevEntry && prevEntry.notebookId.toString() !== notebookId.toString()) {
+          enqueueNotebookIndexJob({
+            notebookId: prevEntry.notebookId,
+            reason: "note-moved",
+          }).catch((error) => {
+            logger.warn("Failed to enqueue notebook index for moved note source", {
+              message: error?.message,
+            });
+          });
+        }
+
+        // Track mapping for future delete events
+        trackNoteNotebook(noteId, notebookId);
+
         enqueueNotebookIndexJob({ notebookId, reason: "note-change" }).catch(
           (error) => {
             logger.warn("Failed to enqueue notebook index from change stream", {
@@ -303,6 +398,21 @@ const handleNoteChange = (change) => {
           },
         );
       }
+    } else if (opType === "delete") {
+      // fullDocument is null on deletes — use the cached mapping
+      const noteId = change.documentKey?._id?.toString();
+      const cached = noteId ? recentNoteNotebookMap.get(noteId) : null;
+      if (cached) {
+        recentNoteNotebookMap.delete(noteId);
+        enqueueNotebookIndexJob({
+          notebookId: cached.notebookId,
+          reason: "note-delete",
+        }).catch((error) => {
+          logger.warn("Failed to enqueue notebook index from note delete", {
+            message: error?.message,
+          });
+        });
+      }
     }
   } catch (error) {
     logger.warn("Notebook index change stream handler failed", {
@@ -310,6 +420,11 @@ const handleNoteChange = (change) => {
     });
   }
 };
+
+// Exponential backoff for change stream reconnections
+const MAX_RECONNECT_DELAY = 5 * 60 * 1000; // 5 minutes
+let reconnectDelay = 10_000; // start at 10s
+let reconnectTimer = null;
 
 const startChangeStream = () => {
   if (changeStream) {
@@ -324,7 +439,11 @@ const startChangeStream = () => {
   try {
     changeStream = Note.watch([], {
       fullDocument: "updateLookup",
+      batchSize: 50,
     });
+
+    // Reset backoff on successful connection
+    reconnectDelay = 10_000;
 
     changeStream.on("change", handleNoteChange);
     changeStream.on("error", (error) => {
@@ -335,12 +454,12 @@ const startChangeStream = () => {
         changeStream.close().catch(() => {});
         changeStream = null;
       }
-      setTimeout(startChangeStream, 10000);
+      scheduleReconnect();
     });
 
     changeStream.on("close", () => {
       changeStream = null;
-      setTimeout(startChangeStream, 10000);
+      scheduleReconnect();
     });
   } catch (error) {
     logger.warn("Unable to start notebook index change stream", {
@@ -349,20 +468,52 @@ const startChangeStream = () => {
   }
 };
 
+const scheduleReconnect = () => {
+  if (reconnectTimer || !initialized) return;
+
+  // Add jitter (±25%) to prevent thundering herd
+  const jitter = reconnectDelay * (0.75 + Math.random() * 0.5);
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    startChangeStream();
+  }, jitter);
+
+  // Exponential backoff capped at MAX_RECONNECT_DELAY
+  reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
+};
+
 const enqueueStaleNotebooks = async () => {
   const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
 
-  const stale = await NotebookIndex.find({
-    $or: [
-      { lastIndexedAt: { $exists: false } },
-      { lastIndexedAt: null },
-      { lastIndexedAt: { $lt: sixHoursAgo } },
-      { jobStatus: "error" },
-    ],
-  })
-    .sort({ lastIndexedAt: 1 })
-    .limit(25)
-    .lean();
+  // Run stale-index query and missing-index discovery in parallel
+  const [stale, missing] = await Promise.all([
+    NotebookIndex.find({
+      $or: [
+        { lastIndexedAt: { $exists: false } },
+        { lastIndexedAt: null },
+        { lastIndexedAt: { $lt: sixHoursAgo } },
+        { jobStatus: "error" },
+      ],
+    })
+      .sort({ lastIndexedAt: 1 })
+      .limit(25)
+      .lean(),
+    // $lookup replaces the distinct("notebookId") + in-memory Set join
+    Notebook.aggregate([
+      {
+        $lookup: {
+          from: NotebookIndex.collection.name,
+          localField: "_id",
+          foreignField: "notebookId",
+          as: "idx",
+        },
+      },
+      { $match: { idx: { $size: 0 } } },
+      { $sort: { updatedAt: -1 } },
+      { $limit: 25 },
+      { $project: { _id: 1 } },
+    ]),
+  ]);
 
   for (const entry of stale) {
     await enqueueNotebookIndexJob({
@@ -371,22 +522,6 @@ const enqueueStaleNotebooks = async () => {
       force: true,
     });
   }
-
-  const indexed = await NotebookIndex.find()
-    .select({ notebookId: 1 })
-    .sort({ updatedAt: -1 })
-    .limit(500)
-    .lean();
-  const indexedSet = new Set(indexed.map((doc) => doc.notebookId.toString()));
-
-  const recentNotebooks = await Notebook.find()
-    .sort({ updatedAt: -1 })
-    .limit(100)
-    .select({ _id: 1 });
-
-  const missing = recentNotebooks
-    .filter((doc) => !indexedSet.has(doc._id.toString()))
-    .slice(0, 25);
 
   for (const notebook of missing) {
     await enqueueNotebookIndexJob({
@@ -426,6 +561,13 @@ export const initializeNotebookIndexingWorker = () => {
 };
 
 export const stopNotebookIndexingWorker = async () => {
+  initialized = false;
+
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+
   if (backfillTask) {
     backfillTask.stop();
     backfillTask = null;
@@ -442,7 +584,19 @@ export const stopNotebookIndexingWorker = async () => {
     changeStream = null;
   }
 
-  initialized = false;
+  // Wait for currently-running job to finish (up to 30s)
+  if (processing) {
+    const deadline = Date.now() + 30_000;
+    await new Promise((resolve) => {
+      const check = () => {
+        if (!processing || Date.now() >= deadline) return resolve();
+        setTimeout(check, 250);
+      };
+      check();
+    });
+  }
+
+  recentNoteNotebookMap.clear();
 };
 
 export default {
