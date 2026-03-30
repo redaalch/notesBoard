@@ -8,6 +8,7 @@
  *   - AI feature status check
  */
 import express from "express";
+import multer from "multer";
 import auth from "../middleware/auth.js";
 import { validate, validationRules } from "../middleware/validation.js";
 import {
@@ -17,8 +18,15 @@ import {
   toggleActionItem,
   getAiStatus,
 } from "../controllers/aiController.js";
+import { transcribe } from "../controllers/transcriptionController.js";
 
 const router = express.Router();
+
+// Multer config for audio uploads (memory storage, 25 MB limit)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+});
 
 // All AI routes require authentication (rate limiting applied globally in app.js)
 router.use(auth);
@@ -41,5 +49,8 @@ router.patch(
   validate([validationRules.objectId("id"), validationRules.objectId("itemId")]),
   toggleActionItem,
 );
+
+// Voice input transcription (audio upload)
+router.post("/transcribe", upload.single("audio"), transcribe);
 
 export default router;
