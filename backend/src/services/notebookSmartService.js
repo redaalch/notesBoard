@@ -216,7 +216,7 @@ const performSemanticSearch = async ({
           index: "note_embedding_index",
           path: "embedding",
           queryVector: queryEmbedding,
-          numCandidates: Math.max(limit * 10, 100),
+          numCandidates: Math.min(Math.max(limit * 10, 100), 300),
           limit: limit * 2, // fetch extras so we can filter by access
         },
       },
