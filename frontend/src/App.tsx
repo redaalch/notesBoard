@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router-dom";
+import { LazyMotion, domAnimation } from "framer-motion";
 
 import RequireAuth from "./Components/RequireAuth";
 import SkipToContent from "./Components/SkipToContent";
@@ -34,6 +35,7 @@ const RouteFallback = () => (
 
 const App = () => {
   return (
+    <LazyMotion features={domAnimation} strict>
     <div className="relative min-h-screen w-full overflow-x-hidden bg-base-200">
       <SkipToContent />
       <div className="pointer-events-none absolute inset-0 -z-10 h-full w-full bg-gradient-to-br from-base-300/40 via-base-200/60 to-base-100/80" />
@@ -100,6 +102,7 @@ const App = () => {
         </Routes>
       </Suspense>
     </div>
+    </LazyMotion>
   );
 };
 export default App;
