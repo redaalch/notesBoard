@@ -4,7 +4,11 @@
  */
 import mongoose from "mongoose";
 import Note from "../models/Note.js";
-import { generateNoteSummary, predictNoteTags } from "../services/aiService.js";
+import {
+  generateNoteSummary,
+  predictNoteTags,
+  generateTemplate,
+} from "../services/aiService.js";
 import {
   embedText,
   buildNoteEmbeddingText,
@@ -243,6 +247,33 @@ export const toggleActionItem = async (req, res) => {
   }
 };
 
+/* ─────── POST /api/ai/generate-template ─────── */
+export const generateTemplateHandler = async (req, res) => {
+  try {
+    if (!isAiConfigured()) {
+      return res.status(503).json(AI_UNAVAILABLE);
+    }
+
+    const { description } = req.body;
+    const result = await generateTemplate(description);
+
+    if (result?.skipped) {
+      const statusCode = result.reason === "ai_unavailable" ? 503 : 400;
+      return res.status(statusCode).json({
+        message: "Unable to generate template.",
+        reason: result.reason,
+      });
+    }
+
+    return res.status(200).json(result);
+  } catch (error) {
+    logger.error("AI template generation endpoint error", {
+      message: error?.message,
+    });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
+  }
+};
+
 /* ─────── GET /api/ai/status ─────── */
 export const getAiStatus = async (_req, res) => {
   return res.status(200).json({
@@ -252,6 +283,7 @@ export const getAiStatus = async (_req, res) => {
       summarization: isAiConfigured(),
       predictiveTags: isAiConfigured(),
       voiceInput: isAiConfigured(),
+      templateGeneration: isAiConfigured(),
     },
   });
 };
@@ -261,5 +293,6 @@ export default {
   suggestTags,
   regenerateEmbedding,
   toggleActionItem,
+  generateTemplateHandler,
   getAiStatus,
 };
