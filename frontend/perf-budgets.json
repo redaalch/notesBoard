@@ -1,14 +1,14 @@
 {
   "baseline": {
-    "capturedAt": "2026-03-22T15:53:31.450Z",
-    "totalJsKb": 1488.89,
-    "totalCssKb": 202.9,
-    "entryJsKb": 21.43,
+    "capturedAt": "2026-03-23T00:24:20.720Z",
+    "totalJsKb": 1410.79,
+    "totalCssKb": 198.33,
+    "entryJsKb": 21.6,
     "desktopLighthouseScore": null,
     "mobileLighthouseScore": null
   },
   "bundle": {
-    "maxTotalJsKb": 1550,
+    "maxTotalJsKb": 1475,
     "maxTotalCssKb": 210,
     "maxEntryJsKb": 30
   },
