@@ -1,3 +1,8 @@
+// #9 — Require the canonical 24-char hex representation.
+// mongoose.Types.ObjectId.isValid() also accepts 12-byte binary strings (e.g.
+// "aaaaaaaaaaaa") which cause confusing query failures instead of clean 400s.
+const OBJECT_ID_HEX = /^[0-9a-f]{24}$/i;
+
 import mongoose from "mongoose";
 
 /**
@@ -11,9 +16,10 @@ export const normalizeEmail = (value) => {
 };
 
 /**
- * Determine whether a value can be treated as a valid Mongo ObjectId.
+ * Determine whether a value is a valid 24-character hex MongoDB ObjectId.
+ * Stricter than mongoose.Types.ObjectId.isValid() which accepts 12-byte strings.
  */
 export const isValidObjectId = (value) => {
   if (!value) return false;
-  return mongoose.Types.ObjectId.isValid(String(value));
+  return OBJECT_ID_HEX.test(String(value));
 };
