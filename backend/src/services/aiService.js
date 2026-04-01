@@ -228,10 +228,66 @@ export const predictNoteTags = async (note, existingTags = []) => {
   return suggested.length > 0 ? suggested : null;
 };
 
+/* ──────────────────────── Template Generation ─────────────────────────── */
+
+const TEMPLATE_SYSTEM_PROMPT = `You are an AI assistant for a note-taking app.
+The user describes the kind of note template they need.
+Generate a structured Markdown template with:
+- A concise title (the template name, not a document title)
+- 4–8 Markdown sections using ## headings
+- Inline placeholder guidance under each heading (e.g., "Describe the objective here...")
+- Bullet points with helpful prompts, not empty dashes
+- 2–5 relevant tags
+
+Return a JSON object with exactly three keys:
+- "title": a short template title (max 60 chars)
+- "content": the full Markdown template body
+- "tags": an array of 2–5 lowercase tag strings
+
+Keep content concise — no more than 600 words.
+Return ONLY valid JSON. No additional commentary.`;
+
+/**
+ * Generate a custom note template from a user description.
+ *
+ * @param {string} description – what the user wants the template for
+ * @returns {Promise<{ title: string, content: string, tags: string[] } | { skipped: true, reason: string }>}
+ */
+export const generateTemplate = async (description) => {
+  if (!description || !description.trim()) {
+    return { skipped: true, reason: "no_description" };
+  }
+
+  const responseText = await callLLM(TEMPLATE_SYSTEM_PROMPT, description);
+  const parsed = safeParse(responseText);
+
+  if (
+    !parsed ||
+    typeof parsed.title !== "string" ||
+    typeof parsed.content !== "string"
+  ) {
+    return { skipped: true, reason: "ai_unavailable" };
+  }
+
+  const tags = Array.isArray(parsed.tags)
+    ? parsed.tags
+        .filter((t) => typeof t === "string" && t.trim())
+        .map((t) => t.trim().toLowerCase())
+        .slice(0, 5)
+    : [];
+
+  return {
+    title: parsed.title.trim().slice(0, 60),
+    content: parsed.content,
+    tags,
+  };
+};
+
 /* ────────────────────────────── Exports ────────────────────────────────── */
 
 export default {
   generateNoteSummary,
   predictNoteTags,
+  generateTemplate,
   SUMMARY_WORD_THRESHOLD,
 };
