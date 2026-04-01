@@ -208,6 +208,15 @@ export const validationRules = {
       .isLength({ max: 120 })
       .withMessage("Name must be 120 characters or fewer"),
 
+  templateDescription: () =>
+    body("description")
+      .isString()
+      .trim()
+      .notEmpty()
+      .withMessage("Description is required")
+      .isLength({ max: 500 })
+      .withMessage("Description must be 500 characters or fewer"),
+
   savedQueryPayload: () => [
     body("query")
       .optional({ values: "falsy" })
