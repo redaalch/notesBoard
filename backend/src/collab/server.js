@@ -10,10 +10,7 @@ import { verifyAccessToken } from "../utils/tokenService.js";
 import CollabDocument from "../models/CollabDocument.js";
 import Note from "../models/Note.js";
 import NoteHistory from "../models/NoteHistory.js";
-import {
-  resolveNoteForUser,
-  touchWorkspaceMember,
-} from "../utils/access.js";
+import { resolveNoteForUser, touchWorkspaceMember } from "../utils/access.js";
 import { isValidObjectId } from "../utils/validators.js";
 
 // ── Debounce / throttle helpers ──────────────────────────────────────────────
@@ -166,6 +163,28 @@ const forceCloseConnection = (instance, documentName, socketId) => {
     logger.warn("Failed to force-close connection", {
       documentName,
       socketId,
+      message: err?.message,
+    });
+  }
+};
+
+/**
+ * Close all active connections for a specific user on a document.
+ * Used as a safe fallback when socketId is unavailable in hook payload.
+ */
+const forceCloseConnectionsForUser = (instance, documentName, userId) => {
+  try {
+    const doc = instance.documents.get(documentName);
+    if (!doc) return;
+    for (const conn of doc.getConnections()) {
+      if (conn.context?.userId === userId) {
+        conn.close({ code: 4403, reason: "Permission revoked" });
+      }
+    }
+  } catch (err) {
+    logger.warn("Failed to force-close user connections", {
+      documentName,
+      userId,
       message: err?.message,
     });
   }
@@ -372,7 +391,17 @@ const collabServer = Server.configure({
     if (existing) clearTimeout(existing);
     awarenessTimers.set(documentName, setTimeout(flush, AWARENESS_DEBOUNCE_MS));
   },
-  async onChange({ documentName, context, state, document, update }) {
+  async onChange(data) {
+    const {
+      documentName,
+      context,
+      state,
+      document,
+      update,
+      instance,
+      socketId,
+    } = data ?? {};
+
     if (!context?.userId) {
       return;
     }
@@ -388,7 +417,15 @@ const collabServer = Server.configure({
         });
         // Force-close this specific connection so the client cannot continue
         // making changes after access is revoked.
-        forceCloseConnection(data.instance, documentName, data.socketId);
+        if (instance && socketId) {
+          forceCloseConnection(instance, documentName, socketId);
+        } else {
+          forceCloseConnectionsForUser(
+            instance ?? collabServer,
+            documentName,
+            context.userId,
+          );
+        }
         return;
       }
     } catch (err) {
