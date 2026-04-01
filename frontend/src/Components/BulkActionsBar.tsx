@@ -9,11 +9,11 @@ import {
   TagsIcon,
   Trash2Icon,
   XIcon,
-  type LucideIcon,
 } from "lucide-react";
+import type { AppIcon } from "../types/icon";
 
 interface ActionButtonProps {
-  icon: LucideIcon;
+  icon: AppIcon;
   label: string;
   onClick: () => void;
   disabled?: boolean;
@@ -86,7 +86,7 @@ function BulkActionsBar({
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-primary/20 bg-base-100/95 px-4 py-3 shadow-[0_-4px_24px_rgba(0,0,0,0.1)] backdrop-blur-md">
+    <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 z-50 border-t border-primary/20 bg-base-100/95 px-4 py-3 shadow-[0_-4px_24px_rgba(0,0,0,0.1)] backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-primary">
           <ListChecksIcon className="size-4" />
