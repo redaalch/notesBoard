@@ -16,6 +16,7 @@ import {
   suggestTags,
   regenerateEmbedding,
   toggleActionItem,
+  generateTemplateHandler,
   getAiStatus,
 } from "../controllers/aiController.js";
 import { transcribe } from "../controllers/transcriptionController.js";
@@ -48,6 +49,13 @@ router.patch(
   "/notes/:id/action-items/:itemId",
   validate([validationRules.objectId("id"), validationRules.objectId("itemId")]),
   toggleActionItem,
+);
+
+// AI template generation
+router.post(
+  "/generate-template",
+  validate([validationRules.templateDescription()]),
+  generateTemplateHandler,
 );
 
 // Voice input transcription (audio upload)
