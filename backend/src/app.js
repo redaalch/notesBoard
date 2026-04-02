@@ -1,4 +1,5 @@
 import "./config/env.js";
+import crypto from "crypto";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -49,26 +50,36 @@ if (publicHost) {
   collabSources.add(`wss://${publicHost}/collab`);
 }
 
-const cspDirectives = {
-  defaultSrc: ["'self'"],
-  scriptSrc: ["'self'"],
-  styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-  imgSrc: ["'self'", "data:", "blob:", "https://bg.ibelick.com"],
-  connectSrc: ["'self'", ...collabSources],
-  fontSrc: ["'self'", "https://fonts.gstatic.com"],
-  baseUri: ["'self'"],
-  formAction: ["'self'"],
-  frameAncestors: ["'self'"],
-  workerSrc: ["'self'"],
-  objectSrc: ["'none'"],
-  upgradeInsecureRequests: [],
-};
+// Generate a per-request nonce for inline styles so we can drop 'unsafe-inline'
+// from the CSP style-src directive.  The nonce is exposed to the frontend via
+// the `res.locals.cspNonce` property so it can be injected into the HTML shell.
+app.use((_req, res, next) => {
+  res.locals.cspNonce = crypto.randomBytes(16).toString("base64");
+  next();
+});
 
 app.use(
   helmet({
     contentSecurityPolicy: isProduction
       ? {
-          directives: cspDirectives,
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: [
+              "'self'",
+              "https://fonts.googleapis.com",
+              (_req, res) => `'nonce-${res.locals.cspNonce}'`,
+            ],
+            imgSrc: ["'self'", "data:", "blob:", "https://bg.ibelick.com"],
+            connectSrc: ["'self'", ...collabSources],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            baseUri: ["'self'"],
+            formAction: ["'self'"],
+            frameAncestors: ["'self'"],
+            workerSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            upgradeInsecureRequests: [],
+          },
         }
       : false,
     crossOriginEmbedderPolicy: false,
