@@ -25,7 +25,8 @@ const userCache = new NodeCache({
   maxKeys: USER_CACHE_MAX_KEYS,
 });
 
-const USER_PROJECTION = "name email role defaultWorkspace defaultBoard";
+const USER_PROJECTION =
+  "name email role defaultWorkspace defaultBoard passwordChangedAt";
 
 const auth = async (req, res, next) => {
   try {
@@ -54,6 +55,15 @@ const auth = async (req, res, next) => {
 
     if (!user) {
       return res.status(401).json({ message: "Invalid token" });
+    }
+
+    // Reject tokens issued before the most recent password change / reset.
+    // JWT `iat` is in seconds; passwordChangedAt is a Date.
+    if (user.passwordChangedAt && payload.iat) {
+      const changedAtSec = Math.floor(user.passwordChangedAt.getTime() / 1000);
+      if (payload.iat < changedAtSec) {
+        return res.status(401).json({ message: "Token revoked" });
+      }
     }
 
     req.user = {
