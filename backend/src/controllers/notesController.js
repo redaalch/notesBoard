@@ -67,6 +67,9 @@ const NOTE_NOT_FOUND = {
 };
 
 const EDIT_ROLES = new Set(["owner", "admin", "editor"]);
+// Destructive bulk actions (delete, move) on notes the user doesn't own
+// require at least admin-level workspace access.
+const DESTRUCTIVE_ROLES = new Set(["owner", "admin"]);
 const NOTEBOOK_WRITE_ROLES = new Set(["owner", "editor"]);
 
 const queueNotebookIndexSafely = async (notebookId, reason) => {
@@ -996,11 +999,17 @@ export const bulkUpdateNotes = async (req, res) => {
       membershipRoleByWorkspace.set(wsId, role);
     });
 
+    // For destructive actions (delete, move) on notes the user doesn't own,
+    // require admin/owner workspace role — editors should not be able to
+    // delete or relocate other members' notes.
+    const requiredRoles =
+      action === "delete" || action === "move" ? DESTRUCTIVE_ROLES : EDIT_ROLES;
+
     const permittedNotes = candidateNotes.filter((note) => {
       if (String(note.owner) === String(ownerId)) return true;
       if (!note.workspaceId) return false;
       const role = membershipRoleByWorkspace.get(note.workspaceId.toString());
-      return role && EDIT_ROLES.has(role);
+      return role && requiredRoles.has(role);
     });
 
     const allowedIds = permittedNotes.map((note) => note._id);
