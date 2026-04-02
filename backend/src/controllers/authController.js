@@ -395,6 +395,7 @@ const issueSession = async (user, req, res, meta = {}) => {
     token: hashed,
     expiresAt,
     userAgent: meta.userAgent,
+    ip: meta.ip || req.ip,
   });
   await user.save();
 
