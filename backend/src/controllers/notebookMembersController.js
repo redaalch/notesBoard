@@ -537,21 +537,65 @@ export const updateNotebookMemberRole = async (req, res) => {
     }
 
     if (member.role === "owner" && normalizedRole !== "owner") {
-      const otherOwners = await NotebookMember.countDocuments({
-        notebookId: context.notebook._id,
-        role: "owner",
-        status: "active",
-        _id: { $ne: member._id },
-      });
-      if (!otherOwners) {
+      // Verify another owner exists before demoting.  We attempt a
+      // transaction so the check + update are atomic (prevents TOCTOU race
+      // where two concurrent demotions both pass the count check).  If
+      // transactions are unsupported (e.g. standalone MongoDB / test
+      // in-memory server), fall back to a non-transactional path — the race
+      // window is narrow and acceptable for environments without replica sets.
+      const demoteOwner = async (session) => {
+        const otherOwners = await NotebookMember.countDocuments(
+          {
+            notebookId: context.notebook._id,
+            role: "owner",
+            status: "active",
+            _id: { $ne: member._id },
+          },
+          session ? { session } : {},
+        );
+        if (!otherOwners) return false;
+        member.role = normalizedRole;
+        await member.save(session ? { session } : {});
+        return true;
+      };
+
+      let success = false;
+      let session;
+      try {
+        session = await mongoose.startSession();
+        await session.withTransaction(async () => {
+          success = await demoteOwner(session);
+          if (!success) {
+            await session.abortTransaction();
+          }
+        });
+      } catch (error) {
+        const isUnsupported =
+          typeof error?.message === "string" &&
+          error.message.includes(
+            "Transaction numbers are only allowed on a replica set member or mongos",
+          );
+        if (isUnsupported) {
+          logger.warn(
+            "MongoDB deployment does not support transactions; retrying owner demotion without session",
+          );
+          success = await demoteOwner(null);
+        } else {
+          throw error;
+        }
+      } finally {
+        if (session) await session.endSession();
+      }
+
+      if (!success) {
         return res
           .status(400)
           .json({ message: "Cannot remove the last owner of a notebook" });
       }
+    } else {
+      member.role = normalizedRole;
+      await member.save();
     }
-
-    member.role = normalizedRole;
-    await member.save();
 
     const members = await buildNotebookMemberPayload(context.notebook);
 
