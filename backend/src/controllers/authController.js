@@ -151,7 +151,7 @@ const baseCookieOptions = (req) => {
   return {
     httpOnly: true,
     secure,
-    sameSite: secure ? "strict" : "lax",
+    sameSite: secure || isProduction ? "strict" : "lax",
     path: "/",
     priority: "high",
     ...(domain ? { domain } : {}),
