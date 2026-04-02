@@ -741,6 +741,19 @@ export const deleteNotebook = async (req, res) => {
           { session },
         ),
         NotebookIndex.deleteOne({ notebookId: notebookDoc._id }, { session }),
+        SavedNotebookQuery.deleteMany(
+          { notebookId: notebookDoc._id },
+          { session },
+        ),
+        // Clean up NoteHistory records for notes that belonged to this notebook
+        ...(noteIds.length
+          ? [
+              NoteHistory.deleteMany(
+                { noteId: { $in: noteIds } },
+                { session },
+              ),
+            ]
+          : []),
       ]);
 
       await appendNotebookEvent(
