@@ -22,9 +22,11 @@ const collabDocumentSchema = new mongoose.Schema(
       validate: {
         validator: (v) => {
           if (v == null || (typeof v === "object" && !Object.keys(v).length)) return true;
+          if (typeof v !== "object" || Array.isArray(v)) return false;
+          if (Object.keys(v).length > 200) return false;
           try { return JSON.stringify(v).length <= 64_000; } catch { return false; }
         },
-        message: "awareness exceeds the 64 KB size limit",
+        message: "awareness must be a plain object (max 200 keys) and not exceed 64 KB",
       },
     },
     updatedAt: {
