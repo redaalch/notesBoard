@@ -53,9 +53,10 @@ const notebookPublicationSchema = new mongoose.Schema(
       validate: {
         validator: (v) => {
           if (!v || v.size === 0) return true;
+          if (v.size > 50) return false;
           try { return JSON.stringify(Object.fromEntries(v)).length <= 32_000; } catch { return false; }
         },
-        message: "metadata exceeds the 32 KB size limit",
+        message: "metadata must have at most 50 entries and not exceed 32 KB",
       },
     },
   },
