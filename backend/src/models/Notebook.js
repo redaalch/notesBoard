@@ -70,9 +70,11 @@ const notebookSchema = new mongoose.Schema(
       validate: {
         validator: (v) => {
           if (v == null) return true;
+          if (typeof v !== "object" || Array.isArray(v)) return false;
+          if (Object.keys(v).length > 50) return false;
           try { return JSON.stringify(v).length <= 32_000; } catch { return false; }
         },
-        message: "publicMetadata exceeds the 32 KB size limit",
+        message: "publicMetadata must be a plain object with at most 50 keys and not exceed 32 KB",
       },
     },
     color: {
