@@ -141,9 +141,13 @@ const noteSchema = new mongoose.Schema(
       validate: {
         validator: (v) => {
           if (v == null) return true;
-          try { return JSON.stringify(v).length <= 512_000; } catch { return false; }
+          if (typeof v !== "object") return false;
+          try {
+            const json = JSON.stringify(v);
+            return json.length <= 512_000;
+          } catch { return false; }
         },
-        message: "richContent exceeds the 512 KB size limit",
+        message: "richContent must be a valid object and not exceed 512 KB",
       },
     },
     contentText: {
@@ -246,7 +250,15 @@ noteSchema.virtual("ownerId").get(function () {
 }).set(function (v) {
   this.owner = v;
 });
-noteSchema.set("toJSON", { virtuals: true });
+noteSchema.set("toJSON", {
+  virtuals: true,
+  transform(_doc, ret) {
+    // Safety net: never leak the embedding vector in API responses even if a
+    // query accidentally includes it (e.g. via `.select('+embedding')`).
+    delete ret.embedding;
+    return ret;
+  },
+});
 noteSchema.set("toObject", { virtuals: true });
 
 const Note = mongoose.model("Note", noteSchema);
