@@ -53,9 +53,10 @@ const noteHistorySchema = new mongoose.Schema(
       validate: {
         validator: (v) => {
           if (v == null) return true;
+          if (typeof v !== "object") return false;
           try { return JSON.stringify(v).length <= 256_000; } catch { return false; }
         },
-        message: "diff exceeds the 256 KB size limit",
+        message: "diff must be a valid object and not exceed 256 KB",
       },
     },
     awarenessState: {
@@ -64,9 +65,11 @@ const noteHistorySchema = new mongoose.Schema(
       validate: {
         validator: (v) => {
           if (v == null) return true;
+          if (typeof v !== "object") return false;
+          if (!Array.isArray(v) && Object.keys(v).length > 100) return false;
           try { return JSON.stringify(v).length <= 32_000; } catch { return false; }
         },
-        message: "awarenessState exceeds the 32 KB size limit",
+        message: "awarenessState must be a valid object (max 100 keys) and not exceed 32 KB",
       },
     },
     expiresAt: {
