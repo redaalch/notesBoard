@@ -23,6 +23,14 @@ const templateNoteSchema = new mongoose.Schema(
     richContent: {
       type: mongoose.Schema.Types.Mixed,
       default: null,
+      validate: {
+        validator: (v) => {
+          if (v == null) return true;
+          if (typeof v !== "object") return false;
+          try { return JSON.stringify(v).length <= 512_000; } catch { return false; }
+        },
+        message: "richContent must be a valid object and not exceed 512 KB",
+      },
     },
     tags: {
       type: [String],
