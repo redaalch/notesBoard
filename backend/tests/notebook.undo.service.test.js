@@ -208,6 +208,173 @@ describe("notebook undo service", () => {
     expect(publication?.publicSlug).toBe("restored-notebook");
   });
 
+  describe("restoreNotebookFields", () => {
+    it("restores the notebook name when undoing a rename", async () => {
+      const ownerId = new mongoose.Types.ObjectId();
+      const notebook = await Notebook.create({
+        owner: ownerId,
+        name: "Name After Edit",
+      });
+
+      const event = {
+        payload: {},
+        inversePayload: {
+          action: "restoreNotebookFields",
+          previous: { name: "Original Name" },
+        },
+      };
+
+      const result = await applyUndoForNotebookEvent({
+        notebook,
+        event,
+        session: null,
+      });
+
+      expect(result).toMatchObject({
+        supported: true,
+        action: "restoreNotebookFields",
+      });
+
+      const updated = await Notebook.findById(notebook._id).lean();
+      expect(updated?.name).toBe("Original Name");
+    });
+
+    it("restores multiple allowed fields in one operation", async () => {
+      const ownerId = new mongoose.Types.ObjectId();
+      const notebook = await Notebook.create({
+        owner: ownerId,
+        name: "After",
+        description: "After edit",
+      });
+
+      const event = {
+        payload: {},
+        inversePayload: {
+          action: "restoreNotebookFields",
+          previous: {
+            name: "Before",
+            description: "Before edit",
+            color: null,
+            icon: null,
+          },
+        },
+      };
+
+      await applyUndoForNotebookEvent({ notebook, event, session: null });
+
+      const updated = await Notebook.findById(notebook._id).lean();
+      expect(updated?.name).toBe("Before");
+      expect(updated?.description).toBe("Before edit");
+    });
+
+    it("throws UNDO_UNSUPPORTED_PAYLOAD when previous is empty", async () => {
+      const ownerId = new mongoose.Types.ObjectId();
+      const notebook = await Notebook.create({ owner: ownerId, name: "NB" });
+
+      const event = {
+        payload: {},
+        inversePayload: {
+          action: "restoreNotebookFields",
+          previous: {},
+        },
+      };
+
+      await expect(
+        applyUndoForNotebookEvent({ notebook, event, session: null }),
+      ).rejects.toThrow("UNDO_UNSUPPORTED_PAYLOAD");
+    });
+
+    it("throws UNDO_UNSUPPORTED_PAYLOAD when previous contains only disallowed keys", async () => {
+      const ownerId = new mongoose.Types.ObjectId();
+      const notebook = await Notebook.create({ owner: ownerId, name: "NB" });
+
+      const event = {
+        payload: {},
+        inversePayload: {
+          action: "restoreNotebookFields",
+          previous: { owner: "hacker", isPublic: true },
+        },
+      };
+
+      await expect(
+        applyUndoForNotebookEvent({ notebook, event, session: null }),
+      ).rejects.toThrow("UNDO_UNSUPPORTED_PAYLOAD");
+    });
+  });
+
+  describe("restoreNoteNotebook", () => {
+    it("moves notes back to their previous notebook", async () => {
+      const ownerId = new mongoose.Types.ObjectId();
+      const notebookA = await Notebook.create({ owner: ownerId, name: "NB A" });
+      const notebookB = await Notebook.create({ owner: ownerId, name: "NB B" });
+      const note = await Note.create({
+        owner: ownerId,
+        notebookId: notebookB._id,
+        title: "Moved note",
+        content: ".",
+      });
+
+      const event = {
+        payload: { noteIds: [note._id.toString()] },
+        inversePayload: {
+          action: "restoreNoteNotebook",
+          previousNotebookIds: [
+            {
+              noteId: note._id.toString(),
+              notebookId: notebookA._id.toString(),
+            },
+          ],
+        },
+      };
+
+      const result = await applyUndoForNotebookEvent({
+        notebook: notebookB,
+        event,
+        session: null,
+      });
+
+      expect(result).toMatchObject({ supported: true, action: "restoreNoteNotebook" });
+
+      const restored = await Note.findById(note._id).lean();
+      expect(restored?.notebookId?.toString()).toBe(notebookA._id.toString());
+    });
+
+    it("throws UNDO_UNSUPPORTED_PAYLOAD when previousNotebookIds is empty", async () => {
+      const ownerId = new mongoose.Types.ObjectId();
+      const notebook = await Notebook.create({ owner: ownerId, name: "NB" });
+
+      const event = {
+        payload: {},
+        inversePayload: {
+          action: "restoreNoteNotebook",
+          previousNotebookIds: [],
+        },
+      };
+
+      await expect(
+        applyUndoForNotebookEvent({ notebook, event, session: null }),
+      ).rejects.toThrow("UNDO_UNSUPPORTED_PAYLOAD");
+    });
+  });
+
+  it("returns { supported: false } for an unrecognised action", async () => {
+    const ownerId = new mongoose.Types.ObjectId();
+    const notebook = await Notebook.create({ owner: ownerId, name: "NB" });
+
+    const event = {
+      payload: {},
+      inversePayload: { action: "nonExistentAction" },
+    };
+
+    const result = await applyUndoForNotebookEvent({
+      notebook,
+      event,
+      session: null,
+    });
+
+    expect(result).toEqual({ supported: false, reason: "unsupported-action" });
+  });
+
   describe("restoreNotebookPublication", () => {
     it("reverts a publish action back to private", async () => {
       const ownerId = new mongoose.Types.ObjectId();
