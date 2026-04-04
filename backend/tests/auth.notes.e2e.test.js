@@ -19,6 +19,8 @@ import CollabDocument from "../src/models/CollabDocument.js";
 import Notebook from "../src/models/Notebook.js";
 import NotebookMember from "../src/models/NotebookMember.js";
 import NotebookTemplate from "../src/models/NotebookTemplate.js";
+import NoteHistory from "../src/models/NoteHistory.js";
+import NotebookEvent from "../src/models/NotebookEvent.js";
 
 const sentEmails = [];
 const sendMailMock = vi.fn(async (options) => {
@@ -63,12 +65,14 @@ afterEach(async () => {
   sentEmails.length = 0;
   sendMailMock.mockClear();
   await Note.deleteMany({});
+  await NoteHistory.deleteMany({});
   await Board.deleteMany({});
   await Workspace.deleteMany({});
   await CollabDocument.deleteMany({});
   await Notebook.deleteMany({});
   await NotebookMember.deleteMany({});
   await NotebookTemplate.deleteMany({});
+  await NotebookEvent.deleteMany({});
   await User.deleteMany({});
 });
 
