@@ -14,7 +14,8 @@
     "dev:web": "npm run dev --prefix frontend",
     "dev": "concurrently -k -n api,web -c cyan,magenta \"npm:dev:api\" \"npm:dev:web\"",
     "build": "npm run build --prefix frontend",
-    "preview": "npm run preview --prefix frontend"
+    "preview": "npm run preview --prefix frontend",
+    "audit:all": "npm audit --audit-level=high --prefix backend && npm audit --audit-level=high --omit=dev --prefix frontend"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

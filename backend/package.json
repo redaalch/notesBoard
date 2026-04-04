@@ -40,7 +40,7 @@
     "multer": "^2.1.1",
     "node-cache": "^5.1.2",
     "node-cron": "^3.0.3",
-    "nodemailer": "^6.9.15",
+    "nodemailer": "^8.0.4",
     "yjs": "^13.6.14"
   },
   "devDependencies": {
