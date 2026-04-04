@@ -42,6 +42,7 @@ const userSchema = new mongoose.Schema(
             expiresAt: { type: Date, required: true },
             createdAt: { type: Date, default: Date.now },
             userAgent: { type: String },
+            ip: { type: String },
           },
           { _id: false },
         ),
@@ -79,6 +80,12 @@ const userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Board",
     },
+    // Set whenever the password is changed or reset.  The auth middleware
+    // rejects access tokens whose `iat` predates this timestamp, effectively
+    // revoking all tokens issued before the password change.
+    passwordChangedAt: {
+      type: Date,
+    },
     customNoteOrder: {
       type: [
         {
@@ -103,6 +110,7 @@ userSchema.methods.comparePassword = async function comparePassword(password) {
 userSchema.methods.setPassword = async function setPassword(password) {
   const salt = await bcrypt.genSalt(12);
   this.passwordHash = await bcrypt.hash(password, salt);
+  this.passwordChangedAt = new Date();
 };
 
 userSchema.methods.addRefreshToken = function addRefreshToken(entry) {
