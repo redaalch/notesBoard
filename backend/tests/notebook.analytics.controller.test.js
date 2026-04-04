@@ -198,4 +198,81 @@ describe("notebook analytics endpoints", () => {
     expect(forbiddenRes.status).toBe(403);
     expect(forbiddenRes.body?.message).toMatch(/access denied/i);
   }, 15000);
+
+  it("returns 400 for an invalid range query parameter", async () => {
+    const ownerPassword = await bcrypt.hash("Password123!", 10);
+    const owner = await User.create({
+      name: "Range Owner",
+      email: "range-owner@example.com",
+      passwordHash: ownerPassword,
+      emailVerified: true,
+    });
+    const notebook = await Notebook.create({ owner: owner._id, name: "Range NB" });
+    const ownerToken = generateAccessToken({
+      id: owner._id.toString(),
+      email: owner.email,
+      role: owner.role,
+    });
+
+    const res = await request(app)
+      .get(`/api/notebooks/${notebook._id.toString()}/analytics/activity?range=invalid`)
+      .set(authHeaders(ownerToken));
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Validation failed");
+    expect(res.body.errors[0].field).toBe("range");
+  });
+
+  it("returns 401 when no auth token is provided", async () => {
+    const notebookId = new mongoose.Types.ObjectId().toString();
+
+    const res = await request(app).get(
+      `/api/notebooks/${notebookId}/analytics`,
+    );
+
+    expect(res.status).toBe(401);
+  });
+
+  it("allows an active editor member to access analytics", async () => {
+    const ownerPassword = await bcrypt.hash("Password123!", 10);
+    const owner = await User.create({
+      name: "Editor Owner",
+      email: "editor-owner@example.com",
+      passwordHash: ownerPassword,
+      emailVerified: true,
+    });
+    const editorPassword = await bcrypt.hash("Password123!", 10);
+    const editor = await User.create({
+      name: "Editor",
+      email: "notebook-editor@example.com",
+      passwordHash: editorPassword,
+      emailVerified: true,
+    });
+
+    const notebook = await Notebook.create({
+      owner: owner._id,
+      name: "Editor Visible NB",
+    });
+    await NotebookMember.create({
+      notebookId: notebook._id,
+      userId: editor._id,
+      role: "editor",
+      status: "active",
+    });
+
+    const editorToken = generateAccessToken({
+      id: editor._id.toString(),
+      email: editor.email,
+      role: editor.role,
+    });
+
+    const res = await request(app)
+      .get(
+        `/api/notebooks/${notebook._id.toString()}/analytics/activity?range=7d`,
+      )
+      .set(authHeaders(editorToken));
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.labels)).toBe(true);
+  }, 10000);
 });
