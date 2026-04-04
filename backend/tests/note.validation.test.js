@@ -21,16 +21,22 @@ describe("Note model validation", () => {
     expect(note.validateSync()).toBeUndefined();
   });
 
-  it("rejects content with script tags", () => {
+  it("allows content with script tags (free-form notes)", () => {
     const note = buildNote({
       content: "<script>alert('XSS');</script>",
     });
 
-    const error = note.validateSync();
+    // Content is free-form — sanitization happens at the rendering layer, not storage.
+    expect(note.validateSync()).toBeUndefined();
+  });
 
-    expect(error?.errors?.content?.message).toBe(
-      "Content contains disallowed content."
-    );
+  it("rejects content exceeding maxlength", () => {
+    const note = buildNote({
+      content: "a".repeat(50001),
+    });
+
+    const error = note.validateSync();
+    expect(error?.errors?.content).toBeDefined();
   });
 
   it("rejects Mongo-style operators", () => {
@@ -73,6 +79,17 @@ describe("Note model validation", () => {
 
     const error = note.validateSync();
 
+    expect(error?.errors?.tags?.message).toBe(
+      "Tags contain disallowed content."
+    );
+  });
+
+  it("rejects a tag exceeding 32 characters", () => {
+    const note = buildNote({
+      tags: ["a".repeat(33)],
+    });
+
+    const error = note.validateSync();
     expect(error?.errors?.tags?.message).toBe(
       "Tags contain disallowed content."
     );
