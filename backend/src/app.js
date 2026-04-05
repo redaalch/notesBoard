@@ -89,15 +89,14 @@ app.use(
       : false,
   }),
 );
+// Apply CORS only to API routes. Browser navigation/static asset requests
+// (/, favicon, sw.js) usually have no Origin header and should not be blocked.
 app.use(
+  "/api",
   cors({
     origin: (origin, cb) => {
-      // Supertest (integration tests) never sends an Origin header — allow
-      // in the test environment only.
-      if (!origin) {
-        if (process.env.NODE_ENV === "test") return cb(null, true);
-        return cb(new Error("CORS: requests without an Origin are not allowed"));
-      }
+      // Allow requests without Origin (curl, server-to-server, health checks).
+      if (!origin) return cb(null, true);
       cb(null, allowedOrigins.includes(origin));
     },
     allowedHeaders: ["Content-Type", "Authorization"],
