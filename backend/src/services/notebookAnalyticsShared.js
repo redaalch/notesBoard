@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import {
   NOTEBOOK_ANALYTICS_DEFAULT_RANGE,
   NOTEBOOK_ANALYTICS_RANGE_METADATA,
-} from "../../../shared/analyticsTypes.ts";
+} from "../../../shared/analyticsTypes.js";
 
 const { ObjectId } = mongoose.Types;
 

@@ -22,7 +22,7 @@ import {
   isAllowedNotebookIcon,
   normalizeNotebookColor,
   normalizeNotebookIcon,
-} from "../../../shared/notebookOptions.ts";
+} from "../../../shared/notebookOptions.js";
 import { appendNotebookEvent } from "../services/notebookEventService.js";
 import { enqueueNotebookIndexJob } from "../tasks/notebookIndexingWorker.js";
 import { getNotebookRecommendations as computeNotebookRecommendations } from "../services/notebookRecommendationService.js";

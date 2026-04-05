@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import {
   NOTEBOOK_COLOR_VALUES,
   NOTEBOOK_ICON_NAMES,
-} from "../../../shared/notebookOptions.ts";
+} from "../../../shared/notebookOptions.js";
 
 const MAX_TEMPLATE_TAGS = 20;
 

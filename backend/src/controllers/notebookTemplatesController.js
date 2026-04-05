@@ -15,7 +15,7 @@ import {
   isAllowedNotebookIcon,
   normalizeNotebookColor,
   normalizeNotebookIcon,
-} from "../../../shared/notebookOptions.ts";
+} from "../../../shared/notebookOptions.js";
 
 const INTERNAL_SERVER_ERROR = { message: "Internal server error" };
 const MAX_TEMPLATE_NOTES = Number(
