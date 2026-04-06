@@ -28,6 +28,7 @@ const buildShareLinkUrl = (token, notebookId) => {
   const candidates = [
     process.env.NOTEBOOK_SHARE_URL,
     process.env.CLIENT_APP_URL,
+    process.env.FRONTEND_ORIGIN,
   ];
 
   for (const candidate of candidates) {
@@ -47,6 +48,9 @@ const buildShareLinkUrl = (token, notebookId) => {
     }
   }
 
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("FRONTEND_ORIGIN must be set in production to build share links");
+  }
   const fallback = new URL("http://localhost:5173/notebook/share");
   fallback.searchParams.set("token", token);
   if (notebookId) {
