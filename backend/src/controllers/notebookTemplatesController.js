@@ -422,7 +422,10 @@ export const instantiateNotebookTemplate = async (req, res) => {
 
     // Verify the user has access to the target workspace
     if (normalizedWorkspaceId) {
-      const wsMembership = await getWorkspaceMembership(normalizedWorkspaceId, ownerId);
+      const wsMembership = await getWorkspaceMembership(
+        normalizedWorkspaceId,
+        ownerId,
+      );
       if (!wsMembership) {
         return res
           .status(403)
@@ -454,11 +457,12 @@ export const instantiateNotebookTemplate = async (req, res) => {
     for (const targetBoardId of Object.values(sanitizedBoardMappings)) {
       const boardObjId = normalizeObjectId(targetBoardId);
       if (boardObjId) {
-        const board = await Board.findOne({ _id: boardObjId, createdBy: ownerId }).lean();
+        const board = await Board.findOne({
+          _id: boardObjId,
+          createdBy: ownerId,
+        }).lean();
         if (!board) {
-          return res
-            .status(403)
-            .json({ message: "Invalid board in mappings" });
+          return res.status(403).json({ message: "Invalid board in mappings" });
         }
       }
     }
