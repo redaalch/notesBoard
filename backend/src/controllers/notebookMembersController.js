@@ -56,6 +56,7 @@ const buildNotebookInviteLink = (token, notebookId) => {
   const candidates = [
     process.env.NOTEBOOK_INVITE_URL,
     process.env.CLIENT_APP_URL,
+    process.env.FRONTEND_ORIGIN,
   ];
 
   for (const candidate of candidates) {
@@ -75,8 +76,10 @@ const buildNotebookInviteLink = (token, notebookId) => {
     }
   }
 
-  const base = "http://localhost:5173/notebook/invite";
-  const fallbackUrl = new URL(base);
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("FRONTEND_ORIGIN must be set in production to build invite links");
+  }
+  const fallbackUrl = new URL("http://localhost:5173/notebook/invite");
   fallbackUrl.searchParams.set("token", token);
   if (notebookId) {
     fallbackUrl.searchParams.set("notebookId", notebookId.toString());
