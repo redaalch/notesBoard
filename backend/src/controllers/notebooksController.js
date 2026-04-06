@@ -747,12 +747,7 @@ export const deleteNotebook = async (req, res) => {
         ),
         // Clean up NoteHistory records for notes that belonged to this notebook
         ...(noteIds.length
-          ? [
-              NoteHistory.deleteMany(
-                { noteId: { $in: noteIds } },
-                { session },
-              ),
-            ]
+          ? [NoteHistory.deleteMany({ noteId: { $in: noteIds } }, { session })]
           : []),
       ]);
 
