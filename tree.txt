@@ -1,5 +1,4 @@
 .
-├── azure-pipelines.yml
 ├── backend
 │   ├── CLAUDE.md
 │   ├── package.json
