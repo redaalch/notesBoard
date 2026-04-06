@@ -54,6 +54,7 @@ const buildNoteLink = (noteId) => {
     process.env.NOTE_COLLABORATION_URL,
     process.env.CLIENT_APP_URL,
     process.env.FRONTEND_URL,
+    process.env.FRONTEND_ORIGIN,
   ];
 
   for (const candidate of candidates) {
@@ -71,6 +72,9 @@ const buildNoteLink = (noteId) => {
     }
   }
 
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("FRONTEND_ORIGIN must be set in production to build note links");
+  }
   return `http://localhost:5173/note/${noteId}`;
 };
 
