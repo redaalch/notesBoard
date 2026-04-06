@@ -33,16 +33,21 @@ const __dirname = path.dirname(__filename);
 const ROOT = path.join(__dirname, "../../");
 const dist = path.join(ROOT, "frontend", "dist");
 
-const allowedOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
-const frontendOrigin = process.env.FRONTEND_ORIGIN;
-if (frontendOrigin) {
-  allowedOrigins.push(frontendOrigin);
+const allowedOrigins = [];
+if (process.env.FRONTEND_ORIGIN) {
+  allowedOrigins.push(process.env.FRONTEND_ORIGIN);
+}
+if (!isProduction) {
+  allowedOrigins.push("http://localhost:5173", "http://127.0.0.1:5173");
 }
 
-const collabSources = new Set(["ws://localhost:6001", "wss://localhost:6001"]);
-
+const collabSources = new Set();
 if (process.env.COLLAB_WS_URL) {
   collabSources.add(process.env.COLLAB_WS_URL);
+}
+if (!isProduction) {
+  collabSources.add("ws://localhost:6001");
+  collabSources.add("wss://localhost:6001");
 }
 
 const publicHost = process.env.PUBLIC_HOST;
