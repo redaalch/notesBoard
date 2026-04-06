@@ -5,6 +5,7 @@ let loaded = false;
 const REQUIRED_IN_PRODUCTION = [
   "MONGO_URI",
   "JWT_ACCESS_SECRET",
+  "FRONTEND_ORIGIN",
   "UPSTASH_REDIS_REST_URL",
   "UPSTASH_REDIS_REST_TOKEN",
 ];
@@ -12,6 +13,7 @@ const REQUIRED_IN_PRODUCTION = [
 const RECOMMENDED = [
   "MONGO_URI",
   "JWT_ACCESS_SECRET",
+  "FRONTEND_ORIGIN",
 ];
 
 export const loadEnv = () => {
