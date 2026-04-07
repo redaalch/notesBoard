@@ -7,7 +7,7 @@ import {
 const { ObjectId } = mongoose.Types;
 
 export const RANGE_TO_DAYS = Object.entries(
-  NOTEBOOK_ANALYTICS_RANGE_METADATA
+  NOTEBOOK_ANALYTICS_RANGE_METADATA,
 ).reduce((map, [key, meta]) => {
   map[key] = meta.days;
   return map;
@@ -45,7 +45,7 @@ export const formatDateKey = (date) => {
 export const isoWeekKey = (dateLike) => {
   const date = new Date(dateLike);
   const target = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
   );
   const day = target.getUTCDay() || 7;
   target.setUTCDate(target.getUTCDate() + 4 - day);
