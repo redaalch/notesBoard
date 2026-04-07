@@ -183,7 +183,9 @@ export const validationRules = {
       .isLength({ min: 6, max: 64 })
       .withMessage("Slug must be between 6 and 64 characters")
       .matches(/^[a-z0-9-]+$/)
-      .withMessage("Slug may only contain lowercase letters, numbers, and hyphens"),
+      .withMessage(
+        "Slug may only contain lowercase letters, numbers, and hyphens",
+      ),
 
   syncClientId: (field = "clientId") =>
     body(field)
