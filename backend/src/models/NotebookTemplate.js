@@ -27,7 +27,11 @@ const templateNoteSchema = new mongoose.Schema(
         validator: (v) => {
           if (v == null) return true;
           if (typeof v !== "object") return false;
-          try { return JSON.stringify(v).length <= 512_000; } catch { return false; }
+          try {
+            return JSON.stringify(v).length <= 512_000;
+          } catch {
+            return false;
+          }
         },
         message: "richContent must be a valid object and not exceed 512 KB",
       },
@@ -60,7 +64,7 @@ const templateNoteSchema = new mongoose.Schema(
       default: 0,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const notebookTemplateSchema = new mongoose.Schema(
@@ -129,14 +133,14 @@ const notebookTemplateSchema = new mongoose.Schema(
       default: null,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 notebookTemplateSchema.index({ owner: 1, name: 1 }, { unique: true });
 
 const NotebookTemplate = mongoose.model(
   "NotebookTemplate",
-  notebookTemplateSchema
+  notebookTemplateSchema,
 );
 
 export default NotebookTemplate;
