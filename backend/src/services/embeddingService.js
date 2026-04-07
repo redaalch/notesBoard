@@ -11,9 +11,27 @@ const DEFAULT_PROVIDER = "none";
 const GEMINI_PROVIDER = "gemini";
 const GROQ_PROVIDER = "groq";
 
-const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL ?? "";
-const GEMINI_EMBEDDING_MODEL = EMBEDDING_MODEL || "gemini-embedding-001";
-const GROQ_EMBEDDING_MODEL = EMBEDDING_MODEL || "text-embedding-3-small";
+const EMBEDDING_MODEL = (process.env.EMBEDDING_MODEL ?? "").trim();
+const GEMINI_EMBEDDING_MODEL =
+  (process.env.GEMINI_EMBEDDING_MODEL ?? "").trim() ||
+  EMBEDDING_MODEL ||
+  "gemini-embedding-001";
+const GROQ_EMBEDDING_MODEL =
+  (process.env.GROQ_EMBEDDING_MODEL ?? "").trim() ||
+  EMBEDDING_MODEL ||
+  // Groq does not expose OpenAI's text-embedding-* model IDs.
+  "nomic-embed-text-v1.5";
+
+const MODEL_DIMENSIONS_BY_NAME = {
+  "gemini-embedding-001": 3072,
+  "text-embedding-3-small": 1536,
+  "text-embedding-3-large": 3072,
+  "nomic-embed-text-v1.5": 768,
+  "mxbai-embed-large": 1024,
+};
+
+const getModelForProvider = (provider) =>
+  provider === GROQ_PROVIDER ? GROQ_EMBEDDING_MODEL : GEMINI_EMBEDDING_MODEL;
 
 const GEMINI_EMBEDDING_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_EMBEDDING_MODEL}:embedContent`;
 const GEMINI_BATCH_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_EMBEDDING_MODEL}:batchEmbedContents`;
@@ -32,10 +50,9 @@ const resolveDimensions = () => {
     return Math.floor(fromEnv);
   }
 
-  const provider = (process.env.EMBEDDING_PROVIDER ?? "").toLowerCase().trim();
-  if (provider === GROQ_PROVIDER) return 1536;
-
-  return 3072;
+  const provider = getProvider();
+  const configuredModel = getModelForProvider(provider);
+  return MODEL_DIMENSIONS_BY_NAME[configuredModel] ?? 1536;
 };
 
 /** Dimensions expected from the configured embedding provider/model. */
@@ -130,7 +147,7 @@ export const embedText = async (text) => {
               Authorization: `Bearer ${apiKey}`,
             },
             body: JSON.stringify({
-              model: GROQ_EMBEDDING_MODEL,
+              model: getModelForProvider(provider),
               input: truncated,
             }),
             signal: controller.signal,
@@ -143,7 +160,7 @@ export const embedText = async (text) => {
               "x-goog-api-key": apiKey,
             },
             body: JSON.stringify({
-              model: `models/${GEMINI_EMBEDDING_MODEL}`,
+              model: `models/${getModelForProvider(provider)}`,
               content: { parts: [{ text: truncated }] },
             }),
             signal: controller.signal,
@@ -222,7 +239,7 @@ export const embedBatch = async (texts) => {
   );
 
   const requests = normalizedTexts.map((text) => ({
-    model: `models/${GEMINI_EMBEDDING_MODEL}`,
+    model: `models/${getModelForProvider(provider)}`,
     content: { parts: [{ text }] },
   }));
 
@@ -242,7 +259,7 @@ export const embedBatch = async (texts) => {
             Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            model: GROQ_EMBEDDING_MODEL,
+            model: getModelForProvider(provider),
             input: normalizedTexts,
           }),
           signal: controller.signal,
