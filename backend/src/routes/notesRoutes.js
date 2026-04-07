@@ -26,7 +26,7 @@ import auth from "../middleware/auth.js";
 import { validate, validationRules } from "../middleware/validation.js";
 import { body, query } from "express-validator";
 import cacheService from "../services/cacheService.js";
-import { BULK_NOTE_ACTIONS } from "../utils/constants.js";
+import { BULK_NOTE_ACTIONS, MAX_BULK_NOTE_IDS } from "../utils/constants.js";
 
 const router = express.Router();
 
@@ -36,12 +36,35 @@ router.use(auth);
 // List notes with pagination
 router.get(
   "/",
-  validate([...validationRules.pagination(), query("tag").optional().trim()]),
+  validate([
+    ...validationRules.pagination(),
+    query("tag")
+      .optional()
+      .trim()
+      .isLength({ max: 50 })
+      .withMessage("Tag must not exceed 50 characters")
+      .custom((v) => !/[\$\.]/.test(v))
+      .withMessage("Tag contains invalid characters"),
+  ]),
   getAllNotes,
 );
 
 // Note layout routes
-router.get("/layout", getNoteLayout);
+router.get(
+  "/layout",
+  validate([
+    query("notebookId")
+      .optional()
+      .custom((value) => {
+        if (value === "uncategorized") return true;
+        return /^[0-9a-fA-F]{24}$/.test(value);
+      })
+      .withMessage(
+        "notebookId must be a valid MongoDB ID or 'uncategorized'",
+      ),
+  ]),
+  getNoteLayout,
+);
 router.put(
   "/layout",
   validate([
@@ -87,8 +110,10 @@ router.post(
   "/bulk",
   validate([
     body("noteIds")
-      .isArray({ min: 1 })
-      .withMessage("noteIds must be a non-empty array"),
+      .isArray({ min: 1, max: MAX_BULK_NOTE_IDS })
+      .withMessage(
+        `noteIds must be a non-empty array (max ${MAX_BULK_NOTE_IDS})`,
+      ),
     body("noteIds.*").isMongoId().withMessage("Each noteId must be valid"),
     body("action")
       .isIn(BULK_NOTE_ACTIONS)
