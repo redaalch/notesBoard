@@ -57,7 +57,8 @@ const notebookSchema = new mongoose.Schema(
       maxlength: 64,
       validate: {
         validator: (v) => v === null || /^[a-z0-9-]+$/.test(v),
-        message: "Slug may only contain lowercase letters, numbers, and hyphens",
+        message:
+          "Slug may only contain lowercase letters, numbers, and hyphens",
       },
     },
     publishedAt: {
@@ -72,9 +73,14 @@ const notebookSchema = new mongoose.Schema(
           if (v == null) return true;
           if (typeof v !== "object" || Array.isArray(v)) return false;
           if (Object.keys(v).length > 50) return false;
-          try { return JSON.stringify(v).length <= 32_000; } catch { return false; }
+          try {
+            return JSON.stringify(v).length <= 32_000;
+          } catch {
+            return false;
+          }
         },
-        message: "publicMetadata must be a plain object with at most 50 keys and not exceed 32 KB",
+        message:
+          "publicMetadata must be a plain object with at most 50 keys and not exceed 32 KB",
       },
     },
     color: {
@@ -130,11 +136,14 @@ notebookSchema.index(
 );
 notebookSchema.index({ owner: 1, offlineRevision: -1 });
 
-notebookSchema.virtual("ownerId").get(function () {
-  return this.owner;
-}).set(function (v) {
-  this.owner = v;
-});
+notebookSchema
+  .virtual("ownerId")
+  .get(function () {
+    return this.owner;
+  })
+  .set(function (v) {
+    this.owner = v;
+  });
 notebookSchema.set("toJSON", { virtuals: true });
 notebookSchema.set("toObject", { virtuals: true });
 
