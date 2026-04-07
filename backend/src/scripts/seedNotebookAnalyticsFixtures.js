@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import mongoose from "mongoose";
 
+import crypto from "crypto";
+
 import "../config/env.js";
 import { connectDb } from "../config/database.js";
 import User from "../models/User.js";
@@ -25,7 +27,7 @@ const parseOptions = () => {
     ownerName:
       process.env.NOTEBOOK_ANALYTICS_SEED_OWNER_NAME ?? "Analytics Owner",
     ownerPassword:
-      process.env.NOTEBOOK_ANALYTICS_SEED_OWNER_PASSWORD ?? "Analytics!234",
+      process.env.NOTEBOOK_ANALYTICS_SEED_OWNER_PASSWORD ?? null,
     notebookName:
       process.env.NOTEBOOK_ANALYTICS_SEED_NOTEBOOK_NAME ??
       "Analytics Validation",
@@ -75,16 +77,24 @@ const resolveOwner = async ({ ownerEmail, ownerName, ownerPassword }) => {
   const normalizedEmail = ownerEmail.toLowerCase().trim();
   let owner = await User.findOne({ email: normalizedEmail });
   if (!owner) {
+    // Generate a random password if none provided (avoids hardcoded defaults).
+    const password =
+      ownerPassword ?? `Seed${crypto.randomBytes(16).toString("hex")}!1`;
     owner = new User({
       name: ownerName,
       email: normalizedEmail,
       passwordHash: "temp",
       role: "admin",
     });
-    await owner.setPassword(ownerPassword);
+    await owner.setPassword(password);
     owner.emailVerified = true;
     owner.emailVerifiedAt = new Date();
     await owner.save();
+    if (!ownerPassword) {
+      console.log(
+        `Generated random password for seed owner — set NOTEBOOK_ANALYTICS_SEED_OWNER_PASSWORD to use a specific one.`,
+      );
+    }
     logger.info("Created analytics seed owner", { email: normalizedEmail });
   } else {
     logger.info("Using existing analytics seed owner", {
