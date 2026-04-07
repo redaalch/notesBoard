@@ -13,6 +13,7 @@ import {
   getMe,
 } from "../controllers/authController.js";
 import auth from "../middleware/auth.js";
+import { strictRateLimiter } from "../middleware/rateLimiter.js";
 import { validate, validationRules } from "../middleware/validation.js";
 import { body } from "express-validator";
 
@@ -21,6 +22,7 @@ const router = express.Router();
 // Authentication routes with validation
 router.post(
   "/register",
+  strictRateLimiter(10),
   validate([
     validationRules.email(),
     validationRules.password(),
@@ -31,6 +33,7 @@ router.post(
 
 router.post(
   "/login",
+  strictRateLimiter(8),
   validate([validationRules.email(), validationRules.password()]),
   login,
 );
@@ -40,12 +43,14 @@ router.post("/logout", logout);
 
 router.post(
   "/password/forgot",
+  strictRateLimiter(5),
   validate([validationRules.email()]),
   requestPasswordReset,
 );
 
 router.post(
   "/password/reset",
+  strictRateLimiter(5),
   validate([
     body("token").trim().notEmpty().withMessage("Reset token is required"),
     validationRules.password(),
@@ -66,6 +71,7 @@ router.post(
 
 router.post(
   "/verify-email/resend",
+  strictRateLimiter(5),
   validate([validationRules.email()]),
   resendEmailVerification,
 );
