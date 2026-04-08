@@ -32,7 +32,9 @@ export const NOTEBOOK_ICONS = [
   { id: "brain", label: "Brainstorm", name: "Brain" },
 ];
 
-export const NOTEBOOK_COLOR_VALUES = NOTEBOOK_COLORS.map((color) => color.value);
+export const NOTEBOOK_COLOR_VALUES = NOTEBOOK_COLORS.map(
+  (color) => color.value,
+);
 export const NOTEBOOK_ICON_NAMES = NOTEBOOK_ICONS.map((icon) => icon.name);
 
 const colorSet = new Set(NOTEBOOK_COLOR_VALUES);
