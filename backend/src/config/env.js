@@ -41,8 +41,10 @@ export const loadEnv = () => {
   } else if (!isTest) {
     const missing = RECOMMENDED.filter((key) => !process.env[key]);
     if (missing.length) {
-      console.warn(
-        `[env] Recommended environment variables not set: ${missing.join(", ")}. Using fallback defaults.`,
+      console.error(
+        `\n⚠  Missing recommended environment variables: ${missing.join(", ")}` +
+        `\n   Copy backend/.env.example to backend/.env and fill in the values.` +
+        `\n   These variables are REQUIRED in production — set them now to avoid surprises.\n`,
       );
     }
   }
