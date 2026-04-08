@@ -6,16 +6,16 @@
     "node": "20.x",
     "npm": "10.x"
   },
+  "workspaces": ["backend", "frontend", "shared"],
   "scripts": {
-    "postinstall": "npm ci --prefix backend",
-    "heroku-postbuild": "npm ci --include=dev --prefix frontend && npm run build --prefix frontend",
-    "start": "npm run start --prefix backend",
-    "dev:api": "npm run dev --prefix backend",
-    "dev:web": "npm run dev --prefix frontend",
+    "heroku-postbuild": "npm run build -w frontend",
+    "start": "npm start -w backend",
+    "dev:api": "npm run dev -w backend",
+    "dev:web": "npm run dev -w frontend",
     "dev": "concurrently -k -n api,web -c cyan,magenta \"npm:dev:api\" \"npm:dev:web\"",
-    "build": "npm run build --prefix frontend",
-    "preview": "npm run preview --prefix frontend",
-    "audit:all": "npm audit --audit-level=high --prefix backend && npm audit --audit-level=high --omit=dev --prefix frontend"
+    "build": "npm run build -w frontend",
+    "preview": "npm run preview -w frontend",
+    "audit:all": "npm audit --audit-level=high"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
