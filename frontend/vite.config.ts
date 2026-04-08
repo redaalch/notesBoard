@@ -76,7 +76,7 @@ function getVendorChunkName(id: string): string | null {
 export default defineConfig({
   plugins: [react()],
   build: {
-    sourcemap: false,
+    sourcemap: "hidden",
     target: "es2022",
     rollupOptions: {
       output: {
