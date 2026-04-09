@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { FilterIcon, XIcon, TagIcon } from "lucide-react";
 import { cn } from "../lib/cn";
 import { formatTagLabel } from "../lib/Utils";
@@ -92,13 +92,13 @@ function FilterPopover({
 
       <AnimatePresence>
         {open && (
-          <motion.div
+          <m.div
             ref={popoverRef}
             initial={{ opacity: 0, scale: 0.95, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-base-300/60 bg-base-100 p-4 shadow-xl"
+            className="absolute right-0 top-full z-50 mt-2 w-[calc(100vw-2rem)] sm:w-72 max-w-72 rounded-xl border border-base-300/60 bg-base-100 p-3 sm:p-4 shadow-xl"
             role="dialog"
             aria-label="Filter options"
           >
@@ -160,11 +160,11 @@ function FilterPopover({
                 <label className="text-xs font-medium text-base-content/70 mb-2 block">
                   Tags
                 </label>
-                <div className="max-h-36 space-y-1 overflow-y-auto">
+                <div className="max-h-36 space-y-0.5 overflow-y-auto">
                   {tagOptions.map((tag) => (
                     <label
                       key={tag}
-                      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-base-300/20 transition-colors"
+                      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2.5 sm:py-1.5 text-sm hover:bg-base-300/20 transition-colors"
                     >
                       <input
                         type="checkbox"
@@ -195,7 +195,7 @@ function FilterPopover({
                 Clear all filters
               </button>
             )}
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>
