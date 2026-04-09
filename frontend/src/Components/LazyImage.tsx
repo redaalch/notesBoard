@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { ImageIcon } from "lucide-react";
 
 export interface LazyImageProps {
@@ -25,13 +25,13 @@ export const LazyImage = ({
     <div className={`relative overflow-hidden ${containerClassName}`}>
       {/* Loading placeholder */}
       {!loaded && !error && (
-        <motion.div
+        <m.div
           animate={{ opacity: [0.5, 1, 0.5] }}
           transition={{ duration: 1.5, repeat: Infinity }}
           className={`${className} bg-base-200 flex items-center justify-center`}
         >
-          <ImageIcon className="w-8 h-8 text-base-content/20" />
-        </motion.div>
+          <ImageIcon className="size-8 text-base-content/20" />
+        </m.div>
       )}
 
       {/* Error fallback */}
@@ -41,7 +41,7 @@ export const LazyImage = ({
         >
           {fallback || (
             <div className="text-center text-base-content/40">
-              <ImageIcon className="w-8 h-8 mx-auto mb-2" />
+              <ImageIcon className="size-8 mx-auto mb-2" />
               <span className="text-xs">Failed to load</span>
             </div>
           )}
@@ -50,7 +50,7 @@ export const LazyImage = ({
 
       {/* Actual image */}
       {!error && (
-        <motion.img
+        <m.img
           src={src}
           alt={alt}
           loading="lazy"
