@@ -1,5 +1,5 @@
-import { motion } from "framer-motion";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { m } from "framer-motion";
+import { AlertTriangleIcon, RefreshCwIcon } from "lucide-react";
 
 export interface ErrorStateProps {
   title?: string;
@@ -13,24 +13,24 @@ export const ErrorState = ({
   onRetry,
 }: ErrorStateProps) => {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.3 }}
       className="alert alert-error shadow-lg max-w-md mx-auto"
     >
-      <AlertTriangle className="w-6 h-6" />
+      <AlertTriangleIcon className="size-6" />
       <div>
         <h3 className="font-bold">{title}</h3>
         {message && <p className="text-sm opacity-80">{message}</p>}
       </div>
       {onRetry && (
         <button onClick={onRetry} className="btn btn-sm btn-ghost gap-2">
-          <RefreshCw className="w-4 h-4" />
+          <RefreshCwIcon className="size-4" />
           Retry
         </button>
       )}
-    </motion.div>
+    </m.div>
   );
 };
 
