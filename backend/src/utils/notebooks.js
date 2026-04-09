@@ -2,7 +2,12 @@ import crypto from "node:crypto";
 import mongoose from "mongoose";
 import Notebook from "../models/Notebook.js";
 
-const PUBLIC_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{4,62})[a-z0-9]$/i;
+// #16 — Remove redundant /i flag; input is always lowercased before testing.
+const PUBLIC_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{4,62})[a-z0-9]$/;
+
+// #11 — Used to filter noteIds to valid ObjectIds before DB operations.
+const OBJECT_ID_HEX = /^[0-9a-f]{24}$/i;
+const isValidNoteId = (v) => OBJECT_ID_HEX.test(String(v ?? ""));
 
 export const normalizeObjectId = (value) => {
   if (!value) return null;
@@ -46,9 +51,13 @@ export const removeNotesFromNotebookOrder = async (
     return;
   }
 
+  // #11 — Filter to valid ObjectIds to prevent CastErrors from bad inputs.
+  const validIds = noteIds.filter(isValidNoteId);
+  if (!validIds.length) return;
+
   const update = Notebook.updateOne(
     { _id: notebookId },
-    { $pull: { noteOrder: { $in: noteIds } } }
+    { $pull: { noteOrder: { $in: validIds } } }
   );
 
   if (options?.session) {
@@ -67,9 +76,13 @@ export const appendNotesToNotebookOrder = async (
     return;
   }
 
+  // #11 — Filter to valid ObjectIds to prevent CastErrors from bad inputs.
+  const validIds = noteIds.filter(isValidNoteId);
+  if (!validIds.length) return;
+
   const update = Notebook.updateOne(
     { _id: notebookId },
-    { $addToSet: { noteOrder: { $each: noteIds } } }
+    { $addToSet: { noteOrder: { $each: validIds } } }
   );
 
   if (options?.session) {
@@ -144,12 +157,15 @@ export const bumpNotebookOfflineRevision = async (
   notebookId,
   { session, snapshotHash } = {}
 ) => {
-  if (!notebookId) {
+  // #12 — Use normalizeObjectId so invalid strings throw early instead of
+  // propagating a CastError deep inside Mongoose.
+  const id = normalizeObjectId(notebookId);
+  if (!id) {
     return null;
   }
 
   const update = Notebook.findOneAndUpdate(
-    { _id: notebookId },
+    { _id: id },
     {
       $inc: { offlineRevision: 1 },
       ...(snapshotHash
