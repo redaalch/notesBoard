@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import "../styles/editor.css";
 import { BubbleMenu, EditorContent, useEditor } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -8,13 +9,6 @@ import TaskItem from "@tiptap/extension-task-item";
 import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
-import Document from "@tiptap/extension-document";
-import Paragraph from "@tiptap/extension-paragraph";
-import Text from "@tiptap/extension-text";
-import BulletList from "@tiptap/extension-bullet-list";
-import OrderedList from "@tiptap/extension-ordered-list";
-import ListItem from "@tiptap/extension-list-item";
-import Blockquote from "@tiptap/extension-blockquote";
 import type { HocuspocusProvider } from "@hocuspocus/provider";
 import * as Y from "yjs";
 import "tippy.js/dist/tippy.css";
@@ -28,14 +22,15 @@ import {
   QuoteIcon,
   StrikethroughIcon,
   CodeIcon,
-  type LucideIcon,
 } from "lucide-react";
+import type { AppIcon } from "../types/icon";
+import VoiceInputButton from "./VoiceInputButton";
 
 export interface ToolbarButtonProps {
   onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
   active: boolean;
   disabled: boolean;
-  icon: LucideIcon;
+  icon: AppIcon;
   label: string;
 }
 
@@ -204,25 +199,11 @@ const CollaborativeEditorInner = ({
     {
       editable: !readOnly,
       extensions: [
-        Document,
-        Paragraph,
-        Text,
-        BulletList,
-        OrderedList,
-        ListItem,
-        Blockquote,
-        CodeBlockLowlight.configure({ lowlight }),
         StarterKit.configure({
-          document: false,
-          paragraph: false,
-          text: false,
           history: false,
           codeBlock: false,
-          bulletList: false,
-          orderedList: false,
-          listItem: false,
-          blockquote: false,
         }),
+        CodeBlockLowlight.configure({ lowlight }),
         TaskList,
         TaskItem.configure({ nested: true }),
         Placeholder.configure({
@@ -242,7 +223,7 @@ const CollaborativeEditorInner = ({
       editorProps: {
         attributes: {
           class:
-            "prose prose-lg prose-ul:list-disc prose-ol:list-decimal prose-li:ml-4 max-w-none h-full min-h-[24rem] leading-relaxed focus:outline-none",
+            "prose prose-sm sm:prose-lg prose-ul:list-disc prose-ol:list-decimal prose-li:ml-4 max-w-none leading-relaxed focus:outline-none",
         },
         handleKeyDown: () => {
           if (onTypingRef.current && !readOnly) {
@@ -262,7 +243,7 @@ const CollaborativeEditorInner = ({
   }, [editor, onReady]);
 
   return (
-    <div>
+    <div className="min-h-[16rem] sm:min-h-[24rem] flex flex-col">
       {editor && !readOnly && (
         <BubbleMenu
           editor={editor}
@@ -272,6 +253,12 @@ const CollaborativeEditorInner = ({
         </BubbleMenu>
       )}
       <EditorContent editor={editor} />
+      <div
+        className="flex-1 min-h-4 sm:min-h-8 cursor-text"
+        role="presentation"
+        onClick={() => editor?.chain().focus("end").run()}
+      />
+      {!readOnly && <VoiceInputButton editor={editor} />}
     </div>
   );
 };
