@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import type { LucideIcon } from "lucide-react";
+import type { AppIcon } from "../types/icon";
 import {
   AlertTriangleIcon,
   ClockIcon,
@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "../lib/axios";
+import { extractApiError } from "../lib/sanitize";
 import { formatDate, formatRelativeTime } from "../lib/Utils";
 
 export interface Notebook {
@@ -27,12 +28,24 @@ export interface Notebook {
   name?: string;
 }
 
+export interface HistoryEventMetadata {
+  summary?: string;
+  description?: string;
+  noteCount?: number;
+  notes?: { id?: string; noteId?: string; title?: string; name?: string }[];
+  undoneAt?: string;
+  noteIds?: string[];
+  tagsAdded?: string[];
+  tagsRemoved?: string[];
+  [key: string]: unknown;
+}
+
 export interface HistoryEvent {
   id: string;
   eventType: string;
   summary?: string;
   createdAt?: string;
-  metadata?: any;
+  metadata?: HistoryEventMetadata;
 }
 
 export interface NotebookHistoryDialogProps {
@@ -42,11 +55,11 @@ export interface NotebookHistoryDialogProps {
   onClose: () => void;
   onUndoSuccess?: (data: {
     notebookId: string | null;
-    result: any;
+    result: unknown;
   }) => void;
 }
 
-const EVENT_ICON_MAP: Record<string, LucideIcon> = {
+const EVENT_ICON_MAP: Record<string, AppIcon> = {
   "notebook.create": NotebookIcon,
   "notebook.update": PencilLineIcon,
   "notebook.publish": GlobeIcon,
@@ -213,9 +226,7 @@ function NotebookHistoryDialog({
           result,
         });
       } catch (error) {
-        const message =
-          (error as any)?.response?.data?.message ?? "Unable to undo this event";
-        toast.error(message);
+        toast.error(extractApiError(error, "Unable to undo this event"));
       } finally {
         setUndoingEventId(null);
       }
@@ -313,8 +324,7 @@ function NotebookHistoryDialog({
           <div className="mt-6 alert alert-error text-sm">
             <AlertTriangleIcon className="size-4" />
             <span>
-              {(historyQuery.error as any)?.response?.data?.message ??
-                "Unable to load notebook history"}
+              {extractApiError(historyQuery.error, "Unable to load notebook history")}
             </span>
           </div>
         ) : null}
@@ -417,7 +427,7 @@ function NotebookHistoryDialog({
                           <ul className="mt-1 space-y-1">
                             {event.metadata.notes
                               .slice(0, 3)
-                              .map((note: any, index: number) => (
+                              .map((note: { id?: string; noteId?: string; title?: string; name?: string }, index: number) => (
                                 <li
                                   key={note.id ?? note.noteId ?? index}
                                   className="truncate"
