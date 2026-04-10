@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "../lib/axios";
+import { extractApiError } from "../lib/sanitize";
 import { formatRelativeTime } from "../lib/Utils";
 
 export interface NoteForInsights {
@@ -40,7 +41,7 @@ export interface SmartResult {
   matchedTag?: string;
   search?: string;
   noteCount?: number;
-  notes?: any[];
+  notes?: { id: string; title?: string; notebook?: { name?: string }; tags?: string[] }[];
   appliedFilters?: { tags?: string[] };
 }
 
@@ -128,9 +129,7 @@ function NotebookInsightsDrawer({
       toast.success("Smart view ready");
     },
     onError: (error: unknown) => {
-      const message =
-        (error as any)?.response?.data?.message ?? "Unable to build smart view";
-      toast.error(message);
+      toast.error(extractApiError(error, "Unable to build smart view"));
     },
   });
 
@@ -150,10 +149,7 @@ function NotebookInsightsDrawer({
       }
       recommendationsQuery.refetch().catch(() => {});
     } catch (error) {
-      const message =
-        (error as any)?.response?.data?.message ??
-        "Failed to move note to notebook";
-      toast.error(message);
+      toast.error(extractApiError(error, "Failed to move note to notebook"));
     } finally {
       setMovingNotebookId(null);
     }
@@ -448,7 +444,7 @@ function NotebookInsightsDrawer({
                 {Array.isArray(smartResult.notes) &&
                 smartResult.notes.length ? (
                   <ul className="space-y-2">
-                    {smartResult.notes.slice(0, 6).map((preview: any) => (
+                    {smartResult.notes.slice(0, 6).map((preview) => (
                       <li
                         key={preview.id}
                         className="rounded-lg border border-base-300/50 bg-base-100 p-3 text-xs"
