@@ -44,25 +44,8 @@ const EMBEDDING_TIMEOUT_MS = 30_000;
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_BASE_MS = 1_000;
 
-const resolveDimensions = () => {
-  const fromEnv = Number(process.env.EMBEDDING_DIMENSIONS);
-  if (Number.isFinite(fromEnv) && fromEnv > 0) {
-    return Math.floor(fromEnv);
-  }
-
-  const provider = getProvider();
-  const configuredModel = getModelForProvider(provider);
-  return MODEL_DIMENSIONS_BY_NAME[configuredModel] ?? 1536;
-};
-
-/** Dimensions expected from the configured embedding provider/model. */
-export const EMBEDDING_DIMENSIONS = resolveDimensions();
-
-/** Maximum characters we send to the embedding API (safety cap). */
-const MAX_INPUT_CHARS = 8_000;
-
-const getProvider = () =>
-  (
+function getProvider() {
+  return (
     process.env.EMBEDDING_PROVIDER ??
     (process.env.GROQ_API_KEY
       ? GROQ_PROVIDER
@@ -72,8 +55,9 @@ const getProvider = () =>
   )
     .toLowerCase()
     .trim();
+}
 
-const getApiKey = (provider) => {
+function getApiKey(provider) {
   if (provider === GROQ_PROVIDER) {
     return process.env.EMBEDDING_API_KEY ?? process.env.GROQ_API_KEY ?? null;
   }
@@ -81,7 +65,24 @@ const getApiKey = (provider) => {
     return process.env.EMBEDDING_API_KEY ?? process.env.GEMINI_API_KEY ?? null;
   }
   return null;
-};
+}
+
+function resolveDimensions() {
+  const fromEnv = Number(process.env.EMBEDDING_DIMENSIONS);
+  if (Number.isFinite(fromEnv) && fromEnv > 0) {
+    return Math.floor(fromEnv);
+  }
+
+  const provider = getProvider();
+  const configuredModel = getModelForProvider(provider);
+  return MODEL_DIMENSIONS_BY_NAME[configuredModel] ?? 1536;
+}
+
+/** Dimensions expected from the configured embedding provider/model. */
+export const EMBEDDING_DIMENSIONS = resolveDimensions();
+
+/** Maximum characters we send to the embedding API (safety cap). */
+const MAX_INPUT_CHARS = 8_000;
 
 export const isEmbeddingEnabled = () => {
   const provider = getProvider();
