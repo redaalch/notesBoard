@@ -8,9 +8,8 @@ import {
   Wand2Icon,
   XIcon,
   SearchIcon,
-  ChevronDownIcon,
-  LayoutTemplateIcon,
   FolderOpenIcon,
+  LayoutTemplateIcon,
   LibraryIcon,
   LayoutDashboardIcon,
 } from "lucide-react";
@@ -22,7 +21,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import Logo from "./Logo";
@@ -44,8 +43,6 @@ export interface NavbarProps {
   searchQuery?: string;
   onSearchChange?: (value: string) => void;
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
-  /** Template gallery trigger */
-  onOpenTemplates?: () => void;
   /** Controlled mobile-search overlay */
   mobileSearchOpen?: boolean;
   onMobileSearchOpen?: (open: boolean) => void;
@@ -133,7 +130,6 @@ function Navbar({
   searchQuery,
   onSearchChange,
   searchInputRef,
-  onOpenTemplates,
   mobileSearchOpen: mobileSearchOpenProp,
   onMobileSearchOpen,
 }: NavbarProps) {
@@ -211,8 +207,8 @@ function Navbar({
   return (
     <>
       <header className="sticky top-0 z-40 w-full glass-navbar">
-        <div className="mx-auto w-full max-w-[1440px] px-4 py-3 lg:px-8">
-          <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 rounded-2xl border border-base-300/50 bg-base-100/80 px-2 sm:px-3 md:px-4 py-2 sm:py-2.5 md:py-3 shadow-lg shadow-primary/10 backdrop-blur-sm md:flex-nowrap">
+        <div className="mx-auto w-full max-w-[1440px] px-2 py-1.5 sm:px-4 sm:py-2.5 lg:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-3 rounded-xl sm:rounded-2xl border border-base-300/60 bg-base-100/80 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-2.5 shadow-sm backdrop-blur-xl md:flex-nowrap">
             <div className="flex flex-shrink-0 items-center gap-1.5 sm:gap-2 md:gap-3">
               {/* Desktop-only hamburger menu */}
               <button
@@ -293,8 +289,8 @@ function Navbar({
                 </button>
 
                 {/* Desktop: inline search bar */}
-                <div className="hidden md:flex order-none mx-4 max-w-sm lg:max-w-md flex-1">
-                  <label className="input input-bordered input-sm flex w-full items-center gap-2 rounded-xl border-base-300/50 bg-base-300/15 focus-within:bg-base-100 transition-colors">
+                <div className="hidden md:flex order-none mx-2 wide:mx-4 max-w-sm lg:max-w-[320px] wide:max-w-md flex-1 min-w-0">
+                  <label className="input input-bordered input-sm flex w-full items-center gap-2 rounded-xl border-base-content/[0.08] bg-base-content/[0.03] focus-within:bg-base-100 focus-within:border-primary/30 transition-all">
                     <SearchIcon className="size-4 text-base-content/40" />
                     <input
                       ref={searchInputRef}
@@ -325,59 +321,48 @@ function Navbar({
             )}
 
             <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
-              {/* Create note dropdown + command palette grouped */}
-              <div className="hidden lg:flex items-center gap-1">
-                <div
-                  className="tooltip tooltip-bottom"
-                  data-tip="Command palette (⌘K)"
+              {/* Command palette — desktop */}
+              <div
+                className="tooltip tooltip-bottom hidden lg:block"
+                data-tip="Command palette (⌘K)"
+              >
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm btn-square rounded-xl"
+                  onClick={openPalette}
+                  aria-label="Open command palette (⌘K)"
                 >
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm btn-square rounded-xl"
-                    onClick={openPalette}
-                    aria-label="Open command palette (⌘K)"
-                  >
-                    <CommandIcon className="size-4" />
-                  </button>
-                </div>
-                <div className="dropdown dropdown-end">
-                  <button
-                    type="button"
-                    tabIndex={0}
-                    className="btn btn-primary btn-md items-center gap-2 rounded-2xl border-0 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/35 transition-all duration-200 hover:scale-105 px-6"
-                  >
-                    <PlusCircleIcon className="size-5" />
-                    <span className="font-bold tracking-wide">Create</span>
-                    <ChevronDownIcon className="size-4 opacity-70" />
-                  </button>
-                  <ul
-                    tabIndex={0}
-                    className="menu dropdown-content z-50 mt-2 w-52 rounded-xl border border-base-content/10 bg-base-200/95 p-2 shadow-xl backdrop-blur"
-                  >
-                    <li>
-                      <Link
-                        to="/create"
-                        state={createLinkState}
-                        className="gap-2"
-                      >
-                        <PlusCircleIcon className="size-4" />
-                        Blank note
-                      </Link>
-                    </li>
-                    {onOpenTemplates && (
-                      <li>
-                        <button
-                          type="button"
-                          onClick={onOpenTemplates}
-                          className="gap-2"
-                        >
-                          <LayoutTemplateIcon className="size-4" />
-                          From template…
-                        </button>
-                      </li>
-                    )}
-                  </ul>
-                </div>
+                  <CommandIcon className="size-4" />
+                </button>
+              </div>
+
+              {/* Create note dropdown — desktop only */}
+              <div className="dropdown dropdown-end hidden lg:block">
+                <button
+                  type="button"
+                  tabIndex={0}
+                  className="btn btn-primary btn-sm gap-1.5 rounded-xl border-0 shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-200 hover:scale-[1.02]"
+                >
+                  <PlusCircleIcon className="size-4" />
+                  <span className="font-semibold">Create</span>
+                </button>
+                <ul
+                  tabIndex={0}
+                  className="menu dropdown-content z-50 mt-2 w-48 rounded-xl border border-base-content/10 bg-base-200/95 p-1.5 shadow-xl backdrop-blur"
+                >
+                  <li>
+                    <Link to="/create" state={createLinkState} className="gap-2">
+                      <PlusCircleIcon className="size-4" />
+                      Blank note
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/create" state={{ ...createLinkState, openTemplates: true }} className="gap-2">
+                      <LayoutTemplateIcon className="size-4" />
+                      From template
+                    </Link>
+                  </li>
+                </ul>
               </div>
 
               {/* Command palette – mobile (below lg) */}
@@ -399,7 +384,7 @@ function Navbar({
                 <button
                   type="button"
                   tabIndex={0}
-                  className="btn btn-ghost rounded-full px-4"
+                  className="btn btn-ghost rounded-full px-2 wide:px-4"
                   aria-haspopup="true"
                   aria-expanded="false"
                   aria-label={`Current theme: ${
@@ -415,7 +400,7 @@ function Navbar({
                         />
                       ))}
                     </span>
-                    <span className="text-sm font-semibold text-base-content">
+                    <span className="hidden wide:inline text-sm font-semibold text-base-content">
                       {currentTheme?.label ?? "Theme"}
                     </span>
                     <PaletteIcon className="size-4 text-primary" />
@@ -492,7 +477,7 @@ function Navbar({
                   <button
                     type="button"
                     tabIndex={0}
-                    className="btn btn-ghost rounded-full px-1 sm:px-2 md:px-3 gap-0 md:gap-3"
+                    className="btn btn-ghost rounded-full px-1 sm:px-2 md:px-3 gap-0 md:gap-2 lg:gap-0 wide:gap-3"
                     aria-label="User menu"
                   >
                     <div className="avatar placeholder">
@@ -502,11 +487,11 @@ function Navbar({
                         </span>
                       </div>
                     </div>
-                    <div className="hidden text-left md:block">
-                      <p className="text-sm font-semibold leading-none">
+                    <div className="hidden text-left md:block lg:hidden wide:block min-w-0">
+                      <p className="text-sm font-semibold leading-none truncate">
                         {user.name}
                       </p>
-                      <p className="text-xs text-base-content/60">
+                      <p className="text-xs text-base-content/60 truncate">
                         {user.email}
                       </p>
                     </div>
@@ -552,7 +537,7 @@ function Navbar({
         createPortal(
           <AnimatePresence>
             {mobileSearchOpen && onSearchChange && (
-              <motion.div
+              <m.div
                 key="mobile-search-overlay"
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -592,7 +577,7 @@ function Navbar({
                     </p>
                   )}
                 </div>
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>,
           document.body,
@@ -604,7 +589,7 @@ function Navbar({
             {mobileMenuOpen && (
               <>
                 {/* Backdrop */}
-                <motion.div
+                <m.div
                   key="mobile-menu-backdrop"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -615,7 +600,7 @@ function Navbar({
                 />
 
                 {/* Slide-out Menu */}
-                <motion.div
+                <m.div
                   key="mobile-menu-panel"
                   initial={{ x: "-100%" }}
                   animate={{ x: 0 }}
@@ -746,7 +731,7 @@ function Navbar({
                       </div>
                     </div>
                   </div>
-                </motion.div>
+                </m.div>
               </>
             )}
           </AnimatePresence>,
