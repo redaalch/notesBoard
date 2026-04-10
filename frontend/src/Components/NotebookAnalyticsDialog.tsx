@@ -17,6 +17,7 @@ import {
   NOTEBOOK_ANALYTICS_RANGE_OPTIONS,
 } from "@shared/analyticsTypes";
 import api from "../lib/axios";
+import { extractApiError } from "../lib/sanitize";
 import { formatDate, formatRelativeTime, formatTagLabel } from "../lib/Utils";
 import Sparkline from "./Sparkline";
 
@@ -247,9 +248,8 @@ function NotebookAnalyticsDialog({
     }
 
     if (overviewQuery.isError) {
-      const message = (overviewQuery.error as any)?.response?.data?.message;
       return (
-        <ErrorState message={message} onRetry={() => overviewQuery.refetch()} />
+        <ErrorState message={extractApiError(overviewQuery.error, "Unable to load analytics")} onRetry={() => overviewQuery.refetch()} />
       );
     }
 
@@ -259,13 +259,13 @@ function NotebookAnalyticsDialog({
     }
 
     const notesDaily = Array.isArray(data.metrics?.notesCreated?.daily)
-      ? data.metrics.notesCreated.daily.map((entry: any) => entry.count)
+      ? data.metrics.notesCreated.daily.map((entry: { count: number }) => entry.count)
       : [];
     const notesWeekly = Array.isArray(data.metrics?.notesCreated?.weekly)
-      ? data.metrics.notesCreated.weekly.map((entry: any) => entry.count)
+      ? data.metrics.notesCreated.weekly.map((entry: { count: number }) => entry.count)
       : [];
     const totalNotesCreated = data.metrics?.notesCreated?.total ?? 0;
-    const topTags: any[] = Array.isArray(data.metrics?.topTags)
+    const topTags: { tag: string; count: number }[] = Array.isArray(data.metrics?.topTags)
       ? data.metrics.topTags.slice(0, 8)
       : [];
     const notebookRoles: Record<string, number> =
@@ -349,7 +349,7 @@ function NotebookAnalyticsDialog({
             </div>
             {topTags.length ? (
               <ul className="mt-4 space-y-3">
-                {topTags.map((entry: any) => (
+                {topTags.map((entry) => (
                   <li
                     key={entry.tag}
                     className="flex items-center justify-between text-sm"
@@ -441,9 +441,8 @@ function NotebookAnalyticsDialog({
     }
 
     if (activityQuery.isError) {
-      const message = (activityQuery.error as any)?.response?.data?.message;
       return (
-        <ErrorState message={message} onRetry={() => activityQuery.refetch()} />
+        <ErrorState message={extractApiError(activityQuery.error, "Unable to load activity")} onRetry={() => activityQuery.refetch()} />
       );
     }
 
@@ -509,9 +508,8 @@ function NotebookAnalyticsDialog({
     }
 
     if (tagsQuery.isError) {
-      const message = (tagsQuery.error as any)?.response?.data?.message;
       return (
-        <ErrorState message={message} onRetry={() => tagsQuery.refetch()} />
+        <ErrorState message={extractApiError(tagsQuery.error, "Unable to load tags")} onRetry={() => tagsQuery.refetch()} />
       );
     }
 
@@ -579,10 +577,10 @@ function NotebookAnalyticsDialog({
     }
 
     const notebookSeries: number[] | undefined = data.series?.find(
-      (entry: any) => entry.label === "notebookRoles",
+      (entry: { label: string; data: number[] }) => entry.label === "notebookRoles",
     )?.data;
     const noteSeries: number[] | undefined = data.series?.find(
-      (entry: any) => entry.label === "noteCollaborators",
+      (entry: { label: string; data: number[] }) => entry.label === "noteCollaborators",
     )?.data;
 
     return (
@@ -643,10 +641,9 @@ function NotebookAnalyticsDialog({
     }
 
     if (snapshotsQuery.isError) {
-      const message = (snapshotsQuery.error as any)?.response?.data?.message;
       return (
         <ErrorState
-          message={message}
+          message={extractApiError(snapshotsQuery.error, "Unable to load snapshots")}
           onRetry={() => snapshotsQuery.refetch()}
         />
       );
@@ -660,15 +657,15 @@ function NotebookAnalyticsDialog({
     }
 
     const notes: number[] | undefined = data.series?.find(
-      (entry: any) => entry.label === "notesCreated",
+      (entry: { label: string; data: number[] }) => entry.label === "notesCreated",
     )?.data;
     const edits: number[] | undefined = data.series?.find(
-      (entry: any) => entry.label === "editsCount",
+      (entry: { label: string; data: number[] }) => entry.label === "editsCount",
     )?.data;
     const uniqueEditors: number[] | undefined = data.series?.find(
-      (entry: any) => entry.label === "uniqueEditors",
+      (entry: { label: string; data: number[] }) => entry.label === "uniqueEditors",
     )?.data;
-    const details: any[] = data.meta?.details ?? [];
+    const details: { date: string; notesCreated?: number; editsCount?: number; uniqueEditors?: number; topTags?: { tag: string; count: number }[] }[] = data.meta?.details ?? [];
     const missing: string[] = data.meta?.missingDates ?? [];
     const snapshotCoverage: number = data.meta?.snapshots?.coverageRatio ?? 0;
 
@@ -762,7 +759,7 @@ function NotebookAnalyticsDialog({
                   {details
                     .slice(-10)
                     .reverse()
-                    .map((entry: any) => (
+                    .map((entry) => (
                       <tr key={entry.date}>
                         <td>{entry.date}</td>
                         <td>{entry.notesCreated ?? 0}</td>
