@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "../lib/axios";
+import { extractApiError } from "../lib/sanitize";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -53,8 +54,8 @@ const ROLE_OPTIONS: RoleOption[] = [
   { value: "viewer", label: "Viewer" },
 ];
 
-const getErrorMessage = (error: any): string =>
-  error?.response?.data?.message ?? "Something went wrong";
+const getErrorMessage = (error: unknown): string =>
+  extractApiError(error, "Something went wrong");
 
 const formatRole = (role: string): string => {
   const option = ROLE_OPTIONS.find((candidate) => candidate.value === role);
@@ -95,7 +96,7 @@ function NoteCollaboratorsCard({
     staleTime: 15_000,
   });
 
-  const inviteMutation = useMutation<CollaboratorsResponse, any, InvitePayload>(
+  const inviteMutation = useMutation<CollaboratorsResponse, Error, InvitePayload>(
     {
       mutationFn: async (payload) => {
         const response = await api.post(
@@ -115,13 +116,13 @@ function NoteCollaboratorsCard({
           });
         }
       },
-      onError: (error: any) => {
+      onError: (error: Error) => {
         toast.error(getErrorMessage(error));
       },
     },
   );
 
-  const removeMutation = useMutation<CollaboratorsResponse, any, string>({
+  const removeMutation = useMutation<CollaboratorsResponse, Error, string>({
     mutationFn: async (targetUserId) => {
       const response = await api.delete(
         `/notes/${noteId}/collaborators/${targetUserId}`,
@@ -138,7 +139,7 @@ function NoteCollaboratorsCard({
         });
       }
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(getErrorMessage(error));
     },
   });
@@ -155,7 +156,7 @@ function NoteCollaboratorsCard({
       const response = await api.get(`/notes/${noteId}/publish`);
       return response.data;
     },
-    enabled: Boolean(noteId),
+    enabled: Boolean(noteId) && canManage,
     staleTime: 30_000,
   });
 
@@ -164,7 +165,7 @@ function NoteCollaboratorsCard({
       const response = await api.post(`/notes/${noteId}/publish`);
       return response.data;
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data: { slug?: string; publishedAt?: string }) => {
       toast.success("Note published!");
       queryClient.setQueryData(["note-publish", noteId], {
         isPublic: true,
@@ -172,7 +173,7 @@ function NoteCollaboratorsCard({
         publishedAt: data.publishedAt,
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(getErrorMessage(error));
     },
   });
@@ -190,7 +191,7 @@ function NoteCollaboratorsCard({
         publishedAt: null,
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(getErrorMessage(error));
     },
   });
