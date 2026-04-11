@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "../lib/axios";
+import { extractApiError } from "../lib/sanitize";
 import { formatDate, formatRelativeTime } from "../lib/Utils";
 
 export interface PublishNotebook {
@@ -194,7 +195,7 @@ function NotebookPublishDialog({
       });
       return response.data;
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data: Record<string, unknown>) => {
       toast.success("Notebook published");
       publishingStateQuery.refetch().catch(() => {});
       onUpdated?.({
@@ -203,9 +204,8 @@ function NotebookPublishDialog({
         state: data ?? null,
       });
     },
-    onError: (error: any) => {
-      const message =
-        error?.response?.data?.message ?? "Failed to publish notebook";
+    onError: (error: Error) => {
+      const message = extractApiError(error, "Failed to publish notebook");
       if (message.toLowerCase().includes("slug")) {
         setSlugError(message);
       }
@@ -226,10 +226,8 @@ function NotebookPublishDialog({
         state: null,
       });
     },
-    onError: (error: any) => {
-      const message =
-        error?.response?.data?.message ?? "Failed to unpublish notebook";
-      toast.error(message);
+    onError: (error: Error) => {
+      toast.error(extractApiError(error, "Failed to unpublish notebook"));
     },
   });
 
@@ -414,8 +412,7 @@ function NotebookPublishDialog({
               <div className="alert alert-error text-sm">
                 <AlertTriangleIcon className="size-4" />
                 <span>
-                  {(publishMutation.error as any)?.response?.data?.message ??
-                    "Could not publish notebook"}
+                  {extractApiError(publishMutation.error, "Could not publish notebook")}
                 </span>
               </div>
             ) : null}
