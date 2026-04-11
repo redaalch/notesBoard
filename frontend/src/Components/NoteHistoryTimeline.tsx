@@ -9,8 +9,8 @@ import {
   TrashIcon,
   TypeIcon,
   MessageSquareIcon,
-  type LucideIcon,
 } from "lucide-react";
+import type { AppIcon } from "../types/icon";
 
 type EventType =
   | "edit"
@@ -23,7 +23,7 @@ type EventType =
   | "title"
   | "comment";
 
-const eventIcons: Record<EventType, LucideIcon> = {
+const eventIcons: Record<EventType, AppIcon> = {
   edit: FileEditIcon,
   pin: PinIcon,
   unpin: PinIcon,
