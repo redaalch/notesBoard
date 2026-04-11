@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "../lib/axios";
+import { extractApiError } from "../lib/sanitize";
+import type { MembersResponse, ShareLinkCreated, ShareLinksResponse } from "../types/api";
 import { formatDate, formatRelativeTime } from "../lib/Utils";
 
 export interface ShareNotebook {
@@ -215,7 +217,7 @@ function NotebookShareDialog({
       });
       return response.data;
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data: MembersResponse) => {
       toast.success("Invitation sent");
       setInviteEmail("");
       if (data?.members) {
@@ -226,10 +228,8 @@ function NotebookShareDialog({
         });
       }
     },
-    onError: (error: any) => {
-      const message =
-        error?.response?.data?.message ?? "Failed to send invitation";
-      toast.error(message);
+    onError: (error: Error) => {
+      toast.error(extractApiError(error, "Failed to send invitation"));
     },
   });
 
@@ -247,13 +247,12 @@ function NotebookShareDialog({
       );
       return response.data;
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data: MembersResponse) => {
       toast.success("Member role updated");
       queryClient.setQueryData(["notebook-members", notebookId], data);
     },
-    onError: (error: any) => {
-      const message = error?.response?.data?.message ?? "Failed to update role";
-      toast.error(message);
+    onError: (error: Error) => {
+      toast.error(extractApiError(error, "Failed to update role"));
     },
   });
 
@@ -264,14 +263,12 @@ function NotebookShareDialog({
       );
       return response.data;
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data: MembersResponse) => {
       toast.success("Member removed");
       queryClient.setQueryData(["notebook-members", notebookId], data);
     },
-    onError: (error: any) => {
-      const message =
-        error?.response?.data?.message ?? "Failed to remove member";
-      toast.error(message);
+    onError: (error: Error) => {
+      toast.error(extractApiError(error, "Failed to remove member"));
     },
   });
 
@@ -282,14 +279,12 @@ function NotebookShareDialog({
       );
       return response.data;
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data: MembersResponse) => {
       toast.success("Invitation resent");
       queryClient.setQueryData(["notebook-members", notebookId], data);
     },
-    onError: (error: any) => {
-      const message =
-        error?.response?.data?.message ?? "Failed to resend invitation";
-      toast.error(message);
+    onError: (error: Error) => {
+      toast.error(extractApiError(error, "Failed to resend invitation"));
     },
   });
 
@@ -300,14 +295,12 @@ function NotebookShareDialog({
       );
       return response.data;
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data: MembersResponse) => {
       toast.success("Invitation revoked");
       queryClient.setQueryData(["notebook-members", notebookId], data);
     },
-    onError: (error: any) => {
-      const message =
-        error?.response?.data?.message ?? "Failed to revoke invitation";
-      toast.error(message);
+    onError: (error: Error) => {
+      toast.error(extractApiError(error, "Failed to revoke invitation"));
     },
   });
 
@@ -325,7 +318,7 @@ function NotebookShareDialog({
       });
       return response.data;
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data: ShareLinkCreated) => {
       const link = data?.shareLink;
       if (link?.url) {
         setShareLinkUrls((prev) => {
@@ -348,10 +341,8 @@ function NotebookShareDialog({
         queryKey: ["notebook-share-links", notebookId],
       });
     },
-    onError: (error: any) => {
-      const message =
-        error?.response?.data?.message ?? "Failed to create share link";
-      toast.error(message);
+    onError: (error: Error) => {
+      toast.error(extractApiError(error, "Failed to create share link"));
     },
   });
 
@@ -362,7 +353,7 @@ function NotebookShareDialog({
       );
       return response.data;
     },
-    onSuccess: (data: any, variables) => {
+    onSuccess: (data: ShareLinksResponse, variables) => {
       toast.success("Share link revoked");
       queryClient.setQueryData(["notebook-share-links", notebookId], data);
       if (variables?.shareLinkId) {
@@ -374,10 +365,8 @@ function NotebookShareDialog({
         });
       }
     },
-    onError: (error: any) => {
-      const message =
-        error?.response?.data?.message ?? "Failed to revoke share link";
-      toast.error(message);
+    onError: (error: Error) => {
+      toast.error(extractApiError(error, "Failed to revoke share link"));
     },
   });
 
