@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { useLocation } from "react-router-dom";
 
 const pageVariants = {
@@ -23,7 +23,7 @@ export const PageTransition = ({ children }: PageTransitionProps) => {
 
   return (
     <AnimatePresence mode="wait">
-      <motion.div
+      <m.div
         key={location.pathname}
         initial="initial"
         animate="animate"
@@ -32,7 +32,7 @@ export const PageTransition = ({ children }: PageTransitionProps) => {
         transition={pageTransition}
       >
         {children}
-      </motion.div>
+      </m.div>
     </AnimatePresence>
   );
 };
