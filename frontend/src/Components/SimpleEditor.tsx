@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from "react";
+import "../styles/editor.css";
 import {
   BubbleMenu,
   EditorContent,
@@ -10,13 +11,6 @@ import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
-import Document from "@tiptap/extension-document";
-import Paragraph from "@tiptap/extension-paragraph";
-import Text from "@tiptap/extension-text";
-import BulletList from "@tiptap/extension-bullet-list";
-import OrderedList from "@tiptap/extension-ordered-list";
-import ListItem from "@tiptap/extension-list-item";
-import Blockquote from "@tiptap/extension-blockquote";
 import SlashCommands from "./SlashCommands";
 import lowlight from "../lib/lowlight";
 import {
@@ -27,8 +21,9 @@ import {
   QuoteIcon,
   StrikethroughIcon,
   CodeIcon,
-  type LucideIcon,
 } from "lucide-react";
+import type { AppIcon } from "../types/icon";
+import VoiceInputButton from "./VoiceInputButton";
 
 /* ── Toolbar Button ── */
 
@@ -36,7 +31,7 @@ interface ToolbarButtonProps {
   onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
   active: boolean;
   disabled: boolean;
-  icon: LucideIcon;
+  icon: AppIcon;
   label: string;
 }
 
@@ -160,25 +155,10 @@ const SimpleEditor = ({
   const editor = useEditor({
     content: initialContent,
     extensions: [
-      Document,
-      Paragraph,
-      Text,
-      BulletList,
-      OrderedList,
-      ListItem,
-      Blockquote,
-      CodeBlockLowlight.configure({ lowlight }),
       StarterKit.configure({
-        document: false,
-        paragraph: false,
-        text: false,
-        history: {},
         codeBlock: false,
-        bulletList: false,
-        orderedList: false,
-        listItem: false,
-        blockquote: false,
       }),
+      CodeBlockLowlight.configure({ lowlight }),
       TaskList,
       TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder }),
@@ -187,7 +167,7 @@ const SimpleEditor = ({
     editorProps: {
       attributes: {
         class:
-          "prose prose-lg prose-ul:list-disc prose-ol:list-decimal prose-li:ml-4 max-w-none min-h-[40vh] leading-relaxed focus:outline-none",
+          "prose prose-sm sm:prose-lg prose-ul:list-disc prose-ol:list-decimal prose-li:ml-4 max-w-none leading-relaxed focus:outline-none",
       },
     },
     onUpdate: handleUpdate,
@@ -198,7 +178,7 @@ const SimpleEditor = ({
   }, [editor, onReady]);
 
   return (
-    <div>
+    <div className="min-h-[40vh] flex flex-col">
       {editor && (
         <BubbleMenu
           editor={editor}
@@ -208,6 +188,12 @@ const SimpleEditor = ({
         </BubbleMenu>
       )}
       <EditorContent editor={editor} />
+      <div
+        className="flex-1 min-h-4 sm:min-h-8 cursor-text"
+        role="presentation"
+        onClick={() => editor?.chain().focus("end").run()}
+      />
+      <VoiceInputButton editor={editor} />
     </div>
   );
 };
