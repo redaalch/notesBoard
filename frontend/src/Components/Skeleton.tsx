@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 
 export interface SkeletonProps {
   width?: string;
@@ -22,7 +22,7 @@ export const Skeleton = ({
   }
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0 }}
       animate={{ opacity: [0.5, 1, 0.5] }}
       transition={{
