@@ -1,8 +1,8 @@
-import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { AnimatePresence, m } from "framer-motion";
 import {
   BookmarkIcon,
-  ChevronDownIcon,
   FolderPlusIcon,
   LayoutTemplateIcon,
   MoreVerticalIcon,
@@ -12,34 +12,17 @@ import {
   GlobeIcon,
   HistoryIcon,
   BarChart3Icon,
-  SparklesIcon,
   NotebookIcon,
-  NotebookPenIcon,
-  LightbulbIcon,
-  StarIcon,
-  RocketIcon,
-  TargetIcon,
-  PaletteIcon,
   LayersIcon,
-  BookOpenIcon,
-  WorkflowIcon,
-  CalendarIcon,
-  ListTodoIcon,
-  BookmarkIcon as BookmarkIconAlt,
-  BriefcaseBusinessIcon,
-  BrainIcon,
   XIcon,
-  SearchIcon,
-  TagIcon,
   HomeIcon,
-  ListTodoIcon as ListTodoAlt,
   InboxIcon,
-  FolderIcon,
   ChevronRightIcon,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "../lib/cn";
 import { formatTagLabel, normalizeTag } from "../lib/Utils";
+import { notebookIconComponents } from "../pages/home/homePageUtils";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -108,32 +91,11 @@ export interface SidebarProps {
   /** Drop zone integration */
   renderNotebookDropZone?: (
     notebookId: string,
-    children: (props: { setNodeRef?: any; isOver: boolean }) => ReactNode,
+    children: (props: { setNodeRef?: ((node: HTMLElement | null) => void); isOver: boolean }) => ReactNode,
   ) => ReactNode;
   /** Drag disabled */
   dragDisabled?: boolean;
 }
-
-// ─── Icon mapping ────────────────────────────────────────────────────────────
-
-const notebookIconComponents: Record<string, React.ElementType> = {
-  Notebook: NotebookIcon,
-  NotebookPen: NotebookPenIcon,
-  Sparkles: SparklesIcon,
-  Lightbulb: LightbulbIcon,
-  Star: StarIcon,
-  Rocket: RocketIcon,
-  Target: TargetIcon,
-  Palette: PaletteIcon,
-  Layers: LayersIcon,
-  BookOpen: BookOpenIcon,
-  Workflow: WorkflowIcon,
-  Calendar: CalendarIcon,
-  ListTodo: ListTodoIcon,
-  Bookmark: BookmarkIconAlt,
-  BriefcaseBusiness: BriefcaseBusinessIcon,
-  Brain: BrainIcon,
-};
 
 // ─── Collapsible section (for notebook groups) ──────────────────────────────
 
@@ -172,7 +134,7 @@ function CollapsibleSection({
       </button>
       <AnimatePresence initial={false}>
         {open && (
-          <motion.div
+          <m.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -180,7 +142,7 @@ function CollapsibleSection({
             className="overflow-hidden"
           >
             <div className="mt-0.5 space-y-0.5">{children}</div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>
@@ -221,6 +183,26 @@ function SidebarContent({
   renderNotebookDropZone,
   dragDisabled,
 }: Omit<SidebarProps, "mobileOpen" | "onMobileClose">) {
+  // Portal-based context menu — escapes the overflow-y-auto scroll container
+  const [menuState, setMenuState] = useState<{
+    notebook: Notebook;
+    style: React.CSSProperties;
+  } | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setIsMounted(true); }, []);
+  useEffect(() => {
+    if (!menuState) return;
+    const handleDown = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) {
+        setMenuState(null);
+      }
+    };
+    document.addEventListener("mousedown", handleDown);
+    return () => document.removeEventListener("mousedown", handleDown);
+  }, [menuState]);
+
   const renderItem = useCallback(
     (
       id: string,
@@ -233,7 +215,7 @@ function SidebarContent({
       const isActive = activeNotebookId === id;
 
       const itemContent = (dropProps?: {
-        setNodeRef?: any;
+        setNodeRef?: ((node: HTMLElement | null) => void);
         isOver: boolean;
       }) => (
         <div className="relative group" ref={dropProps?.setNodeRef}>
@@ -241,10 +223,10 @@ function SidebarContent({
             type="button"
             onClick={() => onSelectNotebook(id)}
             className={cn(
-              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150",
+              "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150",
               isActive
-                ? "bg-primary/10 text-primary border-l-[3px] border-primary pl-[calc(0.75rem-3px)]"
-                : "text-base-content/70 hover:bg-base-300/20 hover:text-base-content",
+                ? "bg-primary/10 text-primary"
+                : "text-base-content/60 hover:bg-base-content/[0.04] hover:text-base-content/80",
               dropProps?.isOver && "ring-2 ring-primary/40 bg-primary/5",
             )}
           >
@@ -262,8 +244,8 @@ function SidebarContent({
             <span className="flex-1 truncate text-left">{label}</span>
             <span
               className={cn(
-                "text-xs font-semibold tabular-nums",
-                isActive ? "text-primary/80" : "text-base-content/40",
+                "text-[11px] font-medium tabular-nums rounded-full min-w-[1.25rem] text-center",
+                isActive ? "text-primary/70" : "text-base-content/30",
                 notebook ? "group-hover:opacity-0 transition-opacity" : "",
               )}
             >
@@ -271,127 +253,26 @@ function SidebarContent({
             </span>
           </button>
 
-          {/* Context menu for custom notebooks */}
+          {/* Context menu trigger — menu rendered via portal to escape overflow-y-auto */}
           {notebook && (
-            <div className="dropdown dropdown-end dropdown-bottom absolute right-2 top-1/2 -translate-y-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 type="button"
-                tabIndex={0}
                 className="btn btn-ghost btn-xs btn-circle"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  setMenuState({
+                    notebook,
+                    style: {
+                      top: rect.bottom + 4,
+                      left: Math.max(8, rect.right - 192),
+                    },
+                  });
+                }}
               >
                 <MoreVerticalIcon className="size-3.5" />
               </button>
-              <ul className="dropdown-content z-30 min-w-[12rem] space-y-0.5 rounded-xl border border-base-300/80 bg-base-100 p-1.5 shadow-xl">
-                {onShareNotebook && (
-                  <li>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-300/25"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onShareNotebook(notebook);
-                      }}
-                    >
-                      <Share2Icon className="size-4 text-base-content/70" />
-                      Share & members
-                    </button>
-                  </li>
-                )}
-                {onPublishNotebook && (
-                  <li>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-300/25"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onPublishNotebook(notebook);
-                      }}
-                    >
-                      <GlobeIcon className="size-4 text-base-content/70" />
-                      Publish
-                    </button>
-                  </li>
-                )}
-                {onHistoryNotebook && (
-                  <li>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-300/25"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onHistoryNotebook(notebook);
-                      }}
-                    >
-                      <HistoryIcon className="size-4 text-base-content/70" />
-                      History & undo
-                    </button>
-                  </li>
-                )}
-                {analyticsEnabled && onAnalyticsNotebook && (
-                  <li>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-300/25"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAnalyticsNotebook(notebook);
-                      }}
-                    >
-                      <BarChart3Icon className="size-4 text-base-content/70" />
-                      Analytics
-                    </button>
-                  </li>
-                )}
-                {onRenameNotebook && (
-                  <li>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-300/25"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRenameNotebook(notebook);
-                      }}
-                    >
-                      <PencilLineIcon className="size-4 text-base-content/70" />
-                      Rename
-                    </button>
-                  </li>
-                )}
-                {onSaveAsTemplate && (
-                  <li>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-300/25"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSaveAsTemplate(notebook);
-                      }}
-                    >
-                      <LayoutTemplateIcon className="size-4 text-base-content/70" />
-                      Save as template
-                    </button>
-                  </li>
-                )}
-                {onDeleteNotebook && (
-                  <>
-                    <div className="my-1 h-px bg-base-300/50" />
-                    <li>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-error transition-colors hover:bg-error/10"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteNotebook(notebook);
-                        }}
-                      >
-                        <Trash2Icon className="size-4" />
-                        Delete
-                      </button>
-                    </li>
-                  </>
-                )}
-              </ul>
             </div>
           )}
         </div>
@@ -406,25 +287,19 @@ function SidebarContent({
     [
       activeNotebookId,
       onSelectNotebook,
-      analyticsEnabled,
-      onShareNotebook,
-      onPublishNotebook,
-      onHistoryNotebook,
-      onAnalyticsNotebook,
-      onRenameNotebook,
-      onSaveAsTemplate,
-      onDeleteNotebook,
+      setMenuState,
       renderNotebookDropZone,
       dragDisabled,
     ],
   );
 
   return (
-    <div className="flex h-full flex-col">
+    <>
+      <div className="flex h-full flex-col">
       {/* ── Notebooks section ────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto px-3 py-4">
         <div className="mb-3 flex items-center justify-between px-1">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-base-content/50">
+          <span className="section-label">
             Notebooks
           </span>
           <div className="flex items-center gap-1">
@@ -487,15 +362,15 @@ function SidebarContent({
             <Link
               to="/home"
               className={cn(
-                "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                "text-base-content/70 hover:bg-primary/10 hover:text-primary",
+                "flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150",
+                "text-base-content/60 hover:bg-base-content/[0.04] hover:text-base-content/80",
               )}
             >
               <HomeIcon className="size-4" />
               Home
             </Link>
 
-            <div className="my-1 border-t border-base-300/40" />
+            <div className="my-1.5 border-t border-base-content/[0.05]" />
 
             {renderItem(
               "all",
@@ -548,7 +423,7 @@ function SidebarContent({
         {savedQueriesEnabled && (
           <div className="mt-6">
             <div className="mb-2 flex items-center justify-between px-1">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-base-content/50">
+              <span className="section-label">
                 Saved views
               </span>
               {onSaveCurrentView && (
@@ -618,20 +493,104 @@ function SidebarContent({
       </div>
 
       {/* ── Compact stats footer ─────────────────────────────────── */}
-      <div className="border-t border-base-300/40 px-4 py-3">
-        <div className="flex items-center justify-between text-xs text-base-content/50 tabular-nums">
-          <span>{noteCount} notes</span>
-          <span className="text-base-content/20" aria-hidden="true">
-            ·
-          </span>
-          <span>{pinnedCount} pinned</span>
-          <span className="text-base-content/20" aria-hidden="true">
-            ·
-          </span>
-          <span>{avgWords} avg words</span>
+      <div className="border-t border-base-content/[0.06] px-4 py-3">
+        <div className="flex items-center gap-2 text-[11px] text-base-content/40 tabular-nums">
+          <span className="rounded-md bg-base-content/[0.04] px-1.5 py-0.5 font-medium">{noteCount}</span>
+          <span>notes</span>
+          <span className="text-base-content/15">·</span>
+          <span className="rounded-md bg-base-content/[0.04] px-1.5 py-0.5 font-medium">{pinnedCount}</span>
+          <span>pinned</span>
+          <span className="text-base-content/15">·</span>
+          <span className="rounded-md bg-base-content/[0.04] px-1.5 py-0.5 font-medium">{avgWords}</span>
+          <span>avg</span>
         </div>
       </div>
     </div>
+
+    {/* Portal context menu — renders at body level to escape overflow-y-auto clipping */}
+    {isMounted && menuState && createPortal(
+      <div
+        ref={menuRef}
+        className="fixed z-[200] min-w-[12rem] space-y-0.5 rounded-xl border border-base-300/80 bg-base-100 p-1.5 shadow-xl"
+        style={menuState.style}
+      >
+        {onShareNotebook && (
+          <button
+            type="button"
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-300/25"
+            onClick={(e) => { e.stopPropagation(); onShareNotebook(menuState.notebook); setMenuState(null); }}
+          >
+            <Share2Icon className="size-4 text-base-content/70" />
+            Share & members
+          </button>
+        )}
+        {onPublishNotebook && (
+          <button
+            type="button"
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-300/25"
+            onClick={(e) => { e.stopPropagation(); onPublishNotebook(menuState.notebook); setMenuState(null); }}
+          >
+            <GlobeIcon className="size-4 text-base-content/70" />
+            Publish
+          </button>
+        )}
+        {onHistoryNotebook && (
+          <button
+            type="button"
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-300/25"
+            onClick={(e) => { e.stopPropagation(); onHistoryNotebook(menuState.notebook); setMenuState(null); }}
+          >
+            <HistoryIcon className="size-4 text-base-content/70" />
+            History & undo
+          </button>
+        )}
+        {analyticsEnabled && onAnalyticsNotebook && (
+          <button
+            type="button"
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-300/25"
+            onClick={(e) => { e.stopPropagation(); onAnalyticsNotebook(menuState.notebook); setMenuState(null); }}
+          >
+            <BarChart3Icon className="size-4 text-base-content/70" />
+            Analytics
+          </button>
+        )}
+        {onRenameNotebook && (
+          <button
+            type="button"
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-300/25"
+            onClick={(e) => { e.stopPropagation(); onRenameNotebook(menuState.notebook); setMenuState(null); }}
+          >
+            <PencilLineIcon className="size-4 text-base-content/70" />
+            Rename
+          </button>
+        )}
+        {onSaveAsTemplate && (
+          <button
+            type="button"
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-300/25"
+            onClick={(e) => { e.stopPropagation(); onSaveAsTemplate(menuState.notebook); setMenuState(null); }}
+          >
+            <LayoutTemplateIcon className="size-4 text-base-content/70" />
+            Save as template
+          </button>
+        )}
+        {onDeleteNotebook && (
+          <>
+            <div className="my-1 h-px bg-base-300/50" />
+            <button
+              type="button"
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-error transition-colors hover:bg-error/10"
+              onClick={(e) => { e.stopPropagation(); onDeleteNotebook(menuState.notebook); setMenuState(null); }}
+            >
+              <Trash2Icon className="size-4" />
+              Delete
+            </button>
+          </>
+        )}
+      </div>,
+      document.body,
+    )}
+    </>
   );
 }
 
@@ -643,7 +602,7 @@ function Sidebar(props: SidebarProps) {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex lg:w-[240px] lg:flex-shrink-0 lg:flex-col border-r border-base-300/50 bg-base-100 h-[calc(100vh-73px)] sticky top-[73px]">
+      <aside className="hidden lg:flex lg:w-[210px] wide:w-[240px] lg:flex-shrink-0 lg:flex-col border-r border-base-content/[0.06] bg-base-100 h-[calc(100vh-73px)] sticky top-[73px]">
         <SidebarContent {...contentProps} />
       </aside>
 
@@ -651,7 +610,7 @@ function Sidebar(props: SidebarProps) {
       <AnimatePresence>
         {mobileOpen && (
           <>
-            <motion.div
+            <m.div
               key="sidebar-backdrop"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -660,7 +619,7 @@ function Sidebar(props: SidebarProps) {
               className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm lg:hidden"
               onClick={onMobileClose}
             />
-            <motion.aside
+            <m.aside
               key="sidebar-panel"
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
@@ -683,7 +642,7 @@ function Sidebar(props: SidebarProps) {
               <div className="h-[calc(100%-57px)]">
                 <SidebarContent {...contentProps} />
               </div>
-            </motion.aside>
+            </m.aside>
           </>
         )}
       </AnimatePresence>
