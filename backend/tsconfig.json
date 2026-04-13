@@ -27,7 +27,6 @@
     "skipLibCheck": true,
 
     /* Paths */
-    "baseUrl": ".",
     "paths": {
       "@shared/*": ["../shared/*"]
     },
