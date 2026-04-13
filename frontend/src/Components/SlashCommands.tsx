@@ -12,13 +12,13 @@ import {
   CheckSquareIcon,
   CodeIcon,
   QuoteIcon,
-  type LucideIcon,
 } from "lucide-react";
 import type { Editor, Range } from "@tiptap/core";
+import type { AppIcon } from "../types/icon";
 
 interface SlashCommand {
   title: string;
-  icon: LucideIcon;
+  icon: AppIcon;
   command: (args: { editor: Editor; range: Range }) => void;
 }
 
