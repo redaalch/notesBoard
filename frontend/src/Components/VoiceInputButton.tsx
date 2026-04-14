@@ -120,7 +120,7 @@ const VoiceInputButton = ({ editor }: VoiceInputButtonProps) => {
         <m.div
           key="preview"
           {...SLIDE_UP}
-          className="border-t border-base-200/60 pt-4 mt-1 space-y-3 max-w-lg ml-auto"
+          className="pt-2 space-y-3 max-w-lg ml-auto"
         >
           <div className="flex items-center gap-2">
             <div className="size-2 rounded-full bg-success" />
@@ -165,7 +165,7 @@ const VoiceInputButton = ({ editor }: VoiceInputButtonProps) => {
         <m.div
           key="transcribing"
           {...SLIDE_UP}
-          className="border-t border-base-200/60 pt-3 mt-1"
+          className="pt-2"
         >
           <div className="flex items-center gap-3 py-1">
             <span className="loading loading-spinner loading-sm text-primary" />
@@ -180,7 +180,7 @@ const VoiceInputButton = ({ editor }: VoiceInputButtonProps) => {
         <m.div
           key="recording"
           {...SLIDE_UP}
-          className="border-t border-base-200/60 pt-4 mt-1 space-y-3 max-w-sm ml-auto"
+          className="pt-2 space-y-3 max-w-sm ml-auto"
         >
           <div className="flex items-center gap-3">
             <div className="size-2.5 rounded-full bg-error animate-pulse flex-shrink-0" />
@@ -219,11 +219,11 @@ const VoiceInputButton = ({ editor }: VoiceInputButtonProps) => {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.12 }}
-          className="flex justify-end mt-1"
+          className="flex justify-end"
         >
           <m.button
             type="button"
-            className="btn btn-sm rounded-full btn-ghost border border-base-300 text-base-content/65 hover:text-base-content hover:bg-base-200/80 hover:border-base-content/20 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 gap-1.5 transition-all"
+            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-base-content/40 hover:text-base-content/70 hover:bg-base-200/50 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 transition-colors"
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={startRecording}
