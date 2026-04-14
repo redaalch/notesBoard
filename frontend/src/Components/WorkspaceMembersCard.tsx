@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LoaderIcon, ShieldCheckIcon, UserPlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import api from "../lib/axios";
+import { extractApiError } from "../lib/sanitize";
 
 export interface WorkspaceMember {
   id: string;
@@ -44,8 +45,8 @@ const ROLE_OPTIONS: RoleOption[] = Object.entries(ROLE_LABELS)
   .filter(([value]) => value !== "owner")
   .map(([value, label]) => ({ value, label }));
 
-const getErrorMessage = (error: any): string =>
-  error?.response?.data?.message ?? "Something went wrong";
+const getErrorMessage = (error: unknown): string =>
+  extractApiError(error, "Something went wrong");
 
 const WorkspaceMembersCard = ({ workspaceId, canManage }: WorkspaceMembersCardProps) => {
   const queryClient = useQueryClient();
@@ -62,7 +63,7 @@ const WorkspaceMembersCard = ({ workspaceId, canManage }: WorkspaceMembersCardPr
     staleTime: 15_000,
   });
 
-  const inviteMutation = useMutation<MembersResponse, any, InvitePayload>({
+  const inviteMutation = useMutation<MembersResponse, Error, InvitePayload>({
     mutationFn: async (payload) => {
       const response = await api.post(
         `/workspaces/${workspaceId}/members`,
@@ -81,7 +82,7 @@ const WorkspaceMembersCard = ({ workspaceId, canManage }: WorkspaceMembersCardPr
         });
       }
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(getErrorMessage(error));
     },
   });
