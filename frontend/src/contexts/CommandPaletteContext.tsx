@@ -9,6 +9,8 @@ import {
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import useAuth from "../hooks/useAuth";
 import CommandPalette from "../Components/CommandPalette";
 
 export interface PaletteCommand {
@@ -43,6 +45,19 @@ interface CommandPaletteProviderProps {
   children: ReactNode;
 }
 
+const setDocTheme = (theme: string) => {
+  const targets = [
+    document.documentElement,
+    document.body,
+    document.getElementById("root"),
+  ].filter(Boolean) as HTMLElement[];
+  for (const el of targets) {
+    el.setAttribute("data-theme", theme);
+    el.dataset.theme = theme;
+  }
+  localStorage.setItem("theme", theme);
+};
+
 export const CommandPaletteProvider = ({
   children,
 }: CommandPaletteProviderProps) => {
@@ -50,6 +65,7 @@ export const CommandPaletteProvider = ({
   const registryRef = useRef(new Map<string, PaletteCommand>());
   const [commands, setCommands] = useState<PaletteCommand[]>([]);
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const registerCommands = useCallback((cmds: PaletteCommand[]) => {
     if (!Array.isArray(cmds) || !cmds.length) {
@@ -88,22 +104,33 @@ export const CommandPaletteProvider = ({
 
   useEffect(() => {
     return registerCommands([
-      // Navigation Commands
+      // ── Navigation ──────────────────────────────────────────────────
       {
         id: "core:create-note",
-        label: "Create note",
-        description: "Start a fresh note",
+        label: "Create new note",
+        description: "Start writing a fresh note",
         section: "Navigation",
         shortcut: "C",
+        keywords: ["new", "add", "write", "compose"],
         action: () => navigate("/create"),
       },
       {
-        id: "core:go-home",
-        label: "Go to dashboard",
-        description: "Open your boards and notes",
+        id: "core:go-notes",
+        label: "Go to notes",
+        description: "Open your notes board",
         section: "Navigation",
-        shortcut: "H",
+        shortcut: "N",
+        keywords: ["home", "board", "notes", "app"],
         action: () => navigate("/app"),
+      },
+      {
+        id: "core:go-dashboard",
+        label: "Go to dashboard",
+        description: "View stats, recent activity and overview",
+        section: "Navigation",
+        shortcut: "D",
+        keywords: ["dashboard", "overview", "stats", "analytics"],
+        action: () => navigate("/home"),
       },
       {
         id: "core:open-profile",
@@ -111,6 +138,7 @@ export const CommandPaletteProvider = ({
         description: "Manage your account and preferences",
         section: "Navigation",
         shortcut: "P",
+        keywords: ["account", "settings", "profile", "preferences"],
         action: () => navigate("/profile"),
       },
       {
@@ -128,197 +156,42 @@ export const CommandPaletteProvider = ({
         section: "Navigation",
         action: () => window.history.forward(),
       },
-      {
-        id: "core:refresh",
-        label: "Refresh page",
-        description: "Reload the current page",
-        section: "Navigation",
-        shortcut: "R",
-        action: () => window.location.reload(),
-      },
 
-      // Account Commands
+      // ── Appearance ──────────────────────────────────────────────────
       {
-        id: "core:logout",
-        label: "Log out",
-        description: "Sign out of your account",
-        section: "Account",
-        shortcut: "Q",
-        action: () => {
-          localStorage.removeItem("token");
-          navigate("/login");
-          window.location.reload();
-        },
-      },
-
-      // Appearance Commands
-      {
-        id: "core:theme-forest",
-        label: "Switch to Forest theme",
-        description: "Dark green forest theme",
+        id: "core:theme-light",
+        label: "Switch to Daylight theme",
+        description: "Bright neutrals with a calm accent",
         section: "Appearance",
-        action: () => {
-          document.documentElement.setAttribute("data-theme", "forest");
-          localStorage.setItem("theme", "forest");
-        },
+        keywords: ["light", "bright", "day", "theme"],
+        action: () => setDocTheme("notesLight"),
       },
       {
         id: "core:theme-dark",
-        label: "Switch to Dark theme",
-        description: "Classic dark theme",
+        label: "Switch to Night Shift theme",
+        description: "Dim surfaces with gentle contrast",
         section: "Appearance",
-        action: () => {
-          document.documentElement.setAttribute("data-theme", "dark");
-          localStorage.setItem("theme", "dark");
-        },
-      },
-      {
-        id: "core:theme-light",
-        label: "Switch to Light theme",
-        description: "Clean light theme",
-        section: "Appearance",
-        action: () => {
-          document.documentElement.setAttribute("data-theme", "light");
-          localStorage.setItem("theme", "light");
-        },
-      },
-      {
-        id: "core:theme-coffee",
-        label: "Switch to Coffee theme",
-        description: "Warm coffee brown theme",
-        section: "Appearance",
-        action: () => {
-          document.documentElement.setAttribute("data-theme", "coffee");
-          localStorage.setItem("theme", "coffee");
-        },
-      },
-      {
-        id: "core:theme-retro",
-        label: "Switch to Retro theme",
-        description: "Vintage retro theme",
-        section: "Appearance",
-        action: () => {
-          document.documentElement.setAttribute("data-theme", "retro");
-          localStorage.setItem("theme", "retro");
-        },
-      },
-      {
-        id: "core:theme-cupcake",
-        label: "Switch to Cupcake theme",
-        description: "Sweet cupcake pastel theme",
-        section: "Appearance",
-        action: () => {
-          document.documentElement.setAttribute("data-theme", "cupcake");
-          localStorage.setItem("theme", "cupcake");
-        },
-      },
-      {
-        id: "core:theme-valentine",
-        label: "Switch to Valentine theme",
-        description: "Romantic pink theme",
-        section: "Appearance",
-        action: () => {
-          document.documentElement.setAttribute("data-theme", "valentine");
-          localStorage.setItem("theme", "valentine");
-        },
-      },
-      {
-        id: "core:theme-cyberpunk",
-        label: "Switch to Cyberpunk theme",
-        description: "Neon cyberpunk theme",
-        section: "Appearance",
-        action: () => {
-          document.documentElement.setAttribute("data-theme", "cyberpunk");
-          localStorage.setItem("theme", "cyberpunk");
-        },
-      },
-      {
-        id: "core:theme-luxury",
-        label: "Switch to Luxury theme",
-        description: "Elegant luxury dark theme",
-        section: "Appearance",
-        action: () => {
-          document.documentElement.setAttribute("data-theme", "luxury");
-          localStorage.setItem("theme", "luxury");
-        },
-      },
-      {
-        id: "core:theme-business",
-        label: "Switch to Business theme",
-        description: "Professional business theme",
-        section: "Appearance",
-        action: () => {
-          document.documentElement.setAttribute("data-theme", "business");
-          localStorage.setItem("theme", "business");
-        },
+        keywords: ["dark", "night", "dim", "theme"],
+        action: () => setDocTheme("notesDark"),
       },
 
-      // Help & Documentation
-      {
-        id: "core:keyboard-shortcuts",
-        label: "View keyboard shortcuts",
-        description: "See all available shortcuts",
-        section: "Help",
-        shortcut: "?",
-        action: () => {
-          closePalette();
-          setTimeout(() => {
-            alert(
-              "Keyboard Shortcuts:\n\n" +
-                "⌘K or Ctrl+K - Open command palette\n" +
-                "C - Create new note\n" +
-                "H - Go to dashboard\n" +
-                "P - Open profile\n" +
-                "B - Go back\n" +
-                "R - Refresh page\n" +
-                "Q - Log out\n" +
-                "/ - Focus search\n" +
-                "? - Show this help",
-            );
-          }, 100);
-        },
-      },
-      {
-        id: "core:privacy-policy",
-        label: "Privacy Policy",
-        description: "View our privacy policy",
-        section: "Help",
-        action: () => navigate("/privacy"),
-      },
-      {
-        id: "core:terms-of-service",
-        label: "Terms of Service",
-        description: "View our terms of service",
-        section: "Help",
-        action: () => navigate("/terms"),
-      },
-
-      // System Commands
-      {
-        id: "core:clear-cache",
-        label: "Clear local cache",
-        description: "Clear browser cache and reload",
-        section: "System",
-        action: () => {
-          if (
-            window.confirm(
-              "This will clear your local cache and reload the page. Continue?",
-            )
-          ) {
-            localStorage.clear();
-            sessionStorage.clear();
-            window.location.reload();
-          }
-        },
-      },
+      // ── System ──────────────────────────────────────────────────────
       {
         id: "core:copy-url",
         label: "Copy current URL",
-        description: "Copy the current page URL to clipboard",
+        description: "Copy the page URL to clipboard",
         section: "System",
+        keywords: ["copy", "link", "url", "share", "clipboard"],
         action: async () => {
-          await navigator.clipboard.writeText(window.location.href);
-          closePalette();
+          try {
+            await navigator.clipboard.writeText(window.location.href);
+            toast.success("URL copied to clipboard.");
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : String(error);
+            console.error("Failed to copy URL to clipboard:", message);
+            toast.error(`Failed to copy URL: ${message}`);
+          }
         },
       },
       {
@@ -327,16 +200,97 @@ export const CommandPaletteProvider = ({
         description: "Enter or exit fullscreen mode",
         section: "System",
         shortcut: "F",
-        action: () => {
-          if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen();
-          } else {
-            document.exitFullscreen();
+        keywords: ["fullscreen", "maximize", "expand"],
+        action: async () => {
+          try {
+            if (!document.fullscreenElement) {
+              if (
+                typeof document.documentElement.requestFullscreen !== "function"
+              ) {
+                throw new Error(
+                  "Fullscreen API is not available in this browser.",
+                );
+              }
+              await document.documentElement.requestFullscreen();
+            } else {
+              if (typeof document.exitFullscreen !== "function") {
+                throw new Error(
+                  "Fullscreen exit is not available in this browser.",
+                );
+              }
+              await document.exitFullscreen();
+            }
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : String(error);
+            console.error("Failed to toggle fullscreen:", message);
           }
         },
       },
+      {
+        id: "core:refresh",
+        label: "Refresh page",
+        description: "Reload the current page",
+        section: "System",
+        shortcut: "R",
+        keywords: ["reload", "refresh"],
+        action: () => window.location.reload(),
+      },
+      {
+        id: "core:clear-cache",
+        label: "Clear local cache",
+        description: "Clear browser storage and reload",
+        section: "System",
+        keywords: ["cache", "clear", "reset", "storage"],
+        action: () => {
+          if (
+            window.confirm(
+              "This will clear your local cache and reload the page. Continue?",
+            )
+          ) {
+            // Remove app-specific keys but preserve user preferences (theme).
+            const theme = localStorage.getItem("theme");
+            localStorage.clear();
+            if (theme) localStorage.setItem("theme", theme);
+            sessionStorage.clear();
+            window.location.reload();
+          }
+        },
+      },
+
+      // ── Account ─────────────────────────────────────────────────────
+      {
+        id: "core:logout",
+        label: "Log out",
+        description: "Sign out of your account",
+        section: "Account",
+        shortcut: "Q",
+        keywords: ["logout", "sign out", "exit"],
+        action: async () => {
+          await logout();
+          navigate("/login", { replace: true });
+        },
+      },
+
+      // ── Help ────────────────────────────────────────────────────────
+      {
+        id: "core:privacy-policy",
+        label: "Privacy Policy",
+        description: "View our privacy policy",
+        section: "Help",
+        keywords: ["privacy", "policy", "legal"],
+        action: () => navigate("/privacy"),
+      },
+      {
+        id: "core:terms-of-service",
+        label: "Terms of Service",
+        description: "View our terms of service",
+        section: "Help",
+        keywords: ["terms", "service", "legal"],
+        action: () => navigate("/terms"),
+      },
     ]);
-  }, [navigate, registerCommands, closePalette]);
+  }, [navigate, registerCommands, closePalette, logout]);
 
   const contextValue: CommandPaletteContextValue = useMemo(
     () => ({
