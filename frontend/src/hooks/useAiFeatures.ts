@@ -34,6 +34,8 @@ export interface AiStatus {
     semanticSearch: boolean;
     summarization: boolean;
     predictiveTags: boolean;
+    voiceInput: boolean;
+    templateGeneration: boolean;
   };
 }
 
