@@ -6,21 +6,26 @@ import {
   useRef,
   useState,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import api from "../lib/axios";
+import { extractApiError } from "../lib/sanitize";
 
 import AuthContext, {
   type AuthUser,
   type AuthContextValue,
 } from "./authContext";
 
-const ACCESS_TOKEN_KEY = "notesboard.accessToken";
+// Token is kept in React state + Axios headers only (not localStorage) so that
+// XSS scripts cannot read it via localStorage.getItem().
+// Session is restored on every page load via the HttpOnly refresh-token cookie.
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(true);
@@ -29,11 +34,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const applyAccessToken = useCallback((token: string | null) => {
     if (token) {
       api.defaults.headers.common.Authorization = `Bearer ${token}`;
-      localStorage.setItem(ACCESS_TOKEN_KEY, token);
       setAccessToken(token);
     } else {
       delete api.defaults.headers.common.Authorization;
-      localStorage.removeItem(ACCESS_TOKEN_KEY);
       setAccessToken(null);
     }
   }, []);
@@ -83,11 +86,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, [applyAccessToken, clearSession]);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem(ACCESS_TOKEN_KEY);
-    if (storedToken) {
-      applyAccessToken(storedToken);
-    }
-
     const boot = async () => {
       try {
         const token = await handleRefresh();
@@ -164,18 +162,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         if (!token || !profile) {
           throw new Error("Malformed login response");
         }
+        // Wipe the previous user's cached data so the new user never sees stale
+        // queries from a different account.
+        queryClient.clear();
         applyAccessToken(token);
         setUser(profile);
         toast.success(`Welcome back, ${profile.name}`);
         return profile;
       } catch (error: unknown) {
-        const axiosError = error as {
-          response?: { status?: number; data?: { message?: string } };
-        };
-        const status = axiosError.response?.status;
-        const message =
-          axiosError.response?.data?.message ??
-          "Failed to log in. Check credentials.";
+        const status = (error as any)?.response?.status;
+        const message = extractApiError(
+          error,
+          "Failed to log in. Check credentials.",
+        );
         if (status === 403) {
           toast.error(message || "Please verify your email before signing in.");
         } else {
@@ -184,7 +183,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         throw error;
       }
     },
-    [applyAccessToken],
+    [applyAccessToken, queryClient],
   );
 
   const register: AuthContextValue["register"] = useCallback(
@@ -201,12 +200,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         toast.success(message);
         return { message };
       } catch (error: unknown) {
-        const axiosError = error as {
-          response?: { data?: { message?: string } };
-        };
+        const data = (error as any)?.response?.data;
+        // Prefer the first field-specific validation message over the generic one
+        const fieldMsg = data?.errors?.[0]?.message;
         const message =
-          axiosError.response?.data?.message ??
-          "Registration failed. Try again.";
+          typeof fieldMsg === "string" && fieldMsg.length <= 200
+            ? fieldMsg
+            : extractApiError(error, "Registration failed. Try again.");
         toast.error(message);
         throw error;
       }
@@ -249,13 +249,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         toast.success(message ?? "Profile updated successfully");
         return (response.data as Record<string, unknown>) ?? {};
       } catch (error: unknown) {
-        const axiosError = error as {
-          response?: { data?: { message?: string } };
-        };
-        const message =
-          axiosError.response?.data?.message ??
-          "Failed to update your profile.";
-        toast.error(message);
+        toast.error(extractApiError(error, "Failed to update your profile."));
         throw error;
       }
     },
@@ -291,12 +285,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         toast.success(message ?? "Password updated successfully");
         return (response.data as Record<string, unknown>) ?? {};
       } catch (error: unknown) {
-        const axiosError = error as {
-          response?: { data?: { message?: string } };
-        };
-        const message =
-          axiosError.response?.data?.message ?? "Failed to update password.";
-        toast.error(message);
+        toast.error(extractApiError(error, "Failed to update password."));
         throw error;
       }
     },
@@ -316,13 +305,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         toast.success(message);
         return { message };
       } catch (error: unknown) {
-        const axiosError = error as {
-          response?: { data?: { message?: string } };
-        };
-        const message =
-          axiosError.response?.data?.message ??
-          "Couldn't resend the verification email. Try again later.";
-        toast.error(message);
+        toast.error(
+          extractApiError(
+            error,
+            "Couldn't resend the verification email. Try again later.",
+          ),
+        );
         throw error;
       }
     }, []);
@@ -341,13 +329,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         toast.success("Email confirmed! You're all set.");
         return profile;
       } catch (error: unknown) {
-        const axiosError = error as {
-          response?: { data?: { message?: string } };
-        };
-        const message =
-          axiosError.response?.data?.message ??
-          "Email verification failed. The link may have expired.";
-        toast.error(message);
+        toast.error(
+          extractApiError(
+            error,
+            "Email verification failed. The link may have expired.",
+          ),
+        );
         throw error;
       }
     },
@@ -360,9 +347,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     } catch {
       // Ignore network errors on logout
     } finally {
+      // Clear all cached queries so the next user session starts fresh.
+      queryClient.clear();
       clearSession();
     }
-  }, [clearSession]);
+  }, [clearSession, queryClient]);
 
   const value: AuthContextValue = useMemo(
     () => ({
