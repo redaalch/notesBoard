@@ -5,6 +5,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../lib/axios";
+import { extractApiError } from "../lib/sanitize";
 
 export interface UseVoiceInputOptions {
   /** Called with the transcribed text on success */
@@ -105,10 +106,8 @@ export function useVoiceInput({
         if (res.data?.text) {
           onTranscription(res.data.text);
         }
-      } catch (err: any) {
-        const message =
-          err.response?.data?.message ?? "Transcription failed. Please try again.";
-        setError(message);
+      } catch (err: unknown) {
+        setError(extractApiError(err, "Transcription failed. Please try again."));
       } finally {
         setIsTranscribing(false);
       }
@@ -172,9 +171,10 @@ export function useVoiceInput({
           return prev + 1;
         });
       }, 1000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       cleanup();
-      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+      const errName = (err as { name?: string })?.name;
+      if (errName === "NotAllowedError" || errName === "PermissionDeniedError") {
         setError("Microphone access denied. Please allow it in your browser settings.");
       } else {
         setError("Could not access microphone.");
