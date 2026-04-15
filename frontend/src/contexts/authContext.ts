@@ -28,7 +28,7 @@ export interface AuthContextValue {
     email?: string;
     currentPassword?: string;
     verificationRedirectUrl?: string;
-  }) => Promise<any>;
+  }) => Promise<Record<string, unknown>>;
   changePassword: (data: {
     currentPassword: string;
     newPassword: string;
