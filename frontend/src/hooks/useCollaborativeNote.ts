@@ -164,6 +164,7 @@ const hashColor = (value: string): string => {
 export const useCollaborativeNote = (
   noteId: string | null,
   note: NoteInput | null,
+  canEdit = true,
 ) => {
   const { accessToken, user, refresh } = useAuth();
   const providerRef = useRef<HocuspocusProvider | null>(null);
@@ -244,25 +245,22 @@ export const useCollaborativeNote = (
   }, [accessToken, refresh]);
 
   useEffect(() => {
-    if (!noteId || !user) {
+    if (!noteId || !user || !canEdit) {
       return undefined;
     }
+
+    let cancelled = false;
 
     const resolveProviderToken = async () => {
       const inMemory = accessTokenRef.current;
       if (inMemory) return inMemory;
 
-      try {
-        const fromStorage = localStorage.getItem("notesboard.accessToken");
-        if (fromStorage && fromStorage.trim().length > 0) {
-          return fromStorage;
-        }
-      } catch {
-        // Ignore storage errors and fall through to refresh.
-      }
-
+      // Token not in memory — ask AuthContext to refresh via the HttpOnly cookie.
       if (refresh) {
         const refreshed = await refresh();
+        // If the component unmounted while we were awaiting the refresh, bail out
+        // so the stale Hocuspocus provider doesn't trigger state updates.
+        if (cancelled) return "";
         if (refreshed && refreshed.trim().length > 0) {
           return refreshed;
         }
@@ -374,13 +372,14 @@ export const useCollaborativeNote = (
     provider.on("synced", handleSynced);
 
     return () => {
+      cancelled = true;
       provider.off("status", handleStatus);
       awareness.off("update", emitParticipants);
       provider.off("synced", handleSynced);
       provider.destroy();
       yDoc.destroy();
     };
-  }, [noteId, user, color, note, refresh]);
+  }, [noteId, user, color, note, refresh, canEdit]);
 
   useEffect(() => {
     if (awarenessRef.current && user) {
