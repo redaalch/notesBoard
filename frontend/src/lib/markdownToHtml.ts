@@ -3,13 +3,62 @@
  *
  * Handles the subset used by templates: headings, lists, task lists,
  * blockquotes, bold/italic, and paragraph breaks. Not a full parser.
+ *
+ * IMPORTANT: All user text is HTML-escaped before inline formatting is applied
+ * to prevent XSS when the output is rendered via dangerouslySetInnerHTML.
+ * Callers should still wrap the output with DOMPurify.sanitize() as
+ * defense-in-depth.
  */
 
-function inlineFormat(text: string): string {
+function escapeHtml(text: string): string {
   return text
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/`(.+?)`/g, "<code>$1</code>");
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function inlineFormat(text: string): string {
+  // Preserve markdown syntax tokens, escape everything else.
+  // We extract bold/italic/code spans first, escape the remaining text,
+  // then reassemble with safe HTML tags.
+  const tokens: { start: number; end: number; html: string }[] = [];
+
+  // Collect markdown spans (bold first to avoid ** matching as two *)
+  for (const [re, tag] of [
+    [/\*\*(.+?)\*\*/g, "strong"],
+    [/\*(.+?)\*/g, "em"],
+    [/`(.+?)`/g, "code"],
+  ] as [RegExp, string][]) {
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      // Skip if this range overlaps an already-captured token
+      const overlaps = tokens.some(
+        (t) => m!.index < t.end && m!.index + m![0].length > t.start,
+      );
+      if (overlaps) continue;
+      tokens.push({
+        start: m.index,
+        end: m.index + m[0].length,
+        html: `<${tag}>${escapeHtml(m[1])}</${tag}>`,
+      });
+    }
+  }
+
+  if (tokens.length === 0) return escapeHtml(text);
+
+  tokens.sort((a, b) => a.start - b.start);
+
+  const parts: string[] = [];
+  let cursor = 0;
+  for (const t of tokens) {
+    if (t.start > cursor) parts.push(escapeHtml(text.slice(cursor, t.start)));
+    parts.push(t.html);
+    cursor = t.end;
+  }
+  if (cursor < text.length) parts.push(escapeHtml(text.slice(cursor)));
+  return parts.join("");
 }
 
 export function markdownToHtml(md: string): string {
