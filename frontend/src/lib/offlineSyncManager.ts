@@ -4,6 +4,7 @@ import type {
   AxiosResponse,
 } from "axios";
 import api from "./axios";
+import { extractApiError } from "./sanitize";
 import {
   cacheMutation,
   cacheResponse,
@@ -537,13 +538,19 @@ const flushQueue = async (): Promise<void> => {
       await removeMutation(entry.id!);
       lastError = null;
     } catch (error) {
-      const err = error as Error;
+      const axiosErr = error as AxiosError<{ message?: string }>;
+      const errorMessage = extractApiError(
+        axiosErr,
+        axiosErr?.message ?? "Unknown error",
+      );
+      const timestamp = new Date().toISOString();
+
       await updateMutation(entry.id!, {
         attempts: (entry.attempts ?? 0) + 1,
-        lastError: err?.message ?? "Unknown error",
-        lastAttemptAt: new Date().toISOString(),
+        lastError: errorMessage,
+        lastAttemptAt: timestamp,
       });
-      lastError = err?.message ?? "Sync failed";
+      lastError = errorMessage;
       failure = true;
       break;
     }
@@ -577,13 +584,19 @@ const flushQueue = async (): Promise<void> => {
             await removeMutation(entry.id!);
             lastError = null;
           } catch (error) {
-            const err = error as Error;
+            const axiosErr = error as AxiosError<{ message?: string }>;
+            const errorMessage = extractApiError(
+              axiosErr,
+              axiosErr?.message ?? "Unknown error",
+            );
+            const timestamp = new Date().toISOString();
+
             await updateMutation(entry.id!, {
               attempts: (entry.attempts ?? 0) + 1,
-              lastError: err?.message ?? "Unknown error",
-              lastAttemptAt: new Date().toISOString(),
+              lastError: errorMessage,
+              lastAttemptAt: timestamp,
             });
-            lastError = err?.message ?? "Sync failed";
+            lastError = errorMessage;
             failure = true;
             break;
           }
@@ -620,10 +633,10 @@ const flushQueue = async (): Promise<void> => {
         lastError = null;
       } catch (error) {
         const axiosErr = error as AxiosError<{ message?: string }>;
-        const errorMessage =
-          axiosErr?.response?.data?.message ??
-          axiosErr?.message ??
-          "Unknown error";
+        const errorMessage = extractApiError(
+          axiosErr,
+          axiosErr?.message ?? "Unknown sync error",
+        );
         const timestamp = new Date().toISOString();
 
         for (const entry of bucket.entries) {
