@@ -35,6 +35,9 @@ export interface Recommendation {
 export interface SavedQuery {
   id: string;
   name: string;
+  query?: string;
+  filters?: { tags?: string[]; minWords?: number };
+  sort?: Record<string, unknown>;
 }
 
 export interface SmartResult {
