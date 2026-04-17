@@ -64,6 +64,8 @@ Thumbs.db
 # Misc
 *.orig
 *.rej
+tree.txt
+.codex
 
 # Local database / dumps (adjust if you keep sample data)
 data/db/
