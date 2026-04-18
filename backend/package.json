@@ -14,6 +14,7 @@
     "analytics-snapshots": "tsx src/scripts/generateNotebookAnalyticsSnapshots.js",
     "seed-analytics-fixtures": "tsx src/scripts/seedNotebookAnalyticsFixtures.js",
     "backfill-embeddings": "tsx src/scripts/backfillEmbeddings.js",
+    "backfill-workspace-ids": "tsx src/scripts/backfillWorkspaceIds.js",
     "test:analytics": "vitest run tests/notebook.analytics.*.test.js",
     "collab": "tsx src/collab/server.js"
   },
