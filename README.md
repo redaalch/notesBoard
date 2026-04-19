@@ -144,13 +144,13 @@ git clone https://github.com/redaalch/notesBoard.git
 cd notesBoard
 ```
 
-1. Install dependencies.
+2. Install dependencies.
 
 ```bash
 npm install
 ```
 
-1. Copy environment templates.
+3. Copy environment templates.
 
 ```bash
 cp backend/.env.example backend/.env
@@ -339,9 +339,7 @@ CI in `.github/workflows/ci.yml` runs quality and audit jobs on push/PR to `main
 
 Live URL: [notesboard.xyz](https://notesboard.xyz)
 
-The repository does not document which hosting platform currently serves `notesboard.xyz`, but the tracked code is set up for a same-origin Node deployment where the backend serves the built frontend.
-
-The tracked codebase is wired for a same-origin production deployment:
+NotesBoard is set up for a same-origin Node deployment where the backend serves the built frontend:
 
 - One Node.js web service runs the backend.
 - In `NODE_ENV=production`, the backend serves `frontend/dist`.
