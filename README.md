@@ -373,8 +373,7 @@ Frontend-specific docs: `frontend/README.md`
 ## 📣 Security Reporting
 
 Security decisions and controls are documented in `SECURITY_DECISIONS.md`.
-
-<!-- TODO: Add a dedicated private disclosure channel for security reports. -->
+Report sensitive vulnerabilities privately to `security@notesboard.xyz` instead of opening a public issue. Full disclosure guidance and response expectations are documented in `SECURITY.md`.
 
 ## 📄 License
 

@@ -17,6 +17,7 @@ This document records security findings that were reviewed during the April 2026
 - Adding per-message re-authentication would break the Yjs/Hocuspocus protocol and add significant latency to every keystroke sync.
 
 **Mitigation already in place:**
+
 - Short JWT TTL (15m)
 - Per-connection auth + permission check
 - Force-close on permission revocation
@@ -36,10 +37,25 @@ This document records security findings that were reviewed during the April 2026
 - Adding CSRF tokens would add complexity to the offline queue (tokens expire, requiring refresh before replay) without providing meaningful protection given the Bearer-token auth model.
 
 **Mitigation already in place:**
+
 - Bearer token auth (not cookie-based)
 - CORS origin whitelist
 - Helmet security headers (including `X-Content-Type-Options: nosniff`)
 
 ---
 
-*Reviewed: 2026-04-04*
+## 3. Vulnerability Disclosure Channel
+
+**Finding:** The repository previously lacked a dedicated security disclosure policy file and security-specific reporting address.
+
+**Decision:** Sensitive vulnerability reports now have a dedicated private disclosure channel at `security@notesboard.xyz`, documented in `SECURITY.md`.
+
+**Mitigation now in place:**
+
+- A repository-level `SECURITY.md` documents the private reporting path.
+- Contributor guidance explicitly tells reporters not to post exploitable findings publicly.
+- The security-specific inbox separates vulnerability handling from general support traffic.
+
+---
+
+Reviewed: 2026-04-19

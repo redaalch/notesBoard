@@ -98,4 +98,6 @@ Examples:
 
 Do not open public issues for sensitive vulnerabilities.
 
+Report them privately to `security@notesboard.xyz` and follow `SECURITY.md`.
+
 Security decisions and controls are documented in `SECURITY_DECISIONS.md`.
