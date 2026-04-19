@@ -2,7 +2,7 @@
 
 *Collaborative note workspaces with offline sync and AI-assisted capture.*
 
-[![CI](https://github.com/redaalch/notesBoard/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/redaalch/notesBoard/actions/workflows/ci.yml) [![License](https://img.shields.io/badge/license-not%20specified-lightgrey)](https://img.shields.io/badge/license-not%20specified-lightgrey) ![Node 20.x](https://img.shields.io/badge/node-20.x-339933) ![Last Commit](https://img.shields.io/github/last-commit/redaalch/notesBoard) [![Live Site](https://img.shields.io/website?url=https%3A%2F%2Fnotesboard.xyz&label=live)](https://notesboard.xyz) ![React 19](https://img.shields.io/badge/React-19-61DAFB) ![Vite 7](https://img.shields.io/badge/Vite-7-646CFF) ![TypeScript 5](https://img.shields.io/badge/TypeScript-5-3178C6) ![Express 4](https://img.shields.io/badge/Express-4-000000) ![MongoDB + Mongoose 8](https://img.shields.io/badge/MongoDB-Mongoose%208-47A248)
+[![CI](https://github.com/redaalch/notesBoard/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/redaalch/notesBoard/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) ![Node 20.x](https://img.shields.io/badge/node-20.x-339933) ![Last Commit](https://img.shields.io/github/last-commit/redaalch/notesBoard) [![Live Site](https://img.shields.io/website?url=https%3A%2F%2Fnotesboard.xyz&label=live)](https://notesboard.xyz) ![React 19](https://img.shields.io/badge/React-19-61DAFB) ![Vite 7](https://img.shields.io/badge/Vite-7-646CFF) ![TypeScript 5](https://img.shields.io/badge/TypeScript-5-3178C6) ![Express 4](https://img.shields.io/badge/Express-4-000000) ![MongoDB + Mongoose 8](https://img.shields.io/badge/MongoDB-Mongoose%208-47A248)
 
 [Live Demo](https://notesboard.xyz) · [Report Bug](https://github.com/redaalch/notesBoard/issues/new?labels=bug&title=%5BBug%5D%20) · [Request Feature](https://github.com/redaalch/notesBoard/issues/new?labels=enhancement&title=%5BFeature%5D%20) · [Changelog](CHANGELOG.md)
 
@@ -368,8 +368,6 @@ Conventional commit prefixes are used in this repository (`feat`, `fix`, `refact
 
 Contributing guide: `CONTRIBUTING.md`
 
-<!-- TODO: Add CONTRIBUTING.md with setup, development workflow, and PR guidelines. -->
-
 Frontend-specific docs: `frontend/README.md`
 
 <!-- TODO: Confirm or restore frontend/README.md in this workspace (file not currently present). -->
@@ -382,9 +380,7 @@ Security decisions and controls are documented in `SECURITY_DECISIONS.md`.
 
 ## 📄 License
 
-The root `package.json` currently does not declare a `license` field.
-
-<!-- TODO: Set explicit project license metadata and add a LICENSE file if needed. -->
+This project is licensed under the MIT License. See `LICENSE` for details.
 
 ## 🙏 Acknowledgments
 

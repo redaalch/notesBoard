@@ -2,6 +2,7 @@
   "name": "notesboard",
   "version": "1.0.0",
   "type": "module",
+  "license": "MIT",
   "engines": {
     "node": "20.x",
     "npm": "10.x"
