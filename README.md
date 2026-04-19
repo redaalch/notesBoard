@@ -368,8 +368,6 @@ Contributing guide: `CONTRIBUTING.md`
 
 Frontend-specific docs: `frontend/README.md`
 
-<!-- TODO: Confirm or restore frontend/README.md in this workspace (file not currently present). -->
-
 ## 📣 Security Reporting
 
 Security decisions and controls are documented in `SECURITY_DECISIONS.md`.
