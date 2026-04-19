@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Backend
+
+- Shifted note flows from board-scoped defaults toward workspace-scoped access and session context
+- Simplified auth session payloads by removing legacy default-board handling while preserving default workspace bootstrapping
+- Added soft-delete trash flows for notes, including list, restore, purge, and empty-trash endpoints
+- Expanded note history events to persist title, content, and tag snapshots for restore and audit flows
+- Added notebook saved-query route support and usage tracking hooks
+
+### Frontend
+
+- Mounted `OfflineSyncProvider` at the app root and replaced destructive service-worker reset logic with synchronized registration lifecycle handling
+- Added note history restore UI, line-diff utilities, note export helpers, and focus mode controls in `NoteDetailPage`
+- Refactored the notes and dashboard surfaces around `DashboardShell`, `DashboardTopbar`, `TweaksPanel`, and extracted home-page dialogs / DnD helpers
+- Added trash management UI for deleted notes and surfaced trash navigation in the dashboard and navbar flows
+- Expanded profile and auth flows with email-verification follow-up handling and workspace member management
+- Improved notebook template import UX with workspace mapping support and updated notebook publish / share / analytics dialog integrations
+
+### Quality
+
+- Fixed frontend TypeScript regressions around lazy highlight.js language registration, note-history diff utilities, mobile navigation props, navbar props, and profile update result typing
+- Updated `HomePage` tests to match the current dashboard shell and authenticated runtime assumptions
+- Refreshed frontend audit notes in `FRONTEND_TECHNICAL_REPORT.md` to capture current quality, performance, and maintainability status
+
 ## [1.1.0] - 2026-04-05
 
 ### Security Audit
