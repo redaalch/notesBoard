@@ -68,7 +68,7 @@ export default {
         surface: {
           base: withOpacityVariable("--color-surface-1"),
           raised: withOpacityVariable("--color-surface-2"),
-          overlay: withOpacityVariable("--color-surface-overlay"),
+          overlay: withOpacityVariable("--color-surface-3"),
         },
         border: {
           subtle: withOpacityVariable("--color-border-subtle"),
@@ -76,8 +76,8 @@ export default {
         },
         text: {
           primary: withOpacityVariable("--color-text-primary"),
-          muted: withOpacityVariable("--color-text-muted"),
-          subtle: withOpacityVariable("--color-text-subtle"),
+          muted: withOpacityVariable("--color-text-secondary"),
+          subtle: withOpacityVariable("--color-text-tertiary"),
           inverted: withOpacityVariable("--color-text-inverted"),
         },
       },

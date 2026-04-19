@@ -256,8 +256,8 @@ Collaboration uses Hocuspocus + Yjs with note-level permission checks at connect
 Session flow:
 
 1. Frontend connects with token-authenticated collaboration parameters.
-1. Server verifies user and note access for read/edit operations.
-1. Yjs updates persist and awareness updates are broadcast to collaborators.
+2. Server verifies user and note access for read/edit operations.
+3. Yjs updates persist and awareness updates are broadcast to collaborators.
 
 ## 📦 Offline & PWA
 
@@ -339,9 +339,37 @@ CI in `.github/workflows/ci.yml` runs quality and audit jobs on push/PR to `main
 
 Live URL: [notesboard.xyz](https://notesboard.xyz)
 
-The root workspace includes a `heroku-postbuild` script, but full deployment platform wiring is not explicitly documented in tracked config files.
+The repository does not document which hosting platform currently serves `notesboard.xyz`, but the tracked code is set up for a same-origin Node deployment where the backend serves the built frontend.
 
-<!-- TODO: Confirm deployment target(s) and add exact production deployment steps. -->
+The tracked codebase is wired for a same-origin production deployment:
+
+- One Node.js web service runs the backend.
+- In `NODE_ENV=production`, the backend serves `frontend/dist`.
+- The HTTP API is exposed at `/api`.
+- Real-time collaboration runs on the same host at `/collab`.
+- Production dependencies are MongoDB and Upstash Redis.
+
+Exact production steps:
+
+1. Provision a MongoDB database and an Upstash Redis database.
+2. Deploy this repo to a Node host that supports Node `20.x` and npm `10.x`.
+3. Set these required backend environment variables:
+   - `NODE_ENV=production`
+   - `PORT` to the platform-provided port (or `5001` on a VM)
+   - `MONGO_URI`
+   - `JWT_ACCESS_SECRET`
+   - `UPSTASH_REDIS_REST_URL`
+   - `UPSTASH_REDIS_REST_TOKEN`
+   - `FRONTEND_ORIGIN=https://notesboard.xyz`
+   - `PUBLIC_HOST=notesboard.xyz`
+   - `PASSWORD_RESET_URL=https://notesboard.xyz/reset-password`
+4. Leave `VITE_API_BASE_URL` unset for the default same-origin frontend build.
+5. Build the app with `npm ci && npm run build`.
+6. Start the app with `npm start`.
+7. Point `notesboard.xyz` at the web service and verify:
+   - `GET /api/health` returns `{"ok":true,...}`
+   - `/` serves the frontend shell
+   - collaborative editing connects on `wss://notesboard.xyz/collab`
 
 ## 🛣️ Roadmap
 
@@ -362,7 +390,7 @@ Before opening a PR, run:
 - Frontend tests
 - Backend typecheck
 
-Conventional commit prefixes are used in this repository (`feat`, `fix`, `refactor`, `docs`).
+We prefer conventional commit prefixes in this repository (`feat`, `fix`, `refactor`, `docs`).
 
 Contributing guide: `CONTRIBUTING.md`
 

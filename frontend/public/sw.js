@@ -33,6 +33,34 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+self.addEventListener("message", (event) => {
+  if (event.data?.type !== "PRECACHE_URLS") {
+    return;
+  }
+
+  const urls = Array.isArray(event.data?.payload?.urls)
+    ? event.data.payload.urls.filter((url) => typeof url === "string")
+    : [];
+
+  if (!urls.length) {
+    return;
+  }
+
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(async (cache) => {
+      await Promise.all(
+        urls.map(async (url) => {
+          try {
+            await cache.add(new Request(url, { credentials: "same-origin" }));
+          } catch (error) {
+            console.warn("[sw] dynamic precache failed", url, error);
+          }
+        }),
+      );
+    }),
+  );
+});
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
