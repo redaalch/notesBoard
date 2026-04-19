@@ -28,7 +28,7 @@
   <a href="https://notesboard.xyz"><img alt="Live site" src="https://img.shields.io/website?down_message=offline&label=live&style=flat-square&url=https%3A%2F%2Fnotesboard.xyz"></a>
 </p>
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/compass.svg" alt="" width="18" align="center" /> About
+## <img src="https://api.iconify.design/lucide/compass.svg?color=%238b5cf6" alt="" width="18" align="center" /> About
 
 NotesBoard is a full-stack collaborative notes platform designed for personal and team knowledge workflows. It combines a React + Vite + TypeScript frontend with a Node.js/Express API, MongoDB persistence, and shared contracts for analytics and notebook options.
 
@@ -48,7 +48,7 @@ Highlights:
 > [!NOTE]
 > AI routes are optional. Without `GROQ_API_KEY`, summary, tag suggestion, embedding, template-generation, and transcription flows stay disabled while the rest of the product keeps working.
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/sparkles.svg" alt="" width="18" align="center" /> Features
+## <img src="https://api.iconify.design/lucide/sparkles.svg?color=%238b5cf6" alt="" width="18" align="center" /> Features
 
 ### Notes & Organization
 
@@ -88,7 +88,7 @@ Highlights:
 - Upstash-backed rate limiting.
 - Validation and sanitization middleware across mutating routes.
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/layers.svg" alt="" width="18" align="center" /> Tech Stack
+## <img src="https://api.iconify.design/lucide/layers.svg?color=%238b5cf6" alt="" width="18" align="center" /> Tech Stack
 
 | Layer                    | Technology                                                       |
 | ------------------------ | ---------------------------------------------------------------- |
@@ -104,7 +104,7 @@ Highlights:
 | Performance Tooling      | Lighthouse scripts, bundle reports, perf budgets                 |
 | CI                       | GitHub Actions (`.github/workflows/ci.yml`)                      |
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/workflow.svg" alt="" width="18" align="center" /> Architecture
+## <img src="https://api.iconify.design/lucide/map.svg?color=%238b5cf6" alt="" width="18" align="center" /> Architecture
 
 NotesBoard separates real-time synchronization from standard API traffic. The frontend handles CRUD, analytics, and publishing via REST, while collaboration sync uses a dedicated Hocuspocus/Yjs channel. Offline writes are buffered in IndexedDB and replayed through notebook sync endpoints.
 
@@ -148,7 +148,7 @@ notesBoard/
 | `shared/`            | Shared contracts used by frontend and backend.                                      |
 | `.github/workflows/` | CI quality gates (lint/test/typecheck/audit).                                       |
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/rocket.svg" alt="" width="18" align="center" /> Getting Started
+## <img src="https://api.iconify.design/lucide/settings.svg?color=%238b5cf6" alt="" width="18" align="center" /> Getting Started
 
 ### Prerequisites
 
@@ -256,7 +256,7 @@ Useful alternatives:
 
 For owner bootstrap and backfill jobs, run backend maintenance scripts from `backend/package.json` using `-w backend`.
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/command.svg" alt="" width="18" align="center" /> Scripts
+## <img src="https://api.iconify.design/lucide/wrench.svg?color=%238b5cf6" alt="" width="18" align="center" /> Scripts
 
 | Workspace | Script                              | What it does                                 |
 | --------- | ----------------------------------- | -------------------------------------------- |
@@ -275,7 +275,7 @@ For owner bootstrap and backfill jobs, run backend maintenance scripts from `bac
 
 For full script inventories, see [package.json](package.json), [backend/package.json](backend/package.json), and [frontend/package.json](frontend/package.json).
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/users.svg" alt="" width="18" align="center" /> Real-time Collaboration
+## <img src="https://api.iconify.design/lucide/users-round.svg?color=%238b5cf6" alt="" width="18" align="center" /> Real-time Collaboration
 
 Collaboration uses Hocuspocus + Yjs with note-level permission checks at connection time. Server logic persists document state to MongoDB and throttles/debounces presence and history side effects to reduce write pressure.
 
@@ -285,13 +285,13 @@ Session flow:
 2. Server verifies user and note access for read/edit operations.
 3. Yjs updates persist and awareness updates are broadcast to collaborators.
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/cloud.svg" alt="" width="18" align="center" /> Offline & PWA
+## <img src="https://api.iconify.design/lucide/cloud-off.svg?color=%238b5cf6" alt="" width="18" align="center" /> Offline & PWA
 
 Offline support is built around IndexedDB and queued mutations. The frontend stores note/notebook snapshots, pending writes, and sync metadata; when connectivity returns, queued operations replay through notebook sync APIs.
 
 The service worker handles static asset caching and installability. In development, caches are intentionally cleared to avoid stale debugging behavior.
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/wand-sparkles.svg" alt="" width="18" align="center" /> AI Features
+## <img src="https://api.iconify.design/lucide/brain.svg?color=%238b5cf6" alt="" width="18" align="center" /> AI Features
 
 AI functionality is optional and provider-key driven. Exposed routes include:
 
@@ -305,7 +305,7 @@ AI functionality is optional and provider-key driven. Exposed routes include:
 
 Primary runtime keys: `GROQ_API_KEY`, `EMBEDDING_PROVIDER`, `EMBEDDING_API_KEY`, model-specific embedding keys.
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/shield.svg" alt="" width="18" align="center" /> Security
+## <img src="https://api.iconify.design/lucide/shield.svg?color=%238b5cf6" alt="" width="18" align="center" /> Security
 
 - Helmet security headers + CSP.
 - CORS allowlist checks.
@@ -317,7 +317,7 @@ Primary runtime keys: `GROQ_API_KEY`, `EMBEDDING_PROVIDER`, `EMBEDDING_API_KEY`,
 
 See [SECURITY_DECISIONS.md](SECURITY_DECISIONS.md) for security rationale and accepted-risk notes.
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/bar-chart-3.svg" alt="" width="18" align="center" /> Performance
+## <img src="https://api.iconify.design/lucide/gauge.svg?color=%238b5cf6" alt="" width="18" align="center" /> Performance
 
 Frontend performance checks include Lighthouse runs, bundle reports, and threshold enforcement via `frontend/perf-budgets.json`.
 
@@ -343,7 +343,7 @@ LIGHTHOUSE_STRICT=true npm run perf:lighthouse -w frontend
 
 <!-- markdownlint-enable MD033 -->
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/check-circle.svg" alt="" width="18" align="center" /> Testing & Quality
+## <img src="https://api.iconify.design/lucide/circle-check.svg?color=%238b5cf6" alt="" width="18" align="center" /> Testing & Quality
 
 Run checks from the repo root:
 
@@ -364,7 +364,7 @@ npm run lint -w frontend
 
 CI in `.github/workflows/ci.yml` runs quality and audit jobs on push/PR to `main`.
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/cloud.svg" alt="" width="18" align="center" /> Deployment
+## <img src="https://api.iconify.design/lucide/rocket.svg?color=%238b5cf6" alt="" width="18" align="center" /> Deployment
 
 Live URL: [notesboard.xyz](https://notesboard.xyz)
 
@@ -401,7 +401,7 @@ Exact production steps:
    - `/` serves the frontend shell
    - collaborative editing connects on `wss://notesboard.xyz/collab`
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/compass.svg" alt="" width="18" align="center" /> Roadmap
+## <img src="https://api.iconify.design/lucide/milestone.svg?color=%238b5cf6" alt="" width="18" align="center" /> Roadmap
 
 - [ ] Continue reducing frontend performance budget overages.
 - [ ] Break down large frontend modules into smaller feature units.
@@ -409,7 +409,7 @@ Exact production steps:
 - [ ] Add stronger operational visibility for sync replay outcomes.
 - [ ] Document deployment and release workflow end-to-end.
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/users.svg" alt="" width="18" align="center" /> Contributing
+## <img src="https://api.iconify.design/lucide/heart-handshake.svg?color=%238b5cf6" alt="" width="18" align="center" /> Contributing
 
 Contributions are welcome. For larger changes, open an issue first and keep pull requests focused.
 
@@ -426,16 +426,16 @@ Contributing guide: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 Frontend-specific docs: [frontend/README.md](frontend/README.md)
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/shield.svg" alt="" width="18" align="center" /> Security Reporting
+## <img src="https://api.iconify.design/lucide/megaphone.svg?color=%238b5cf6" alt="" width="18" align="center" /> Security Reporting
 
 Security decisions and controls are documented in [SECURITY_DECISIONS.md](SECURITY_DECISIONS.md).
 Report sensitive vulnerabilities privately to [security@notesboard.xyz](mailto:security@notesboard.xyz) instead of opening a public issue. Full disclosure guidance and response expectations are documented in [SECURITY.md](SECURITY.md).
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/file-text.svg" alt="" width="18" align="center" /> License
+## <img src="https://api.iconify.design/lucide/file-text.svg?color=%238b5cf6" alt="" width="18" align="center" /> License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
-## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/book-open.svg" alt="" width="18" align="center" /> Acknowledgments
+## <img src="https://api.iconify.design/lucide/heart.svg?color=%238b5cf6" alt="" width="18" align="center" /> Acknowledgments
 
 - [Yjs](https://github.com/yjs/yjs)
 - [Hocuspocus](https://github.com/ueberdosis/hocuspocus)
