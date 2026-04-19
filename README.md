@@ -8,8 +8,6 @@
 
 ![NotesBoard UI preview](docs/assets/hero.png)
 
-<!-- TODO: Replace docs/assets/hero.png with an actual product screenshot or GIF. -->
-
 ## 🧭 About
 
 NotesBoard is a full-stack collaborative notes platform designed for personal and team knowledge workflows. It combines a React + Vite + TypeScript frontend with a Node.js/Express API, MongoDB persistence, and shared contracts for analytics and notebook options.
