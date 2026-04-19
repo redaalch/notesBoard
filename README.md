@@ -1,14 +1,34 @@
 # NotesBoard
 
-*Collaborative note workspaces with offline sync and AI-assisted capture.*
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/hero-light.svg">
+    <img alt="NotesBoard hero banner" src="docs/assets/hero-light.svg" width="100%">
+  </picture>
+</p>
 
-[![CI](https://github.com/redaalch/notesBoard/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/redaalch/notesBoard/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) ![Node 20.x](https://img.shields.io/badge/node-20.x-339933) ![Last Commit](https://img.shields.io/github/last-commit/redaalch/notesBoard) [![Live Site](https://img.shields.io/website?url=https%3A%2F%2Fnotesboard.xyz&label=live)](https://notesboard.xyz) ![React 19](https://img.shields.io/badge/React-19-61DAFB) ![Vite 7](https://img.shields.io/badge/Vite-7-646CFF) ![TypeScript 5](https://img.shields.io/badge/TypeScript-5-3178C6) ![Express 4](https://img.shields.io/badge/Express-4-000000) ![MongoDB + Mongoose 8](https://img.shields.io/badge/MongoDB-Mongoose%208-47A248)
+<p align="center"><strong>Collaborative note workspaces with offline sync and AI-assisted capture.</strong></p>
 
-[Live Demo](https://notesboard.xyz) · [Report Bug](https://github.com/redaalch/notesBoard/issues/new?labels=bug&title=%5BBug%5D%20) · [Request Feature](https://github.com/redaalch/notesBoard/issues/new?labels=enhancement&title=%5BFeature%5D%20) · [Changelog](CHANGELOG.md)
+<p align="center">
+  <a href="https://notesboard.xyz">Live Demo</a> ·
+  <a href="https://github.com/redaalch/notesBoard/issues/new?labels=bug&title=%5BBug%5D%20">Report Bug</a> ·
+  <a href="https://github.com/redaalch/notesBoard/issues/new?labels=enhancement&title=%5BFeature%5D%20">Request Feature</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
 
-![NotesBoard UI preview](docs/assets/hero.png)
+<p align="center">
+  <a href="https://github.com/redaalch/notesBoard/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/redaalch/notesBoard/ci.yml?branch=main&style=flat-square&label=CI"></a>
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/License-MIT-F6C343?style=flat-square"></a>
+  <img alt="Node 20.x" src="https://img.shields.io/badge/Node-20.x-339933?style=flat-square&logo=node.js&logoColor=white">
+  <img alt="React 19" src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white">
+  <img alt="Vite 7" src="https://img.shields.io/badge/Vite-7-646CFF?style=flat-square&logo=vite&logoColor=white">
+  <img alt="TypeScript 5" src="https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white">
+  <img alt="MongoDB and Mongoose 8" src="https://img.shields.io/badge/MongoDB-Mongoose_8-47A248?style=flat-square&logo=mongodb&logoColor=white">
+  <a href="https://notesboard.xyz"><img alt="Live site" src="https://img.shields.io/website?down_message=offline&label=live&style=flat-square&url=https%3A%2F%2Fnotesboard.xyz"></a>
+</p>
 
-## 🧭 About
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/compass.svg" alt="" width="18" align="center" /> About
 
 NotesBoard is a full-stack collaborative notes platform designed for personal and team knowledge workflows. It combines a React + Vite + TypeScript frontend with a Node.js/Express API, MongoDB persistence, and shared contracts for analytics and notebook options.
 
@@ -25,7 +45,10 @@ Highlights:
 - Analytics endpoints for notebook insights and activity trends.
 - Shared type contracts in `shared/` to reduce frontend/backend drift.
 
-## ✨ Features
+> [!NOTE]
+> AI routes are optional. Without `GROQ_API_KEY`, summary, tag suggestion, embedding, template-generation, and transcription flows stay disabled while the rest of the product keeps working.
+
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/sparkles.svg" alt="" width="18" align="center" /> Features
 
 ### Notes & Organization
 
@@ -65,23 +88,23 @@ Highlights:
 - Upstash-backed rate limiting.
 - Validation and sanitization middleware across mutating routes.
 
-## 🧱 Tech Stack
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/layers.svg" alt="" width="18" align="center" /> Tech Stack
 
-| Layer | Technology |
-| --- | --- |
-| Frontend | React 19, Vite 7, TypeScript 5, React Router 7, TanStack Query 5 |
-| UI & Styling | Tailwind CSS, DaisyUI, Framer Motion, Lucide |
-| Editor & Realtime Client | TipTap, Yjs, `@hocuspocus/provider`, `y-indexeddb` |
-| Backend API | Node.js 20, Express 4, Mongoose 8, Express Validator |
-| Collaboration Server | Hocuspocus Server, Yjs Transformer |
-| Data Store | MongoDB via Mongoose |
-| Rate Limiting | Upstash Redis + `@upstash/ratelimit` |
-| Shared Contracts | `shared/analyticsTypes`, `shared/notebookOptions` |
-| Testing & Quality | Vitest, ESLint, TypeScript typecheck |
-| Performance Tooling | Lighthouse scripts, bundle reports, perf budgets |
-| CI | GitHub Actions (`.github/workflows/ci.yml`) |
+| Layer                    | Technology                                                       |
+| ------------------------ | ---------------------------------------------------------------- |
+| Frontend                 | React 19, Vite 7, TypeScript 5, React Router 7, TanStack Query 5 |
+| UI & Styling             | Tailwind CSS, DaisyUI, Framer Motion, Lucide                     |
+| Editor & Realtime Client | TipTap, Yjs, `@hocuspocus/provider`, `y-indexeddb`               |
+| Backend API              | Node.js 20, Express 4, Mongoose 8, Express Validator             |
+| Collaboration Server     | Hocuspocus Server, Yjs Transformer                               |
+| Data Store               | MongoDB via Mongoose                                             |
+| Rate Limiting            | Upstash Redis + `@upstash/ratelimit`                             |
+| Shared Contracts         | `shared/analyticsTypes`, `shared/notebookOptions`                |
+| Testing & Quality        | Vitest, ESLint, TypeScript typecheck                             |
+| Performance Tooling      | Lighthouse scripts, bundle reports, perf budgets                 |
+| CI                       | GitHub Actions (`.github/workflows/ci.yml`)                      |
 
-## 🗺️ Architecture
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/workflow.svg" alt="" width="18" align="center" /> Architecture
 
 NotesBoard separates real-time synchronization from standard API traffic. The frontend handles CRUD, analytics, and publishing via REST, while collaboration sync uses a dedicated Hocuspocus/Yjs channel. Offline writes are buffered in IndexedDB and replayed through notebook sync endpoints.
 
@@ -118,14 +141,14 @@ notesBoard/
    └─ workflows/
 ```
 
-| Path | Purpose |
-| --- | --- |
-| `backend/` | API routes, auth, data models, analytics services, collaboration server, and tests. |
-| `frontend/` | SPA UI, editor integrations, offline sync, and performance scripts. |
-| `shared/` | Shared contracts used by frontend and backend. |
-| `.github/workflows/` | CI quality gates (lint/test/typecheck/audit). |
+| Path                 | Purpose                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| `backend/`           | API routes, auth, data models, analytics services, collaboration server, and tests. |
+| `frontend/`          | SPA UI, editor integrations, offline sync, and performance scripts.                 |
+| `shared/`            | Shared contracts used by frontend and backend.                                      |
+| `.github/workflows/` | CI quality gates (lint/test/typecheck/audit).                                       |
 
-## ⚙️ Getting Started
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/rocket.svg" alt="" width="18" align="center" /> Getting Started
 
 ### Prerequisites
 
@@ -159,37 +182,40 @@ cp frontend/.env.example frontend/.env.local
 
 ### Environment Variables
 
+> [!TIP]
+> Leave `VITE_API_BASE_URL` unset unless you need an explicit override. The frontend defaults to `http://localhost:5001/api` in development and same-origin `/api` in production.
+
 #### Backend
 
-| Name | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `NODE_ENV` | No | `development` | Runtime mode for app behavior and security toggles. |
-| `PORT` | No | `5001` | API HTTP port. |
-| `MONGO_URI` | Yes (prod) | None | MongoDB connection string. |
-| `MONGO_DB` | No | `notesBoard` | Database name override. |
-| `JWT_ACCESS_SECRET` | Yes (prod) | None | JWT access-token signing secret. |
-| `JWT_ACCESS_TTL` | No | `15m` | Access-token TTL. |
-| `JWT_REFRESH_TTL_MS` | No | `604800000` | Refresh-session TTL in milliseconds. |
-| `FRONTEND_ORIGIN` | Yes (prod) | None | Allowed frontend origin for CORS. |
-| `UPSTASH_REDIS_REST_URL` | Yes (prod) | None | Upstash REST URL for rate limits. |
-| `UPSTASH_REDIS_REST_TOKEN` | Yes (prod) | None | Upstash REST token. |
-| `COLLAB_WS_URL` | No | `ws://localhost:6001` (example) | Collaboration socket URL for policy/connect wiring. |
-| `PUBLIC_HOST` | No | None | Public host hint for collaboration URL generation. |
-| `PASSWORD_RESET_URL` | No | Derived fallback | Password reset link base override. |
-| `GROQ_API_KEY` | No | None | Enables AI and transcription features. |
-| `EMBEDDING_PROVIDER` | No | Auto (`none` without keys) | Embedding provider (`groq`, `gemini`, `none`). |
-| `EMBEDDING_API_KEY` | No | None | Embedding API key override. |
-| `MAILER_TO_GO_URL` | No | None | Transactional mail transport URL. |
+| Name                       | Required   | Default                         | Purpose                                             |
+| -------------------------- | ---------- | ------------------------------- | --------------------------------------------------- |
+| `NODE_ENV`                 | No         | `development`                   | Runtime mode for app behavior and security toggles. |
+| `PORT`                     | No         | `5001`                          | API HTTP port.                                      |
+| `MONGO_URI`                | Yes (prod) | None                            | MongoDB connection string.                          |
+| `MONGO_DB`                 | No         | `notesBoard`                    | Database name override.                             |
+| `JWT_ACCESS_SECRET`        | Yes (prod) | None                            | JWT access-token signing secret.                    |
+| `JWT_ACCESS_TTL`           | No         | `15m`                           | Access-token TTL.                                   |
+| `JWT_REFRESH_TTL_MS`       | No         | `604800000`                     | Refresh-session TTL in milliseconds.                |
+| `FRONTEND_ORIGIN`          | Yes (prod) | None                            | Allowed frontend origin for CORS.                   |
+| `UPSTASH_REDIS_REST_URL`   | Yes (prod) | None                            | Upstash REST URL for rate limits.                   |
+| `UPSTASH_REDIS_REST_TOKEN` | Yes (prod) | None                            | Upstash REST token.                                 |
+| `COLLAB_WS_URL`            | No         | `ws://localhost:6001` (example) | Collaboration socket URL for policy/connect wiring. |
+| `PUBLIC_HOST`              | No         | None                            | Public host hint for collaboration URL generation.  |
+| `PASSWORD_RESET_URL`       | No         | Derived fallback                | Password reset link base override.                  |
+| `GROQ_API_KEY`             | No         | None                            | Enables AI and transcription features.              |
+| `EMBEDDING_PROVIDER`       | No         | Auto (`none` without keys)      | Embedding provider (`groq`, `gemini`, `none`).      |
+| `EMBEDDING_API_KEY`        | No         | None                            | Embedding API key override.                         |
+| `MAILER_TO_GO_URL`         | No         | None                            | Transactional mail transport URL.                   |
 
 #### Frontend
 
-| Name | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `VITE_ENABLE_NOTEBOOK_ANALYTICS` | No | `false` | Enables notebook analytics UI. |
-| `VITE_API_BASE_URL` | No | Dev: `http://localhost:5001/api`, Prod: `/api` | Axios API base URL. |
-| `VITE_COLLAB_SERVER_URL` | No | Derived from API/origin | Explicit collaboration WebSocket URL. |
-| `VITE_COLLAB_PATH` | No | `/collab` | Collaboration path when URL is derived. |
-| `VITE_PUBLIC_NOTEBOOK_BASE_URL` | No | `${window.location.origin}/published` | Public notebook base URL in publish UI. |
+| Name                             | Required | Default                                        | Purpose                                 |
+| -------------------------------- | -------- | ---------------------------------------------- | --------------------------------------- |
+| `VITE_ENABLE_NOTEBOOK_ANALYTICS` | No       | `false`                                        | Enables notebook analytics UI.          |
+| `VITE_API_BASE_URL`              | No       | Dev: `http://localhost:5001/api`, Prod: `/api` | Axios API base URL.                     |
+| `VITE_COLLAB_SERVER_URL`         | No       | Derived from API/origin                        | Explicit collaboration WebSocket URL.   |
+| `VITE_COLLAB_PATH`               | No       | `/collab`                                      | Collaboration path when URL is derived. |
+| `VITE_PUBLIC_NOTEBOOK_BASE_URL`  | No       | `${window.location.origin}/published`          | Public notebook base URL in publish UI. |
 
 <!-- markdownlint-disable MD033 -->
 
@@ -230,26 +256,26 @@ Useful alternatives:
 
 For owner bootstrap and backfill jobs, run backend maintenance scripts from `backend/package.json` using `-w backend`.
 
-## 🧰 Scripts
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/command.svg" alt="" width="18" align="center" /> Scripts
 
-| Workspace | Script | What it does |
-| --- | --- | --- |
-| Root | `npm run dev` | Starts backend + frontend concurrently. |
-| Root | `npm run build` | Builds frontend production assets. |
-| Root | `npm run start` | Starts backend in production mode. |
-| Root | `npm run audit:all` | Runs npm audit with high severity threshold. |
-| Backend | `npm run dev -w backend` | Starts API in watch mode. |
-| Backend | `npm run test -w backend` | Runs backend Vitest suites. |
-| Backend | `npm run typecheck -w backend` | Type-checks backend code. |
-| Backend | `npm run collab -w backend` | Starts standalone collaboration server. |
-| Frontend | `npm run dev -w frontend` | Starts Vite dev server. |
-| Frontend | `npm run lint -w frontend` | Runs ESLint. |
-| Frontend | `npm run test -w frontend -- --run` | Runs frontend tests once. |
-| Frontend | `npm run perf:ci -w frontend` | Runs baseline + budget checks. |
+| Workspace | Script                              | What it does                                 |
+| --------- | ----------------------------------- | -------------------------------------------- |
+| Root      | `npm run dev`                       | Starts backend + frontend concurrently.      |
+| Root      | `npm run build`                     | Builds frontend production assets.           |
+| Root      | `npm run start`                     | Starts backend in production mode.           |
+| Root      | `npm run audit:all`                 | Runs npm audit with high severity threshold. |
+| Backend   | `npm run dev -w backend`            | Starts API in watch mode.                    |
+| Backend   | `npm run test -w backend`           | Runs backend Vitest suites.                  |
+| Backend   | `npm run typecheck -w backend`      | Type-checks backend code.                    |
+| Backend   | `npm run collab -w backend`         | Starts standalone collaboration server.      |
+| Frontend  | `npm run dev -w frontend`           | Starts Vite dev server.                      |
+| Frontend  | `npm run lint -w frontend`          | Runs ESLint.                                 |
+| Frontend  | `npm run test -w frontend -- --run` | Runs frontend tests once.                    |
+| Frontend  | `npm run perf:ci -w frontend`       | Runs baseline + budget checks.               |
 
-For full script inventories, see `package.json`, `backend/package.json`, and `frontend/package.json`.
+For full script inventories, see [package.json](package.json), [backend/package.json](backend/package.json), and [frontend/package.json](frontend/package.json).
 
-## 🤝 Real-time Collaboration
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/users.svg" alt="" width="18" align="center" /> Real-time Collaboration
 
 Collaboration uses Hocuspocus + Yjs with note-level permission checks at connection time. Server logic persists document state to MongoDB and throttles/debounces presence and history side effects to reduce write pressure.
 
@@ -259,13 +285,13 @@ Session flow:
 2. Server verifies user and note access for read/edit operations.
 3. Yjs updates persist and awareness updates are broadcast to collaborators.
 
-## 📦 Offline & PWA
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/cloud.svg" alt="" width="18" align="center" /> Offline & PWA
 
 Offline support is built around IndexedDB and queued mutations. The frontend stores note/notebook snapshots, pending writes, and sync metadata; when connectivity returns, queued operations replay through notebook sync APIs.
 
 The service worker handles static asset caching and installability. In development, caches are intentionally cleared to avoid stale debugging behavior.
 
-## 🧠 AI Features
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/wand-sparkles.svg" alt="" width="18" align="center" /> AI Features
 
 AI functionality is optional and provider-key driven. Exposed routes include:
 
@@ -279,7 +305,7 @@ AI functionality is optional and provider-key driven. Exposed routes include:
 
 Primary runtime keys: `GROQ_API_KEY`, `EMBEDDING_PROVIDER`, `EMBEDDING_API_KEY`, model-specific embedding keys.
 
-## 🔐 Security
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/shield.svg" alt="" width="18" align="center" /> Security
 
 - Helmet security headers + CSP.
 - CORS allowlist checks.
@@ -289,11 +315,14 @@ Primary runtime keys: `GROQ_API_KEY`, `EMBEDDING_PROVIDER`, `EMBEDDING_API_KEY`,
 - Redis-backed rate limiting with fail-closed fallback.
 - User-scoped route cache keying.
 
-See `SECURITY_DECISIONS.md` for security rationale and accepted-risk notes.
+See [SECURITY_DECISIONS.md](SECURITY_DECISIONS.md) for security rationale and accepted-risk notes.
 
-## 🚄 Performance
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/bar-chart-3.svg" alt="" width="18" align="center" /> Performance
 
 Frontend performance checks include Lighthouse runs, bundle reports, and threshold enforcement via `frontend/perf-budgets.json`.
+
+> [!WARNING]
+> `npm run perf:baseline:update -w frontend` overwrites the tracked performance baseline in `frontend/perf-budgets.json`.
 
 <!-- markdownlint-disable MD033 -->
 
@@ -314,7 +343,7 @@ LIGHTHOUSE_STRICT=true npm run perf:lighthouse -w frontend
 
 <!-- markdownlint-enable MD033 -->
 
-## ✅ Testing & Quality
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/check-circle.svg" alt="" width="18" align="center" /> Testing & Quality
 
 Run checks from the repo root:
 
@@ -335,11 +364,14 @@ npm run lint -w frontend
 
 CI in `.github/workflows/ci.yml` runs quality and audit jobs on push/PR to `main`.
 
-## 🚀 Deployment
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/cloud.svg" alt="" width="18" align="center" /> Deployment
 
 Live URL: [notesboard.xyz](https://notesboard.xyz)
 
 NotesBoard is set up for a same-origin Node deployment where the backend serves the built frontend:
+
+> [!IMPORTANT]
+> Production deployments expect both MongoDB and Upstash Redis credentials. The tracked codebase is wired around the same-origin Node setup documented below.
 
 - One Node.js web service runs the backend.
 - In `NODE_ENV=production`, the backend serves `frontend/dist`.
@@ -369,7 +401,7 @@ Exact production steps:
    - `/` serves the frontend shell
    - collaborative editing connects on `wss://notesboard.xyz/collab`
 
-## 🛣️ Roadmap
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/compass.svg" alt="" width="18" align="center" /> Roadmap
 
 - [ ] Continue reducing frontend performance budget overages.
 - [ ] Break down large frontend modules into smaller feature units.
@@ -377,7 +409,7 @@ Exact production steps:
 - [ ] Add stronger operational visibility for sync replay outcomes.
 - [ ] Document deployment and release workflow end-to-end.
 
-## 🙌 Contributing
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/users.svg" alt="" width="18" align="center" /> Contributing
 
 Contributions are welcome. For larger changes, open an issue first and keep pull requests focused.
 
@@ -390,20 +422,20 @@ Before opening a PR, run:
 
 We prefer conventional commit prefixes in this repository (`feat`, `fix`, `refactor`, `docs`).
 
-Contributing guide: `CONTRIBUTING.md`
+Contributing guide: [CONTRIBUTING.md](CONTRIBUTING.md)
 
-Frontend-specific docs: `frontend/README.md`
+Frontend-specific docs: [frontend/README.md](frontend/README.md)
 
-## 📣 Security Reporting
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/shield.svg" alt="" width="18" align="center" /> Security Reporting
 
-Security decisions and controls are documented in `SECURITY_DECISIONS.md`.
-Report sensitive vulnerabilities privately to `security@notesboard.xyz` instead of opening a public issue. Full disclosure guidance and response expectations are documented in `SECURITY.md`.
+Security decisions and controls are documented in [SECURITY_DECISIONS.md](SECURITY_DECISIONS.md).
+Report sensitive vulnerabilities privately to [security@notesboard.xyz](mailto:security@notesboard.xyz) instead of opening a public issue. Full disclosure guidance and response expectations are documented in [SECURITY.md](SECURITY.md).
 
-## 📄 License
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/file-text.svg" alt="" width="18" align="center" /> License
 
-This project is licensed under the MIT License. See `LICENSE` for details.
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
-## 🙏 Acknowledgments
+## <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/book-open.svg" alt="" width="18" align="center" /> Acknowledgments
 
 - [Yjs](https://github.com/yjs/yjs)
 - [Hocuspocus](https://github.com/ueberdosis/hocuspocus)
