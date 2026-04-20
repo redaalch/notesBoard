@@ -1,16 +1,16 @@
 {
   "baseline": {
-    "capturedAt": "2026-03-23T00:24:20.720Z",
-    "totalJsKb": 1410.79,
-    "totalCssKb": 198.33,
-    "entryJsKb": 21.6,
-    "desktopLighthouseScore": null,
-    "mobileLighthouseScore": null
+    "capturedAt": "2026-04-19T20:14:42.032Z",
+    "totalJsKb": 1483.31,
+    "totalCssKb": 212.93,
+    "entryJsKb": 31.04,
+    "desktopLighthouseScore": 1,
+    "mobileLighthouseScore": 1
   },
   "bundle": {
-    "maxTotalJsKb": 1475,
-    "maxTotalCssKb": 210,
-    "maxEntryJsKb": 30
+    "maxTotalJsKb": 1495,
+    "maxTotalCssKb": 215,
+    "maxEntryJsKb": 33
   },
   "lighthouse": {
     "desktopMinScore": 0.95,
