@@ -375,6 +375,30 @@
   animation: ds-pulse 2s infinite;
 }
 .ds-tb-status .ds-live.syncing { background: var(--ds-warn); box-shadow: 0 0 0 3px rgba(245, 165, 36, 0.15); }
+.ds-tb-status.offline,
+.ds-tb-status.error { color: var(--ds-red); }
+.ds-tb-status.syncing,
+.ds-tb-status.pending { color: var(--ds-warn); }
+.ds-tb-retry {
+  margin-left: 2px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid currentColor;
+  color: inherit;
+  font-family: var(--ds-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  opacity: 0.85;
+}
+.ds-tb-retry:hover { opacity: 1; }
+.ds-spin { animation: ds-spin 1.2s linear infinite; }
+@keyframes ds-spin {
+  from { transform: rotate(0); }
+  to { transform: rotate(360deg); }
+}
 @keyframes ds-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
@@ -1599,19 +1623,28 @@
   flex-wrap: wrap;
 }
 
-/* Notebook kebab in sidebar */
-.ds-sb-item .ds-sb-menu {
-  margin-left: auto;
+/* Notebook kebab in sidebar — absolute-positioned sibling to avoid nested <button> */
+.ds-sb-row .ds-sb-menu {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  z-index: 2;
   opacity: 0;
   background: transparent;
   border: none;
   color: var(--ds-ink-4);
-  padding: 2px;
-  border-radius: 3px;
+  padding: 4px;
+  border-radius: 4px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
-.ds-sb-item:hover .ds-sb-menu { opacity: 1; }
-.ds-sb-item .ds-sb-menu:hover { color: var(--ds-ink); background: var(--ds-bg-2); }
+.ds-sb-row:hover .ds-sb-menu,
+.ds-sb-row:focus-within .ds-sb-menu { opacity: 1; }
+.ds-sb-row .ds-sb-menu:hover { color: var(--ds-ink); background: var(--ds-bg-2); }
+.ds-sb-item.has-menu { padding-right: 26px; }
 
 .ds-menu {
   position: absolute;
