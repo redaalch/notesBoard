@@ -23,6 +23,7 @@ const HomePage = lazy(() => import("./pages/HomePage"));
 const CreatePage = lazy(() => import("./pages/CreatePage"));
 const NoteDetailPage = lazy(() => import("./pages/NoteDetailPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const TrashPage = lazy(() => import("./pages/TrashPage"));
 
 const RouteFallback = () => (
   <div className="flex min-h-screen items-center justify-center px-4">
@@ -96,6 +97,14 @@ const App = () => {
             element={
               <RequireAuth>
                 <ProfilePage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/trash"
+            element={
+              <RequireAuth>
+                <TrashPage />
               </RequireAuth>
             }
           />
