@@ -22,7 +22,6 @@ const resolveBaseUrl = (): string => {
     }
 
     // Production: reject untrusted absolute URL, fall back to /api.
-    // eslint-disable-next-line no-console
     console.warn(
       "[axios] Ignoring untrusted VITE_API_BASE_URL in production:",
       envUrl,
