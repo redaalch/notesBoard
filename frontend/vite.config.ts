@@ -80,7 +80,6 @@ export default defineConfig({
     target: "es2022",
     rollupOptions: {
       output: {
-        onlyExplicitManualChunks: true,
         manualChunks(id) {
           return getVendorChunkName(id);
         },
