@@ -229,7 +229,7 @@
 
   p {
     line-height: var(--line-height-normal);
-    color: rgb(var(--color-text-muted));
+    color: rgb(var(--color-text-secondary));
   }
 
   a {
