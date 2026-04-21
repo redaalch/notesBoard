@@ -370,14 +370,14 @@ Live URL: [notesboard.xyz](https://notesboard.xyz)
 
 NotesBoard is set up for a same-origin Node deployment where the backend serves the built frontend:
 
-> [!IMPORTANT]
-> Production deployments expect both MongoDB and Upstash Redis credentials. The tracked codebase is wired around the same-origin Node setup documented below.
-
 - One Node.js web service runs the backend.
 - In `NODE_ENV=production`, the backend serves `frontend/dist`.
 - The HTTP API is exposed at `/api`.
 - Real-time collaboration runs on the same host at `/collab`.
 - Production dependencies are MongoDB and Upstash Redis.
+
+> [!IMPORTANT]
+> Rate limiting is fail-closed in production. Missing `UPSTASH_REDIS_REST_URL` or `UPSTASH_REDIS_REST_TOKEN` will cause protected requests to be rejected.
 
 Exact production steps:
 
