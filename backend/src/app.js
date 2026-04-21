@@ -10,12 +10,12 @@ import { fileURLToPath } from "url";
 
 import notesRoutes from "./routes/notesRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
-import boardRoutes from "./routes/boardRoutes.js";
 import workspaceRoutes from "./routes/workspaceRoutes.js";
 import notebookRoutes from "./routes/notebookRoutes.js";
 import notebookTemplateRoutes from "./routes/notebookTemplateRoutes.js";
 import publishedRoutes from "./routes/publishedRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
+import activityRoutes from "./routes/activityRoutes.js";
 import rateLimiter from "./middleware/rateLimiter.js";
 import privateCacheHeaders from "./middleware/privateCacheHeaders.js";
 import requestLogger from "./middleware/requestLogger.js";
@@ -135,12 +135,12 @@ app.use("/api", privateCacheHeaders);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/notes", notesRoutes);
-app.use("/api/boards", boardRoutes);
 app.use("/api/workspaces", workspaceRoutes);
 app.use("/api/notebooks", notebookRoutes);
 app.use("/api/templates", notebookTemplateRoutes);
 app.use("/api/published", publishedRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/activity", activityRoutes);
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(dist));
