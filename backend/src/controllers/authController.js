@@ -2,7 +2,6 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import User from "../models/User.js";
 import Workspace from "../models/Workspace.js";
-import Board from "../models/Board.js";
 import logger from "../utils/logger.js";
 import { normalizeEmail } from "../utils/validators.js";
 import { invalidateUserCache } from "../middleware/auth.js";
@@ -168,7 +167,6 @@ const sanitizeUser = (user) => ({
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
   defaultWorkspace: user.defaultWorkspace,
-  defaultBoard: user.defaultBoard,
 });
 
 const passwordOk = (password) => {
@@ -217,15 +215,12 @@ const buildWorkspaceName = (name) => {
   return "Personal workspace";
 };
 
-const buildBoardName = () => "My Notes";
-
 const ensureUserWorkspace = async (user) => {
   if (!user) return null;
 
-  if (user.defaultWorkspace && user.defaultBoard) {
+  if (user.defaultWorkspace) {
     return {
       workspaceId: user.defaultWorkspace,
-      boardId: user.defaultBoard,
       created: false,
     };
   }
@@ -242,28 +237,13 @@ const ensureUserWorkspace = async (user) => {
     members: [],
   });
 
-  const boardName = buildBoardName();
-  const boardSlug = slugify(`${boardName}-${randomSlugSuffix()}`, {
-    maxLength: 96,
-  });
-
-  const board = await Board.create({
-    workspaceId: workspace._id,
-    name: boardName,
-    slug: boardSlug || `board-${randomSlugSuffix()}`,
-    createdBy: user._id,
-  });
-
   user.defaultWorkspace = workspace._id;
-  user.defaultBoard = board._id;
   await user.save();
 
   return {
     workspaceId: workspace._id,
-    boardId: board._id,
     created: true,
     workspace,
-    board,
   };
 };
 
@@ -407,7 +387,6 @@ const issueSession = async (user, req, res, meta = {}) => {
     refreshExpiresAt: expiresAt,
     defaultWorkspaceId:
       workspaceContext?.workspaceId ?? user.defaultWorkspace ?? null,
-    defaultBoardId: workspaceContext?.boardId ?? user.defaultBoard ?? null,
   };
 };
 
@@ -664,7 +643,6 @@ export const login = async (req, res) => {
       accessToken: session.accessToken,
       expiresIn: session.expiresIn,
       defaultWorkspaceId: session.defaultWorkspaceId,
-      defaultBoardId: session.defaultBoardId,
     });
   } catch (error) {
     logger.error("Login failed", {
@@ -708,7 +686,6 @@ export const verifyEmail = async (req, res) => {
       accessToken: session.accessToken,
       expiresIn: session.expiresIn,
       defaultWorkspaceId: session.defaultWorkspaceId,
-      defaultBoardId: session.defaultBoardId,
     });
   } catch (error) {
     logger.error("Email verification failed", {
@@ -800,7 +777,6 @@ export const refresh = async (req, res) => {
       accessToken: session.accessToken,
       expiresIn: session.expiresIn,
       defaultWorkspaceId: session.defaultWorkspaceId,
-      defaultBoardId: session.defaultBoardId,
     });
   } catch (error) {
     logger.error("Refresh failed", {
@@ -973,7 +949,6 @@ export const updateProfile = async (req, res) => {
             accessToken: session.accessToken,
             expiresIn: session.expiresIn,
             defaultWorkspaceId: session.defaultWorkspaceId,
-            defaultBoardId: session.defaultBoardId,
           }
         : {}),
     });
@@ -1035,7 +1010,6 @@ export const changePassword = async (req, res) => {
       accessToken: session.accessToken,
       expiresIn: session.expiresIn,
       defaultWorkspaceId: session.defaultWorkspaceId,
-      defaultBoardId: session.defaultBoardId,
     });
   } catch (error) {
     logger.error("Change password failed", {
@@ -1049,7 +1023,7 @@ export const changePassword = async (req, res) => {
 export const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select(
-      "name email role emailVerified emailVerifiedAt defaultWorkspace defaultBoard createdAt updatedAt",
+      "name email role emailVerified emailVerifiedAt defaultWorkspace createdAt updatedAt",
     );
     if (!user) {
       return res.status(404).json({ message: "User not found" });
