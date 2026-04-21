@@ -262,7 +262,6 @@ const collabServer = Server.configure({
       userId,
       noteId,
       workspaceId: access.workspaceId,
-      boardId: access.boardId,
     };
 
     return { userId };
@@ -480,9 +479,8 @@ const collabServer = Server.configure({
         const { noteInfo } = cached;
 
         const workspaceId = noteInfo.note.workspaceId ?? context.workspaceId;
-        const boardId = noteInfo.note.boardId ?? context.boardId;
 
-        if (!workspaceId || !boardId) {
+        if (!workspaceId) {
           logger.warn("Skipping collab history write due to missing context", {
             documentName,
             noteId: String(noteInfo.note._id),
@@ -494,7 +492,6 @@ const collabServer = Server.configure({
         await NoteHistory.create({
           noteId: noteInfo.note._id,
           workspaceId,
-          boardId,
           actorId: context.userId,
           eventType: "edit",
           summary: "Edited collaboratively",
