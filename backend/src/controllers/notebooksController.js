@@ -123,7 +123,6 @@ const serializeNoteSnapshot = (noteDoc) => {
     id: noteDoc._id?.toString?.() ?? null,
     owner: noteDoc.owner?.toString?.() ?? null,
     workspaceId: noteDoc.workspaceId?.toString?.() ?? null,
-    boardId: noteDoc.boardId?.toString?.() ?? null,
     title: noteDoc.title ?? "",
     content: noteDoc.content ?? "",
     contentText: noteDoc.contentText ?? noteDoc.content ?? "",
@@ -171,7 +170,6 @@ const serializeShareLinkSnapshot = (linkDoc) => {
     id: linkDoc._id?.toString?.() ?? null,
     resourceType: linkDoc.resourceType ?? "notebook",
     notebookId: linkDoc.notebookId?.toString?.() ?? null,
-    boardId: linkDoc.boardId?.toString?.() ?? null,
     tokenHash: linkDoc.tokenHash ?? null,
     role: linkDoc.role ?? "viewer",
     expiresAt: serializeDate(linkDoc.expiresAt),
@@ -698,7 +696,6 @@ export const deleteNotebook = async (req, res) => {
             const historyPayload = noteDocs.map((note) => ({
               noteId: note._id,
               workspaceId: note.workspaceId ?? null,
-              boardId: note.boardId ?? null,
               actorId: ownerObjectId,
               eventType: "delete",
               summary: "Deleted as part of notebook removal",
