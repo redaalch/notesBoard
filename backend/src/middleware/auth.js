@@ -26,7 +26,7 @@ const userCache = new NodeCache({
 });
 
 const USER_PROJECTION =
-  "name email role defaultWorkspace defaultBoard passwordChangedAt";
+  "name email role defaultWorkspace passwordChangedAt";
 
 const auth = async (req, res, next) => {
   try {
@@ -72,7 +72,6 @@ const auth = async (req, res, next) => {
       email: user.email,
       name: user.name,
       defaultWorkspace: user.defaultWorkspace?.toString?.() ?? null,
-      defaultBoard: user.defaultBoard?.toString?.() ?? null,
     };
     // NOTE: req.userDocument is a lean POJO — callers needing Mongoose methods
     // should fetch the full document explicitly.
