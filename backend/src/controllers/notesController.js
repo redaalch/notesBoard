@@ -11,8 +11,8 @@ import cacheService from "../services/cacheService.js";
 import { isValidObjectId } from "../utils/validators.js";
 import { enqueueNotebookIndexJob } from "../tasks/notebookIndexingWorker.js";
 import {
-  resolveBoardForUser,
   resolveNoteForUser,
+  resolveWorkspaceForUser,
   listAccessibleWorkspaceIds,
   touchWorkspaceMember,
   getWorkspaceMembership,
@@ -122,7 +122,7 @@ const normalizeTags = (tags) => {
 export const getAllNotes = async (req, res) => {
   try {
     const userId = req.user.id;
-    const requestedBoardId = req.query?.boardId;
+    const requestedWorkspaceId = req.query?.workspaceId;
     const requestedNotebookId = req.query?.notebookId;
     const userObjectId = new mongoose.Types.ObjectId(userId);
 
@@ -186,17 +186,19 @@ export const getAllNotes = async (req, res) => {
       }
     }
 
-    if (requestedBoardId) {
-      const context = await resolveBoardForUser(requestedBoardId, userId);
+    if (requestedWorkspaceId) {
+      const context = await resolveWorkspaceForUser(
+        requestedWorkspaceId,
+        userId,
+      );
       if (!context) {
-        return res.status(404).json({ message: "Board not found" });
+        return res.status(404).json({ message: "Workspace not found" });
       }
-      query.boardId = context.board._id;
       query.workspaceId = context.workspace._id;
       await touchWorkspaceMember(context.workspace._id, userId);
     }
 
-    if (!query.boardId && !requestedNotebookId) {
+    if (!query.workspaceId && !requestedNotebookId) {
       const accessibleWorkspaceIds = await listAccessibleWorkspaceIds(userId);
       const filters = [{ owner: userObjectId }];
 
@@ -341,7 +343,7 @@ export const createNote = async (req, res) => {
       content,
       tags,
       pinned,
-      boardId,
+      workspaceId: requestedWorkspaceId,
       notebookId,
       richContent,
       contentText,
@@ -353,38 +355,12 @@ export const createNote = async (req, res) => {
     }
 
     const userId = req.user.id;
-    const boardContext =
-      (await resolveBoardForUser(boardId, userId)) ??
-      (await resolveBoardForUser(req.user?.defaultBoard, userId));
-
-    if (!boardContext) {
-      return res
-        .status(404)
-        .json({ message: "Board not found or inaccessible" });
-    }
-
-    const role = boardContext.member?.role ?? "owner";
-    if (!EDIT_ROLES.has(role)) {
-      return res.status(403).json({ message: "Insufficient permissions" });
-    }
-
-    await touchWorkspaceMember(boardContext.workspace._id, userId);
-
-    const payload = {
-      owner: userId,
-      workspaceId: boardContext.workspace._id,
-      boardId: boardContext.board._id,
-      title,
-      content,
-      tags,
-    };
 
     let notebookObjectId = null;
+    let notebookAccess = null;
     if (typeof notebookId !== "undefined" && notebookId !== null) {
-      if (notebookId === "" || notebookId === "uncategorized") {
-        payload.notebookId = null;
-      } else {
-        const notebookAccess = await getNotebookMembership(notebookId, userId);
+      if (notebookId !== "" && notebookId !== "uncategorized") {
+        notebookAccess = await getNotebookMembership(notebookId, userId);
         if (!notebookAccess) {
           return res.status(404).json({ message: "Notebook not found" });
         }
@@ -395,8 +371,46 @@ export const createNote = async (req, res) => {
             .json({ message: "Insufficient notebook permissions" });
         }
         notebookObjectId = notebookAccess.notebook._id;
-        payload.notebookId = notebookObjectId;
       }
+    }
+
+    // Prefer the notebook's workspace when a notebook is selected;
+    // otherwise fall back to an explicit workspaceId or the user's default.
+    const preferredWorkspaceId =
+      notebookAccess?.notebook?.workspaceId ??
+      requestedWorkspaceId ??
+      req.user?.defaultWorkspace;
+
+    const workspaceContext = await resolveWorkspaceForUser(
+      preferredWorkspaceId,
+      userId,
+    );
+
+    if (!workspaceContext) {
+      return res
+        .status(404)
+        .json({ message: "Workspace not found or inaccessible" });
+    }
+
+    const role = workspaceContext.member?.role ?? "owner";
+    if (!EDIT_ROLES.has(role)) {
+      return res.status(403).json({ message: "Insufficient permissions" });
+    }
+
+    await touchWorkspaceMember(workspaceContext.workspace._id, userId);
+
+    const payload = {
+      owner: userId,
+      workspaceId: workspaceContext.workspace._id,
+      title,
+      content,
+      tags,
+    };
+
+    if (notebookObjectId) {
+      payload.notebookId = notebookObjectId;
+    } else if (notebookId === "" || notebookId === "uncategorized") {
+      payload.notebookId = null;
     }
 
     if (typeof richContent !== "undefined") {
@@ -415,10 +429,15 @@ export const createNote = async (req, res) => {
     await NoteHistory.create({
       noteId: savedNote._id,
       workspaceId: savedNote.workspaceId,
-      boardId: savedNote.boardId,
       actorId: userId,
       eventType: "create",
       summary: "Created note",
+      titleSnapshot: savedNote.title ?? "",
+      contentSnapshot: (savedNote.contentText ?? savedNote.content ?? "").slice(
+        0,
+        50_000,
+      ),
+      tagsSnapshot: Array.isArray(savedNote.tags) ? savedNote.tags : [],
     });
 
     if (notebookObjectId) {
@@ -456,7 +475,6 @@ export const updateNote = async (req, res) => {
       content,
       tags,
       pinned,
-      boardId,
       notebookId,
       richContent,
       contentText,
@@ -490,21 +508,6 @@ export const updateNote = async (req, res) => {
 
     if (typeof contentText === "string") {
       updates.contentText = contentText;
-    }
-
-    if (typeof boardId !== "undefined") {
-      const boardContext = await resolveBoardForUser(boardId, req.user.id);
-      if (!boardContext) {
-        return res
-          .status(404)
-          .json({ message: "Board not found or inaccessible" });
-      }
-      const boardRole = boardContext.member?.role ?? "owner";
-      if (!EDIT_ROLES.has(boardRole)) {
-        return res.status(403).json({ message: "Insufficient permissions" });
-      }
-      updates.boardId = boardContext.board._id;
-      updates.workspaceId = boardContext.workspace._id;
     }
 
     let targetNotebookObjectId;
@@ -585,18 +588,11 @@ export const updateNote = async (req, res) => {
     }
 
     if (
-      typeof boardId !== "undefined" &&
-      String(access.note.boardId ?? "") !== String(updatedNote.boardId ?? "")
-    ) {
-      eventType = "move";
-      changes.push("board");
-    }
-
-    if (
       typeof notebookId !== "undefined" &&
       String(access.note.notebookId ?? "") !==
         String(updatedNote.notebookId ?? "")
     ) {
+      eventType = "move";
       changes.push("notebook");
     }
 
@@ -606,59 +602,43 @@ export const updateNote = async (req, res) => {
       access.workspaceId ??
       access.note.workspaceId ??
       null;
-    let historyBoardId =
-      updatedNote.boardId ??
-      updates.boardId ??
-      access.boardId ??
-      access.note.boardId ??
-      null;
 
-    // Legacy notes may miss board/workspace. Try deriving from current board or user default board.
-    if (!historyWorkspaceId || !historyBoardId) {
-      const fallbackBoardId = historyBoardId ?? req.user?.defaultBoard;
-      if (fallbackBoardId) {
-        const fallbackBoardContext = await resolveBoardForUser(
-          fallbackBoardId,
-          req.user.id,
-        );
-        if (fallbackBoardContext) {
-          historyWorkspaceId =
-            historyWorkspaceId ?? fallbackBoardContext.workspace._id;
-          historyBoardId = historyBoardId ?? fallbackBoardContext.board._id;
-        }
+    // Legacy notes may miss workspaceId. Derive from user's default workspace.
+    if (!historyWorkspaceId && req.user?.defaultWorkspace) {
+      const fallbackWorkspace = await resolveWorkspaceForUser(
+        req.user.defaultWorkspace,
+        req.user.id,
+      );
+      if (fallbackWorkspace) {
+        historyWorkspaceId = fallbackWorkspace.workspace._id;
       }
     }
 
-    // Backfill note context so subsequent updates don't repeat fallback work.
-    if (
-      historyWorkspaceId &&
-      historyBoardId &&
-      (!updatedNote.workspaceId || !updatedNote.boardId)
-    ) {
+    if (historyWorkspaceId && !updatedNote.workspaceId) {
       await Note.updateOne(
         { _id: updatedNote._id },
-        {
-          $set: {
-            workspaceId: historyWorkspaceId,
-            boardId: historyBoardId,
-          },
-        },
+        { $set: { workspaceId: historyWorkspaceId } },
       );
       updatedNote.workspaceId = historyWorkspaceId;
-      updatedNote.boardId = historyBoardId;
     }
 
-    if (historyWorkspaceId && historyBoardId) {
+    if (historyWorkspaceId) {
       await NoteHistory.create({
         noteId: updatedNote._id,
         workspaceId: historyWorkspaceId,
-        boardId: historyBoardId,
         actorId: req.user.id,
         eventType,
         summary:
           changes.length === 0
             ? "Edited note"
             : `Updated ${changes.join(", ")}`,
+        titleSnapshot: updatedNote.title ?? "",
+        contentSnapshot: (
+          updatedNote.contentText ??
+          updatedNote.content ??
+          ""
+        ).slice(0, 50_000),
+        tagsSnapshot: Array.isArray(updatedNote.tags) ? updatedNote.tags : [],
       });
     } else {
       logger.warn("Skipping note history entry due to missing context", {
@@ -769,24 +749,21 @@ export const deleteNote = async (req, res) => {
       return res.status(403).json({ message: "Insufficient permissions" });
     }
 
-    const deletedNote = await Note.findOneAndDelete({ _id: id });
+    const deletedNote = await Note.findOneAndUpdate(
+      { _id: id },
+      { $set: { deletedAt: new Date() } },
+      { new: true },
+    );
     if (!deletedNote) {
       return res.status(404).json(NOTE_NOT_FOUND);
     }
 
-    if (deletedNote.docName) {
-      await CollabDocument.findOneAndDelete({ name: deletedNote.docName });
-    }
-
-    await NoteCollaborator.deleteMany({ noteId: deletedNote._id });
-
     await NoteHistory.create({
       noteId: deletedNote._id,
       workspaceId: deletedNote.workspaceId ?? access.workspaceId ?? null,
-      boardId: deletedNote.boardId ?? access.boardId ?? null,
       actorId: req.user.id,
       eventType: "delete",
-      summary: "Deleted note",
+      summary: "Moved note to trash",
     });
 
     if (deletedNote.notebookId) {
@@ -796,11 +773,162 @@ export const deleteNote = async (req, res) => {
       await queueNotebookIndexSafely(deletedNote.notebookId, "note-delete");
     }
 
-    // 204 No Content is common; 200 is fine too.
     cacheService.invalidateUserRoutes(req.user.id);
-    return res.status(200).json({ message: "Deleted" });
+    return res.status(200).json({ message: "Moved to trash" });
   } catch (error) {
     logger.error("Error in deleteNote", { error: error?.message });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
+  }
+};
+
+const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
+const serializeTrashedNote = (note) => {
+  const deletedAt = note.deletedAt ? new Date(note.deletedAt) : null;
+  const purgeAt = deletedAt
+    ? new Date(deletedAt.getTime() + TRASH_RETENTION_MS)
+    : null;
+  return {
+    _id: note._id.toString(),
+    title: note.title,
+    contentText: note.contentText ?? "",
+    tags: Array.isArray(note.tags) ? note.tags : [],
+    notebookId: note.notebookId ? note.notebookId.toString() : null,
+    workspaceId: note.workspaceId ? note.workspaceId.toString() : null,
+    deletedAt: deletedAt ? deletedAt.toISOString() : null,
+    purgeAt: purgeAt ? purgeAt.toISOString() : null,
+    updatedAt: note.updatedAt ? new Date(note.updatedAt).toISOString() : null,
+  };
+};
+
+export const listTrashedNotes = async (req, res) => {
+  try {
+    const ownerId = req.user?.id;
+    if (!ownerId || !isValidObjectId(ownerId)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
+    const notes = await Note.find({ owner: ownerId })
+      .setOptions({ onlyTrashed: true })
+      .sort({ deletedAt: -1 })
+      .select("title contentText tags notebookId workspaceId deletedAt updatedAt")
+      .limit(500)
+      .lean();
+
+    return res.status(200).json({
+      notes: notes.map(serializeTrashedNote),
+      retentionDays: 30,
+    });
+  } catch (error) {
+    logger.error("Error in listTrashedNotes", { error: error?.message });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
+  }
+};
+
+export const restoreNote = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(INVALID_NOTE_ID);
+    }
+
+    const trashed = await Note.findOne({ _id: id, owner: req.user.id })
+      .setOptions({ onlyTrashed: true });
+    if (!trashed) {
+      return res.status(404).json(NOTE_NOT_FOUND);
+    }
+
+    trashed.deletedAt = null;
+    await trashed.save();
+
+    await NoteHistory.create({
+      noteId: trashed._id,
+      workspaceId: trashed.workspaceId ?? null,
+      actorId: req.user.id,
+      eventType: "edit",
+      summary: "Restored note from trash",
+    });
+
+    if (trashed.notebookId) {
+      await appendNotesToNotebookOrder(trashed.notebookId, [trashed._id]);
+      await queueNotebookIndexSafely(trashed.notebookId, "note-restore");
+    }
+
+    cacheService.invalidateUserRoutes(req.user.id);
+    return res.status(200).json({
+      message: "Restored",
+      note: {
+        _id: trashed._id.toString(),
+        notebookId: trashed.notebookId ? trashed.notebookId.toString() : null,
+      },
+    });
+  } catch (error) {
+    logger.error("Error in restoreNote", { error: error?.message });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
+  }
+};
+
+export const purgeNote = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json(INVALID_NOTE_ID);
+    }
+
+    const trashed = await Note.findOne({ _id: id, owner: req.user.id })
+      .setOptions({ onlyTrashed: true });
+    if (!trashed) {
+      return res.status(404).json(NOTE_NOT_FOUND);
+    }
+
+    await Note.deleteOne({ _id: trashed._id }).setOptions({ withTrashed: true });
+
+    if (trashed.docName) {
+      await CollabDocument.findOneAndDelete({ name: trashed.docName });
+    }
+    await NoteCollaborator.deleteMany({ noteId: trashed._id });
+    await NoteHistory.deleteMany({ noteId: trashed._id });
+
+    cacheService.invalidateUserRoutes(req.user.id);
+    return res.status(200).json({ message: "Purged", id: trashed._id.toString() });
+  } catch (error) {
+    logger.error("Error in purgeNote", { error: error?.message });
+    return res.status(500).json(INTERNAL_SERVER_ERROR);
+  }
+};
+
+export const emptyTrash = async (req, res) => {
+  try {
+    const ownerId = req.user?.id;
+    if (!ownerId || !isValidObjectId(ownerId)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
+    const trashed = await Note.find({ owner: ownerId })
+      .setOptions({ onlyTrashed: true })
+      .select("_id docName")
+      .lean();
+
+    if (!trashed.length) {
+      return res.status(200).json({ purged: 0 });
+    }
+
+    const ids = trashed.map((note) => note._id);
+    const docNames = trashed.map((note) => note.docName).filter(Boolean);
+
+    await Note.deleteMany({ _id: { $in: ids } }).setOptions({
+      withTrashed: true,
+    });
+    if (docNames.length) {
+      await CollabDocument.deleteMany({ name: { $in: docNames } });
+    }
+    await NoteCollaborator.deleteMany({ noteId: { $in: ids } });
+    await NoteHistory.deleteMany({ noteId: { $in: ids } });
+
+    cacheService.invalidateUserRoutes(ownerId);
+    return res.status(200).json({ purged: ids.length });
+  } catch (error) {
+    logger.error("Error in emptyTrash", { error: error?.message });
     return res.status(500).json(INTERNAL_SERVER_ERROR);
   }
 };
@@ -813,22 +941,26 @@ export const getTagStats = async (req, res) => {
       return res.status(400).json({ message: "Invalid user id" });
     }
 
-    let targetBoardId = req.query?.boardId;
     let targetWorkspaceId = null;
-    if (targetBoardId) {
-      const context = await resolveBoardForUser(targetBoardId, ownerId);
+    const requestedWorkspaceId = req.query?.workspaceId;
+    if (requestedWorkspaceId) {
+      const context = await resolveWorkspaceForUser(
+        requestedWorkspaceId,
+        ownerId,
+      );
       if (!context) {
         return res
           .status(404)
-          .json({ message: "Board not found or inaccessible" });
+          .json({ message: "Workspace not found or inaccessible" });
       }
-      targetBoardId = context.board._id.toString();
       targetWorkspaceId = context.workspace._id.toString();
       await touchWorkspaceMember(context.workspace._id, ownerId);
-    } else if (req.user?.defaultBoard) {
-      const context = await resolveBoardForUser(req.user.defaultBoard, ownerId);
+    } else if (req.user?.defaultWorkspace) {
+      const context = await resolveWorkspaceForUser(
+        req.user.defaultWorkspace,
+        ownerId,
+      );
       if (context) {
-        targetBoardId = context.board._id.toString();
         targetWorkspaceId = context.workspace._id.toString();
       }
     }
@@ -839,9 +971,9 @@ export const getTagStats = async (req, res) => {
     );
 
     const ownerMatch = new mongoose.Types.ObjectId(ownerId);
-    const matchStage = targetBoardId
+    const matchStage = targetWorkspaceId
       ? {
-          boardId: new mongoose.Types.ObjectId(targetBoardId),
+          workspaceId: new mongoose.Types.ObjectId(targetWorkspaceId),
           tags: { $exists: true, $ne: [] },
         }
       : {
@@ -857,10 +989,6 @@ export const getTagStats = async (req, res) => {
             { tags: { $exists: true, $ne: [] } },
           ],
         };
-
-    if (targetWorkspaceId) {
-      matchStage.workspaceId = new mongoose.Types.ObjectId(targetWorkspaceId);
-    }
 
     const rawAggregation = await Note.aggregate([
       {
@@ -915,7 +1043,7 @@ export const getTagStats = async (req, res) => {
 
 export const bulkUpdateNotes = async (req, res) => {
   try {
-    const { action, noteIds, tags = [], boardId, notebookId } = req.body ?? {};
+    const { action, noteIds, tags = [], notebookId } = req.body ?? {};
 
     // Invalidate cached routes for this user after any successful bulk mutation
     const _origJson = res.json.bind(res);
@@ -1049,7 +1177,6 @@ export const bulkUpdateNotes = async (req, res) => {
           permittedNotes.map((note) => ({
             noteId: note._id,
             workspaceId: note.workspaceId ?? null,
-            boardId: note.boardId ?? null,
             actorId: ownerId,
             eventType: desiredPinned ? "pin" : "unpin",
             summary: desiredPinned ? "Pinned note" : "Unpinned note",
@@ -1065,16 +1192,11 @@ export const bulkUpdateNotes = async (req, res) => {
     }
 
     if (action === "delete") {
-      const docNames = permittedNotes
-        .map((note) => note.docName)
-        .filter((name) => typeof name === "string" && name.length > 0);
-
-      if (docNames.length) {
-        await CollabDocument.deleteMany({ name: { $in: docNames } });
-      }
-
-      const result = await Note.deleteMany({ _id: { $in: objectIdArray } });
-      await NoteCollaborator.deleteMany({ noteId: { $in: objectIdArray } });
+      const now = new Date();
+      const result = await Note.updateMany(
+        { _id: { $in: objectIdArray } },
+        { $set: { deletedAt: now } },
+      );
 
       await Promise.all([
         ...touchPromises,
@@ -1082,10 +1204,9 @@ export const bulkUpdateNotes = async (req, res) => {
           permittedNotes.map((note) => ({
             noteId: note._id,
             workspaceId: note.workspaceId ?? null,
-            boardId: note.boardId ?? null,
             actorId: ownerId,
             eventType: "delete",
-            summary: "Deleted note",
+            summary: "Moved note to trash",
           })),
         ),
       ]);
@@ -1110,7 +1231,7 @@ export const bulkUpdateNotes = async (req, res) => {
 
       return res.status(200).json({
         action,
-        deleted: result.deletedCount ?? 0,
+        deleted: result.modifiedCount ?? 0,
         noteIds: normalizedIds,
       });
     }
@@ -1150,7 +1271,6 @@ export const bulkUpdateNotes = async (req, res) => {
           historyDocs.push({
             noteId: note._id,
             workspaceId: note.workspaceId ?? null,
-            boardId: note.boardId ?? null,
             actorId: ownerId,
             eventType: "tag",
             summary: `Added tags: ${normalizedTags.join(", ")}`,
@@ -1182,58 +1302,6 @@ export const bulkUpdateNotes = async (req, res) => {
         updated: bulkOps.length,
         noteIds: normalizedIds,
         tags: normalizedTags,
-      });
-    }
-
-    if (action === "move") {
-      if (!boardId || !isValidObjectId(boardId)) {
-        return res
-          .status(400)
-          .json({ message: "Valid boardId is required for move action" });
-      }
-
-      const boardContext = await resolveBoardForUser(boardId, ownerId);
-      if (!boardContext) {
-        return res
-          .status(404)
-          .json({ message: "Board not found or inaccessible" });
-      }
-
-      const boardRole = boardContext.member?.role ?? "owner";
-      if (!EDIT_ROLES.has(boardRole)) {
-        return res.status(403).json({ message: "Insufficient permissions" });
-      }
-
-      const result = await Note.updateMany(
-        { _id: { $in: objectIdArray } },
-        {
-          $set: {
-            boardId: boardContext.board._id,
-            workspaceId: boardContext.workspace._id,
-          },
-        },
-      );
-
-      await Promise.all([
-        ...touchPromises,
-        touchWorkspaceMember(boardContext.workspace._id, ownerId),
-        NoteHistory.insertMany(
-          permittedNotes.map((note) => ({
-            noteId: note._id,
-            workspaceId: boardContext.workspace._id,
-            boardId: boardContext.board._id,
-            actorId: ownerId,
-            eventType: "move",
-            summary: `Moved to ${boardContext.board.name}`,
-          })),
-        ),
-      ]);
-
-      return res.status(200).json({
-        action,
-        updated: result.modifiedCount ?? 0,
-        noteIds: normalizedIds,
-        boardId: boardContext.board._id,
       });
     }
 
@@ -1345,6 +1413,9 @@ export const getNoteHistory = async (req, res) => {
       createdAt: entry.createdAt,
       diff: entry.diff ?? null,
       awarenessState: entry.awarenessState ?? null,
+      titleSnapshot: entry.titleSnapshot ?? null,
+      contentSnapshot: entry.contentSnapshot ?? null,
+      tagsSnapshot: Array.isArray(entry.tagsSnapshot) ? entry.tagsSnapshot : null,
     }));
 
     return res.status(200).json({ history: payload });
