@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import Notebook from "../models/Notebook.js";
 import Note from "../models/Note.js";
-import Board from "../models/Board.js";
 import Workspace from "../models/Workspace.js";
 import NotebookTemplate from "../models/NotebookTemplate.js";
 import logger from "../utils/logger.js";
@@ -85,7 +84,6 @@ const buildTemplateNotes = (orderedNotes) =>
         : null,
     tags: Array.isArray(note.tags) ? note.tags : [],
     pinned: Boolean(note.pinned),
-    boardId: note.boardId ? note.boardId.toString() : null,
     workspaceId: note.workspaceId ? note.workspaceId.toString() : null,
     position: index,
   }));
@@ -267,20 +265,10 @@ export const getNotebookTemplate = async (req, res) => {
       return res.status(404).json({ message: "Template not found" });
     }
 
-    const boardCounts = new Map();
     const workspaceCounts = new Map();
-    const boardIds = new Set();
     const workspaceIds = new Set();
 
     (template.notes ?? []).forEach((note) => {
-      const boardId = note?.boardId ? String(note.boardId) : null;
-      if (boardId) {
-        boardCounts.set(boardId, (boardCounts.get(boardId) ?? 0) + 1);
-        if (mongoose.Types.ObjectId.isValid(boardId)) {
-          boardIds.add(boardId);
-        }
-      }
-
       const workspaceId = note?.workspaceId ? String(note.workspaceId) : null;
       if (workspaceId) {
         workspaceCounts.set(
@@ -292,18 +280,6 @@ export const getNotebookTemplate = async (req, res) => {
         }
       }
     });
-
-    const boardDocs = boardIds.size
-      ? await Board.find({
-          _id: {
-            $in: Array.from(boardIds).map(
-              (id) => new mongoose.Types.ObjectId(id),
-            ),
-          },
-        })
-          .select({ name: 1, workspaceId: 1 })
-          .lean()
-      : [];
 
     const workspaceDocs = workspaceIds.size
       ? await Workspace.find({
@@ -320,9 +296,6 @@ export const getNotebookTemplate = async (req, res) => {
     const workspaceMetaById = new Map(
       workspaceDocs.map((entry) => [entry._id.toString(), entry]),
     );
-    const boardMetaById = new Map(
-      boardDocs.map((entry) => [entry._id.toString(), entry]),
-    );
 
     const workspaceSummaries = Array.from(workspaceCounts.entries()).map(
       ([workspaceId, count]) => {
@@ -330,26 +303,6 @@ export const getNotebookTemplate = async (req, res) => {
         return {
           id: workspaceId,
           name: workspaceMeta?.name ?? null,
-          noteCount: count,
-        };
-      },
-    );
-
-    const boardSummaries = Array.from(boardCounts.entries()).map(
-      ([boardId, count]) => {
-        const boardMeta = boardMetaById.get(boardId) ?? null;
-        const metaWorkspaceId = boardMeta?.workspaceId
-          ? boardMeta.workspaceId.toString()
-          : null;
-        const workspaceMeta = metaWorkspaceId
-          ? (workspaceMetaById.get(metaWorkspaceId) ?? null)
-          : null;
-
-        return {
-          id: boardId,
-          name: boardMeta?.name ?? null,
-          workspaceId: metaWorkspaceId,
-          workspaceName: workspaceMeta?.name ?? null,
           noteCount: count,
         };
       },
@@ -373,11 +326,9 @@ export const getNotebookTemplate = async (req, res) => {
         tags: Array.isArray(note.tags) ? note.tags : [],
         pinned: Boolean(note.pinned),
         position: note.position ?? 0,
-        boardId: note.boardId ?? null,
         workspaceId: note.workspaceId ?? null,
       })),
       workspaces: workspaceSummaries,
-      boards: boardSummaries,
     });
   } catch (error) {
     logger.error("Failed to fetch notebook template", {
@@ -415,12 +366,10 @@ export const instantiateNotebookTemplate = async (req, res) => {
       icon: desiredIcon,
       workspaceId,
       workspaceMappings,
-      boardMappings,
     } = req.body ?? {};
 
     const normalizedWorkspaceId = normalizeObjectId(workspaceId);
 
-    // Verify the user has access to the target workspace
     if (normalizedWorkspaceId) {
       const wsMembership = await getWorkspaceMembership(
         normalizedWorkspaceId,
@@ -437,10 +386,7 @@ export const instantiateNotebookTemplate = async (req, res) => {
       workspaceMappings && typeof workspaceMappings === "object"
         ? workspaceMappings
         : {};
-    const sanitizedBoardMappings =
-      boardMappings && typeof boardMappings === "object" ? boardMappings : {};
 
-    // Validate all mapped workspace IDs belong to the user
     for (const targetWsId of Object.values(sanitizedWorkspaceMappings)) {
       const wsObjId = normalizeObjectId(targetWsId);
       if (wsObjId) {
@@ -449,20 +395,6 @@ export const instantiateNotebookTemplate = async (req, res) => {
           return res
             .status(403)
             .json({ message: "Invalid workspace in mappings" });
-        }
-      }
-    }
-
-    // Validate all mapped board IDs belong to the user
-    for (const targetBoardId of Object.values(sanitizedBoardMappings)) {
-      const boardObjId = normalizeObjectId(targetBoardId);
-      if (boardObjId) {
-        const board = await Board.findOne({
-          _id: boardObjId,
-          createdBy: ownerId,
-        }).lean();
-        if (!board) {
-          return res.status(403).json({ message: "Invalid board in mappings" });
         }
       }
     }
@@ -515,14 +447,10 @@ export const instantiateNotebookTemplate = async (req, res) => {
       const targetWorkspace = normalizedWorkspaceId
         ? normalizedWorkspaceId
         : normalizeObjectId(sanitizedWorkspaceMappings[originalWorkspaceId]);
-      const targetBoard = normalizeObjectId(
-        sanitizedBoardMappings[note.boardId ?? ""],
-      );
       return {
         owner: ownerId,
         notebookId: notebook._id,
         workspaceId: targetWorkspace,
-        boardId: targetBoard,
         title: note.title,
         content: note.content,
         richContent: note.richContent ?? null,
