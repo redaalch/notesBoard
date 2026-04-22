@@ -46,7 +46,6 @@ const serializeNote = (note) => {
     createdAt: note.createdAt,
     notebookId: note.notebookId?.toString?.() ?? null,
     workspaceId: note.workspaceId?.toString?.() ?? null,
-    boardId: note.boardId?.toString?.() ?? null,
   };
 };
 
@@ -124,7 +123,6 @@ const applyNoteUpsert = async ({ notebook, payload, ownerId, session }) => {
           owner: ownerId,
           notebookId: notebook._id,
           workspaceId: notebook.workspaceId ?? null,
-          boardId: null,
           title,
           content,
           tags,
@@ -151,9 +149,10 @@ const applyNoteDelete = async ({ notebook, noteId, ownerId, session }) => {
     throw new Error("INVALID_NOTE_ID");
   }
 
-  const result = await Note.findOneAndDelete(
+  const result = await Note.findOneAndUpdate(
     { _id: noteId, owner: ownerId, notebookId: notebook._id },
-    { session },
+    { $set: { deletedAt: new Date() } },
+    { new: true, session },
   );
 
   if (!result) {
