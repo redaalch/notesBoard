@@ -14,12 +14,6 @@ const noteHistorySchema = new mongoose.Schema(
       default: null,
       index: true,
     },
-    boardId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Board",
-      default: null,
-      index: true,
-    },
     actorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -72,6 +66,24 @@ const noteHistorySchema = new mongoose.Schema(
         message: "awarenessState must be a valid object (max 100 keys) and not exceed 32 KB",
       },
     },
+    titleSnapshot: {
+      type: String,
+      default: null,
+      maxlength: 200,
+    },
+    contentSnapshot: {
+      type: String,
+      default: null,
+      maxlength: 50_000,
+    },
+    tagsSnapshot: {
+      type: [String],
+      default: undefined,
+      validate: {
+        validator: (v) => !v || (Array.isArray(v) && v.length <= 20),
+        message: "tagsSnapshot must have at most 20 tags",
+      },
+    },
     expiresAt: {
       type: Date,
       default: null,
@@ -90,7 +102,7 @@ noteHistorySchema.pre("save", function setExpiry(next) {
 });
 
 noteHistorySchema.index({ noteId: 1, createdAt: -1 });
-noteHistorySchema.index({ boardId: 1, createdAt: -1 });
+noteHistorySchema.index({ workspaceId: 1, createdAt: -1 });
 noteHistorySchema.index(
   { expiresAt: 1 },
   {
