@@ -122,16 +122,85 @@ const notebookSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    /* ── Trash / soft delete ── */
+    deletedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true },
 );
 
-notebookSchema.index({ owner: 1, name: 1 }, { unique: true });
+const NOTEBOOK_TRASH_RETENTION_SECONDS = 30 * 24 * 60 * 60;
+notebookSchema.index(
+  { deletedAt: 1 },
+  {
+    name: "notebook_trash_ttl",
+    expireAfterSeconds: NOTEBOOK_TRASH_RETENTION_SECONDS,
+    partialFilterExpression: { deletedAt: { $type: "date" } },
+  },
+);
+
+const applyNotebookTrashFilter = function applyNotebookTrashFilter() {
+  const options = this.getOptions?.() ?? {};
+  if (options.withTrashed || options.onlyTrashed) return;
+  const filter = this.getFilter?.() ?? {};
+  if (Object.prototype.hasOwnProperty.call(filter, "deletedAt")) return;
+  this.where({ deletedAt: null });
+};
+
+const applyNotebookOnlyTrashedFilter = function applyNotebookOnlyTrashedFilter() {
+  const options = this.getOptions?.() ?? {};
+  if (!options.onlyTrashed) return;
+  this.where({ deletedAt: { $ne: null } });
+};
+
+[
+  "count",
+  "countDocuments",
+  "estimatedDocumentCount",
+  "find",
+  "findOne",
+  "findOneAndDelete",
+  "findOneAndReplace",
+  "findOneAndUpdate",
+  "updateOne",
+  "updateMany",
+  "deleteOne",
+  "deleteMany",
+  "distinct",
+].forEach((hook) => {
+  notebookSchema.pre(hook, applyNotebookTrashFilter);
+  notebookSchema.pre(hook, applyNotebookOnlyTrashedFilter);
+});
+
+notebookSchema.pre("aggregate", function applyNotebookTrashAggregate() {
+  const options = this.options ?? {};
+  if (options.withTrashed) return;
+  if (options.onlyTrashed) {
+    this.pipeline().unshift({ $match: { deletedAt: { $ne: null } } });
+    return;
+  }
+  this.pipeline().unshift({ $match: { deletedAt: null } });
+});
+
+notebookSchema.index(
+  { owner: 1, name: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { deletedAt: { $eq: null } },
+  },
+);
 notebookSchema.index(
   { publicSlug: 1 },
   {
     unique: true,
-    partialFilterExpression: { publicSlug: { $type: "string" } },
+    partialFilterExpression: {
+      publicSlug: { $type: "string" },
+      deletedAt: { $eq: null },
+    },
   },
 );
 notebookSchema.index({ owner: 1, offlineRevision: -1 });
