@@ -48,11 +48,6 @@ const templateNoteSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    boardId: {
-      type: String,
-      default: null,
-      maxlength: 48,
-    },
     workspaceId: {
       type: String,
       default: null,
