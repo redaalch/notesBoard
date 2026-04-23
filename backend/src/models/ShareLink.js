@@ -2,26 +2,19 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 
 const NOTEBOOK_SHARE_ROLES = ["viewer", "editor"];
-const BOARD_SHARE_ROLES = ["viewer", "commenter", "editor"];
 
 const shareLinkSchema = new mongoose.Schema(
   {
     resourceType: {
       type: String,
-      enum: ["board", "notebook"],
-      default: "board",
-      index: true,
-    },
-    boardId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Board",
-      default: null,
+      enum: ["notebook"],
+      default: "notebook",
       index: true,
     },
     notebookId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Notebook",
-      default: null,
+      required: true,
       index: true,
     },
     tokenHash: {
@@ -31,7 +24,7 @@ const shareLinkSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["viewer", "commenter", "editor"],
+      enum: NOTEBOOK_SHARE_ROLES,
       default: "viewer",
     },
     expiresAt: {
@@ -103,61 +96,17 @@ shareLinkSchema.methods.markRevoked = function markRevoked(
   this.revokedBy = actorId ?? null;
 };
 
-shareLinkSchema.pre("validate", function ensureResourceContext(next) {
-  if (!this.resourceType) {
-    if (this.notebookId) {
-      this.resourceType = "notebook";
-    } else if (this.boardId) {
-      this.resourceType = "board";
-    }
-  }
-
-  if (this.boardId && this.notebookId) {
-    this.invalidate(
-      "notebookId",
-      "Cannot set both boardId and notebookId on a share link",
-    );
-  }
-
-  if (this.resourceType === "board" && !this.boardId) {
-    this.invalidate("boardId", "Board id is required for board share link");
-  }
-
-  if (this.resourceType === "notebook" && !this.notebookId) {
-    this.invalidate(
-      "notebookId",
-      "Notebook id is required for notebook share link",
-    );
-  }
-
-  next();
-});
-
 shareLinkSchema.pre("validate", function ensureRoleMatchesResource(next) {
-  if (
-    this.resourceType === "notebook" &&
-    !NOTEBOOK_SHARE_ROLES.includes(this.role)
-  ) {
+  if (!NOTEBOOK_SHARE_ROLES.includes(this.role)) {
     this.role = "viewer";
   }
-
-  if (this.resourceType === "board" && !BOARD_SHARE_ROLES.includes(this.role)) {
-    this.role = "viewer";
-  }
-
   next();
 });
 
-// Compound indexes for finding active links by resource
-shareLinkSchema.index(
-  { boardId: 1, revokedAt: 1 },
-  { name: "board_active_links" },
-);
 shareLinkSchema.index(
   { notebookId: 1, revokedAt: 1 },
   { name: "notebook_active_links" },
 );
-// TTL index: auto-delete expired share links after 30 days past expiry
 shareLinkSchema.index(
   { expiresAt: 1 },
   { expireAfterSeconds: 60 * 60 * 24 * 30, name: "share_link_ttl" },
