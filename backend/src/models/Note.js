@@ -88,12 +88,6 @@ const noteSchema = new mongoose.Schema(
       index: true,
       default: null,
     },
-    boardId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Board",
-      index: true,
-      default: null,
-    },
     notebookId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Notebook",
@@ -218,9 +212,69 @@ const noteSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    /* ── Trash / soft delete ── */
+    deletedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true },
 );
+
+const TRASH_RETENTION_SECONDS = 30 * 24 * 60 * 60;
+noteSchema.index(
+  { deletedAt: 1 },
+  {
+    name: "note_trash_ttl",
+    expireAfterSeconds: TRASH_RETENTION_SECONDS,
+    partialFilterExpression: { deletedAt: { $type: "date" } },
+  },
+);
+
+const applyTrashFilter = function applyTrashFilter() {
+  const options = this.getOptions?.() ?? {};
+  if (options.withTrashed || options.onlyTrashed) return;
+  const filter = this.getFilter?.() ?? {};
+  if (Object.prototype.hasOwnProperty.call(filter, "deletedAt")) return;
+  this.where({ deletedAt: null });
+};
+
+const applyOnlyTrashedFilter = function applyOnlyTrashedFilter() {
+  const options = this.getOptions?.() ?? {};
+  if (!options.onlyTrashed) return;
+  this.where({ deletedAt: { $ne: null } });
+};
+
+[
+  "count",
+  "countDocuments",
+  "estimatedDocumentCount",
+  "find",
+  "findOne",
+  "findOneAndDelete",
+  "findOneAndReplace",
+  "findOneAndUpdate",
+  "updateOne",
+  "updateMany",
+  "deleteOne",
+  "deleteMany",
+  "distinct",
+].forEach((hook) => {
+  noteSchema.pre(hook, applyTrashFilter);
+  noteSchema.pre(hook, applyOnlyTrashedFilter);
+});
+
+noteSchema.pre("aggregate", function applyTrashAggregate() {
+  const options = this.options ?? {};
+  if (options.withTrashed) return;
+  if (options.onlyTrashed) {
+    this.pipeline().unshift({ $match: { deletedAt: { $ne: null } } });
+    return;
+  }
+  this.pipeline().unshift({ $match: { deletedAt: null } });
+});
 
 noteSchema.index(
   { title: "text", content: "text" },
