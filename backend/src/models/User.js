@@ -76,10 +76,6 @@ const userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Workspace",
     },
-    defaultBoard: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Board",
-    },
     // Set whenever the password is changed or reset.  The auth middleware
     // rejects access tokens whose `iat` predates this timestamp, effectively
     // revoking all tokens issued before the password change.
