@@ -1,4 +1,5 @@
 import express from "express";
+import multer from "multer";
 import auth from "../middleware/auth.js";
 import { validate, validationRules } from "../middleware/validation.js";
 import cacheService from "../services/cacheService.js";
@@ -15,6 +16,8 @@ import {
   undoNotebookHistoryEvent,
 } from "../controllers/notebooksController.js";
 import { exportNotebookTemplate } from "../controllers/notebookTemplatesController.js";
+import { exportNotebookBundle } from "../controllers/notebookExportController.js";
+import { importNotebook } from "../controllers/notebookImportController.js";
 import {
   listNotebookMembers,
   inviteNotebookMember,
@@ -56,8 +59,19 @@ import {
 
 const router = express.Router();
 
+const importUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+});
+
 // Authentication for all routes (rate limiting applied globally in app.js)
 router.use(auth);
+
+router.post(
+  "/import",
+  importUpload.single("file"),
+  importNotebook,
+);
 
 router.get(
   "/recommendations",
@@ -291,6 +305,12 @@ router.post(
     body("noteIds.*").isMongoId().withMessage("Each noteId must be valid"),
   ]),
   moveNotesToNotebook,
+);
+
+router.get(
+  "/:id/export",
+  validate([validationRules.objectId("id")]),
+  exportNotebookBundle,
 );
 
 router.get(
