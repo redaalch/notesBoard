@@ -55,7 +55,6 @@ export const seedNotebookAnalyticsDataset = async ({
   const histories = [];
   const collaborators = [];
   const workspaceId = new mongoose.Types.ObjectId();
-  const boardId = new mongoose.Types.ObjectId();
 
   for (let dayOffset = 0; dayOffset < days; dayOffset += 1) {
     const createdAt = addUtcDays(baseDate, -dayOffset);
@@ -88,7 +87,6 @@ export const seedNotebookAnalyticsDataset = async ({
         histories.push({
           noteId,
           workspaceId,
-          boardId,
           actorId: ownerId,
           eventType: "edit",
           summary: "Automated analytics fixture edit",
