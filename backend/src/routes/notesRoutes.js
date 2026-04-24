@@ -11,6 +11,10 @@ import {
   getNoteLayout,
   updateNoteLayout,
   searchNotes,
+  listTrashedNotes,
+  restoreNote,
+  purgeNote,
+  emptyTrash,
 } from "../controllers/notesController.js";
 import {
   addNoteCollaborator,
@@ -88,6 +92,20 @@ router.put(
 
 // Tag statistics (cached 30s)
 router.get("/tags/stats", cacheService.middleware(30), getTagStats);
+
+// Trash / soft-delete
+router.get("/trash", listTrashedNotes);
+router.delete("/trash", emptyTrash);
+router.post(
+  "/trash/:id/restore",
+  validate([validationRules.objectId("id")]),
+  restoreNote,
+);
+router.delete(
+  "/trash/:id",
+  validate([validationRules.objectId("id")]),
+  purgeNote,
+);
 
 // Semantic / keyword search
 router.get(
