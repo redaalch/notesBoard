@@ -314,7 +314,6 @@ const restoreNotebook = async ({ notebook, inverse, event, session }) => {
 
     const owner = toObjectId(snapshotNote.owner) ?? ownerId;
     const workspaceIdValue = toObjectId(snapshotNote.workspaceId);
-    const boardIdValue = toObjectId(snapshotNote.boardId);
     const normalizedTags = Array.isArray(snapshotNote.tags)
       ? snapshotNote.tags.filter((tag) => typeof tag === "string")
       : [];
@@ -324,7 +323,6 @@ const restoreNotebook = async ({ notebook, inverse, event, session }) => {
       owner,
       notebookId,
       workspaceId: workspaceIdValue,
-      boardId: boardIdValue,
       title: snapshotNote.title ?? "",
       content: snapshotNote.content ?? "",
       contentText: snapshotNote.contentText ?? snapshotNote.content ?? "",
@@ -417,8 +415,7 @@ const restoreNotebook = async ({ notebook, inverse, event, session }) => {
     const shareLinkDocs = shareLinkSnapshots
       .map((link) => ({
         notebookId,
-        boardId: toObjectId(link.boardId),
-        resourceType: link.resourceType ?? "notebook",
+        resourceType: "notebook",
         tokenHash: link.tokenHash,
         role: link.role ?? "viewer",
         expiresAt: toDate(link.expiresAt),
