@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import Workspace from "../models/Workspace.js";
-import Board from "../models/Board.js";
 import Notebook from "../models/Notebook.js";
 import NotebookMember, {
   NOTEBOOK_MEMBER_ROLES,
@@ -66,23 +65,21 @@ export const ensureWorkspaceMember = async (workspaceId, userId) => {
   return membership;
 };
 
-export const resolveBoardForUser = async (boardId, userId) => {
-  if (!boardId || !userId) return null;
-  if (!isValidObjectId(boardId)) {
-    return null;
-  }
+/**
+ * Resolve a workspace for the user directly.
+ * If `workspaceId` is falsy, falls back to `opts.fallbackWorkspaceId`.
+ * Returns null if the workspace does not exist or the user is not a member.
+ */
+export const resolveWorkspaceForUser = async (workspaceId, userId, opts = {}) => {
+  if (!userId) return null;
+  const fallbackWorkspaceId = opts.fallbackWorkspaceId ?? null;
+  const targetId = workspaceId || fallbackWorkspaceId;
+  if (!targetId) return null;
 
-  const board = await Board.findById(boardId).lean();
-  if (!board) {
-    return null;
-  }
+  const membership = await getWorkspaceMembership(targetId, userId);
+  if (!membership) return null;
 
-  const membership = await getWorkspaceMembership(board.workspaceId, userId);
-  if (!membership) {
-    return null;
-  }
-
-  return { board, workspace: membership.workspace, member: membership.member };
+  return { workspace: membership.workspace, member: membership.member };
 };
 
 export const getNotebookMembership = async (notebookId, userId) => {
@@ -177,7 +174,6 @@ export const resolveNoteForUser = async (noteId, userId) => {
     return {
       note,
       workspaceId,
-      boardId: note.boardId ?? null,
       notebookId: note.notebookId ?? null,
       ownerId: note.owner,
       membership: null,
@@ -235,7 +231,6 @@ export const resolveNoteForUser = async (noteId, userId) => {
   return {
     note,
     workspaceId,
-    boardId: note.boardId ?? null,
     notebookId: note.notebookId ?? null,
     ownerId: note.owner,
     membership,
