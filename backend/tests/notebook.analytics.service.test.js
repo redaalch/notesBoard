@@ -96,7 +96,6 @@ describe("notebook analytics service", () => {
     const history = await NoteHistory.create({
       noteId: noteB._id,
       workspaceId: new mongoose.Types.ObjectId(),
-      boardId: new mongoose.Types.ObjectId(),
       actorId: ownerId,
       eventType: "edit",
       updatedAt: lastActivityDate,
@@ -264,7 +263,6 @@ describe("notebook analytics service", () => {
       await NoteHistory.create({
         noteId: note._id,
         workspaceId: new mongoose.Types.ObjectId(),
-        boardId: new mongoose.Types.ObjectId(),
         actorId,
         eventType: "edit",
         createdAt,
