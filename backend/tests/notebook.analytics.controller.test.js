@@ -118,7 +118,6 @@ describe("notebook analytics endpoints", () => {
       await NoteHistory.create({
         noteId: note._id,
         workspaceId: new mongoose.Types.ObjectId(),
-        boardId: new mongoose.Types.ObjectId(),
         actorId,
         eventType: "edit",
         createdAt,
