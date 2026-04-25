@@ -98,7 +98,6 @@ describe("notebook undo service", () => {
           id: noteId.toString(),
           owner: ownerId.toString(),
           workspaceId: null,
-          boardId: null,
           title: "Recovered note",
           content: "Recovered content",
           contentText: "Recovered content",
