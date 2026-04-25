@@ -13,7 +13,6 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 
 import Note from "../src/models/Note.js";
 import User from "../src/models/User.js";
-import Board from "../src/models/Board.js";
 import Workspace from "../src/models/Workspace.js";
 import CollabDocument from "../src/models/CollabDocument.js";
 import Notebook from "../src/models/Notebook.js";
@@ -64,12 +63,11 @@ beforeAll(async () => {
 afterEach(async () => {
   sentEmails.length = 0;
   sendMailMock.mockClear();
-  await Note.deleteMany({});
+  await Note.deleteMany({}).setOptions({ withTrashed: true });
   await NoteHistory.deleteMany({});
-  await Board.deleteMany({});
   await Workspace.deleteMany({});
   await CollabDocument.deleteMany({});
-  await Notebook.deleteMany({});
+  await Notebook.deleteMany({}).setOptions({ withTrashed: true });
   await NotebookMember.deleteMany({});
   await NotebookTemplate.deleteMany({});
   await NotebookEvent.deleteMany({});
@@ -170,6 +168,72 @@ describe("Auth and notes integration", () => {
       .set(authHeaders(accessToken, clientId));
     expect(listAfterDelete.body.data).toHaveLength(0);
   }, 15000);
+
+  it("moves deleted notes to trash, restores, and permanently purges them", async () => {
+    const { response: registerResponse, payload } = await registerUser({
+      email: "trash@example.com",
+    });
+    expect(registerResponse.status).toBe(202);
+
+    const verifyResponse = await verifyLatestEmail(payload.email);
+    const accessToken = verifyResponse.body.accessToken;
+    const clientId = verifyResponse.body.user.id;
+
+    const createRes = await request(app)
+      .post("/api/notes")
+      .set(authHeaders(accessToken, clientId))
+      .send({ title: "Disposable", content: "Body text" });
+    expect(createRes.status).toBe(201);
+    const noteId = createRes.body._id;
+
+    const deleteRes = await request(app)
+      .delete(`/api/notes/${noteId}`)
+      .set(authHeaders(accessToken, clientId));
+    expect(deleteRes.status).toBe(200);
+
+    const listAfterDelete = await request(app)
+      .get("/api/notes")
+      .set(authHeaders(accessToken, clientId));
+    expect(listAfterDelete.body.data).toHaveLength(0);
+
+    const getAfterDelete = await request(app)
+      .get(`/api/notes/${noteId}`)
+      .set(authHeaders(accessToken, clientId));
+    expect(getAfterDelete.status).toBe(404);
+
+    const trashRes = await request(app)
+      .get("/api/notes/trash")
+      .set(authHeaders(accessToken, clientId));
+    expect(trashRes.status).toBe(200);
+    expect(trashRes.body.notes).toHaveLength(1);
+    expect(trashRes.body.notes[0]._id).toBe(noteId);
+    expect(trashRes.body.notes[0].purgeAt).toBeTruthy();
+
+    const restoreRes = await request(app)
+      .post(`/api/notes/trash/${noteId}/restore`)
+      .set(authHeaders(accessToken, clientId));
+    expect(restoreRes.status).toBe(200);
+
+    const listAfterRestore = await request(app)
+      .get("/api/notes")
+      .set(authHeaders(accessToken, clientId));
+    expect(listAfterRestore.body.data).toHaveLength(1);
+    expect(listAfterRestore.body.data[0]._id).toBe(noteId);
+
+    await request(app)
+      .delete(`/api/notes/${noteId}`)
+      .set(authHeaders(accessToken, clientId));
+
+    const purgeRes = await request(app)
+      .delete(`/api/notes/trash/${noteId}`)
+      .set(authHeaders(accessToken, clientId));
+    expect(purgeRes.status).toBe(200);
+
+    const trashAfterPurge = await request(app)
+      .get("/api/notes/trash")
+      .set(authHeaders(accessToken, clientId));
+    expect(trashAfterPurge.body.notes).toHaveLength(0);
+  }, 20000);
 
   it("creates notes inside notebooks and returns them in notebook scoped queries", async () => {
     const { response: registerResponse, payload } = await registerUser({
@@ -385,17 +449,11 @@ describe("Auth and notes integration", () => {
       const ownerToken = ownerVerify.body.accessToken;
       const ownerClientId = ownerVerify.body.user.id;
 
-      const ownerWorkspace = await Workspace.create({
+      await Workspace.create({
         name: "Owner Workspace",
         slug: `owner-workspace-${new mongoose.Types.ObjectId().toString()}`,
         ownerId: new mongoose.Types.ObjectId(ownerClientId),
         members: [],
-      });
-      const ownerBoard = await Board.create({
-        workspaceId: ownerWorkspace._id,
-        name: "Owner Board",
-        slug: `owner-board-${new mongoose.Types.ObjectId().toString()}`,
-        createdBy: new mongoose.Types.ObjectId(ownerClientId),
       });
 
       const notebookResponse = await request(app)
@@ -415,7 +473,6 @@ describe("Auth and notes integration", () => {
             title,
             content: `Content for ${title}`,
             notebookId,
-            boardId: ownerBoard._id.toString(),
           });
         expect(noteRes.status).toBe(201);
         return noteRes.body._id;
@@ -463,7 +520,7 @@ describe("Auth and notes integration", () => {
     },
   );
 
-  it("instantiates notebook templates with workspace and board mappings", async () => {
+  it("instantiates notebook templates into a target workspace", async () => {
     const { response: ownerRegister, payload: ownerPayload } =
       await registerUser({
         email: "mapping-owner@example.com",
@@ -474,25 +531,11 @@ describe("Auth and notes integration", () => {
     const ownerToken = ownerVerify.body.accessToken;
     const ownerClientId = ownerVerify.body.user.id;
 
-    const sourceWorkspace = await Workspace.create({
-      name: "Source Workspace",
-      slug: `source-workspace-${new mongoose.Types.ObjectId().toString()}`,
-      ownerId: new mongoose.Types.ObjectId(ownerClientId),
-      members: [],
-    });
-
-    const sourceBoard = await Board.create({
-      workspaceId: sourceWorkspace._id,
-      name: "Source Board",
-      slug: `source-board-${new mongoose.Types.ObjectId().toString()}`,
-      createdBy: new mongoose.Types.ObjectId(ownerClientId),
-    });
-
     const notebookResponse = await request(app)
       .post("/api/notebooks")
       .set(authHeaders(ownerToken, ownerClientId))
       .send({
-        name: "Template With Boards",
+        name: "Template Source",
       });
     expect(notebookResponse.status).toBe(201);
     const notebookId = notebookResponse.body.id;
@@ -505,7 +548,6 @@ describe("Auth and notes integration", () => {
           title,
           content,
           notebookId,
-          boardId: sourceBoard._id.toString(),
         });
       expect(noteRes.status).toBe(201);
       return noteRes.body._id;
@@ -530,22 +572,12 @@ describe("Auth and notes integration", () => {
       members: [],
     });
 
-    const targetBoard = await Board.create({
-      workspaceId: targetWorkspace._id,
-      name: "Target Board",
-      slug: `target-board-${new mongoose.Types.ObjectId().toString()}`,
-      createdBy: new mongoose.Types.ObjectId(ownerClientId),
-    });
-
     const instantiateResponse = await request(app)
       .post(`/api/templates/${templateId}/instantiate`)
       .set(authHeaders(ownerToken, ownerClientId))
       .send({
         name: "Mapped Notebook",
         workspaceId: targetWorkspace._id.toString(),
-        boardMappings: {
-          [sourceBoard._id.toString()]: targetBoard._id.toString(),
-        },
       });
     expect(instantiateResponse.status).toBe(201);
     const createdNotebookId = instantiateResponse.body.notebookId;
@@ -566,7 +598,6 @@ describe("Auth and notes integration", () => {
     expect(Array.isArray(notesResponse.body.data)).toBe(true);
     expect(notesResponse.body.data).toHaveLength(2);
     notesResponse.body.data.forEach((note) => {
-      expect(toStringId(note.boardId)).toBe(targetBoard._id.toString());
       expect(toStringId(note.workspaceId)).toBe(targetWorkspace._id.toString());
     });
   });
@@ -945,7 +976,7 @@ describe("Auth and notes integration", () => {
     expect(newLogin.body?.accessToken).toBeDefined();
   });
 
-  it("supports bulk note actions and board discovery", async () => {
+  it("supports bulk note actions", async () => {
     const { response: registerResponse, payload } = await registerUser({
       email: "bulk@example.com",
     });
@@ -973,28 +1004,6 @@ describe("Auth and notes integration", () => {
     const noteB = await createNote({ title: "Beta note" });
     const noteC = await createNote({ title: "Gamma note" });
 
-    const dbUser = await User.findById(clientId);
-    expect(dbUser?.defaultBoard).toBeDefined();
-    expect(dbUser?.defaultWorkspace).toBeDefined();
-
-    const extraBoard = await Board.create({
-      workspaceId: dbUser.defaultWorkspace,
-      name: "Research Deck",
-      slug: `research-${Date.now()}`,
-      createdBy: dbUser._id,
-    });
-
-    const boardsResponse = await request(app)
-      .get("/api/boards")
-      .set(authHeaders(accessToken, clientId));
-
-    expect(boardsResponse.status).toBe(200);
-    expect(Array.isArray(boardsResponse.body?.boards)).toBe(true);
-    expect(boardsResponse.body.boards.length).toBeGreaterThanOrEqual(2);
-    const boardIds = boardsResponse.body.boards.map((board) => board.id);
-    expect(boardIds).toContain(dbUser.defaultBoard.toString());
-    expect(boardIds).toContain(extraBoard._id.toString());
-
     const bulkPinResponse = await request(app)
       .post("/api/notes/bulk")
       .set(authHeaders(accessToken, clientId))
@@ -1020,27 +1029,6 @@ describe("Auth and notes integration", () => {
     expect(bulkTagsResponse.status).toBe(200);
     expect(bulkTagsResponse.body.tags).toEqual(["focus", "deep work"]);
 
-    const bulkMoveResponse = await request(app)
-      .post("/api/notes/bulk")
-      .set(authHeaders(accessToken, clientId))
-      .send({
-        action: "move",
-        noteIds: [noteA._id, noteB._id, noteC._id],
-        boardId: extraBoard._id.toString(),
-      });
-
-    expect(bulkMoveResponse.status).toBe(200);
-    expect(bulkMoveResponse.body.boardId.toString()).toBe(
-      extraBoard._id.toString(),
-    );
-
-    const listAfterMove = await request(app)
-      .get("/api/notes")
-      .query({ boardId: extraBoard._id.toString() })
-      .set(authHeaders(accessToken, clientId));
-    expect(listAfterMove.status).toBe(200);
-    expect(listAfterMove.body.data).toHaveLength(3);
-
     const bulkDeleteResponse = await request(app)
       .post("/api/notes/bulk")
       .set(authHeaders(accessToken, clientId))
@@ -1051,7 +1039,6 @@ describe("Auth and notes integration", () => {
 
     const finalList = await request(app)
       .get("/api/notes")
-      .query({ boardId: extraBoard._id.toString() })
       .set(authHeaders(accessToken, clientId));
     expect(finalList.body.data).toHaveLength(1);
     expect(finalList.body.data[0]._id).toBe(noteC._id);
