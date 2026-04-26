@@ -54,6 +54,12 @@ const STATIC_SHORTCUTS: ShortcutItem[] = [
     section: "Editor",
   },
   {
+    keys: ["Ctrl", "."],
+    label: "Toggle focus mode",
+    description: "Hide chrome and center the editor; Esc to exit",
+    section: "Editor",
+  },
+  {
     keys: ["Ctrl", "B"],
     label: "Bold",
     section: "Editor",
