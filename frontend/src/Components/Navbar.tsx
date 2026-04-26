@@ -25,6 +25,7 @@ import { m, AnimatePresence } from "framer-motion";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import Logo from "./Logo";
+import OfflineSyncBadge from "./OfflineSyncBadge";
 import { useCommandPalette } from "../contexts/CommandPaletteContext";
 
 export interface ThemeOption {
@@ -321,6 +322,9 @@ function Navbar({
             )}
 
             <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
+              {user && (
+                <OfflineSyncBadge className="hidden md:inline-flex" />
+              )}
               {/* Command palette — desktop */}
               <div
                 className="tooltip tooltip-bottom hidden lg:block"
@@ -506,6 +510,11 @@ function Navbar({
                     <li>
                       <Link to="/profile" className="gap-2">
                         Profile settings
+                      </Link>
+                    </li>
+                    <li>
+                      <Link to="/trash" className="gap-2">
+                        Trash
                       </Link>
                     </li>
                     <li>
