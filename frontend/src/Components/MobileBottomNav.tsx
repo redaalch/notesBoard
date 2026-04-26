@@ -120,25 +120,15 @@ export function MobileBottomNav({
         }
 
         /* ── Regular tab items ── */
-        const Wrapper = item.path ? Link : "button";
-        const wrapperProps: Record<string, unknown> = item.path
-          ? { to: item.path }
-          : { type: "button", onClick: item.action };
-
-        return (
-          <Wrapper
-            key={item.label}
-            {...(wrapperProps as any)}
-            className={`relative flex flex-col items-center gap-0.5 px-3 py-2.5 transition-colors ${
-              isActive
-                ? "text-primary"
-                : "text-base-content/50 active:text-base-content/80"
-            }`}
-            aria-label={item.label}
-          >
+        const className = `relative flex flex-col items-center gap-0.5 px-3 py-2.5 transition-colors ${
+          isActive
+            ? "text-primary"
+            : "text-base-content/50 active:text-base-content/80"
+        }`;
+        const children = (
+          <>
             <Icon className="size-5" />
             <span className="text-[10px] font-medium">{item.label}</span>
-
             {isActive && (
               <m.div
                 layoutId="mobileNavActive"
@@ -146,7 +136,28 @@ export function MobileBottomNav({
                 transition={{ type: "spring", stiffness: 500, damping: 35 }}
               />
             )}
-          </Wrapper>
+          </>
+        );
+
+        return item.path ? (
+          <Link
+            key={item.label}
+            to={item.path}
+            className={className}
+            aria-label={item.label}
+          >
+            {children}
+          </Link>
+        ) : (
+          <button
+            key={item.label}
+            type="button"
+            onClick={item.action}
+            className={className}
+            aria-label={item.label}
+          >
+            {children}
+          </button>
         );
       })}
     </nav>
