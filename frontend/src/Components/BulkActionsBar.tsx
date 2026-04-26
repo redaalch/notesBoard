@@ -1,7 +1,5 @@
 import { useMemo, type ChangeEvent } from "react";
 import {
-  BoxesIcon,
-  CheckIcon,
   ListChecksIcon,
   FolderIcon,
   PinIcon,
@@ -17,6 +15,7 @@ interface ActionButtonProps {
   label: string;
   onClick: () => void;
   disabled?: boolean;
+  danger?: boolean;
 }
 
 const ActionButton = ({
@@ -24,17 +23,18 @@ const ActionButton = ({
   label,
   onClick,
   disabled,
+  danger,
 }: ActionButtonProps) => {
   const IconComponent = icon;
   return (
     <button
       type="button"
-      className="btn btn-sm btn-outline gap-2"
+      className={`ds-chip${danger ? " danger" : ""}`}
       onClick={onClick}
       disabled={disabled}
     >
-      <IconComponent className="size-4" />
-      {label}
+      <IconComponent size={12} />
+      <span>{label}</span>
     </button>
   );
 };
@@ -50,7 +50,6 @@ interface BulkActionsBarProps {
   onPinSelected: () => void;
   onUnpinSelected: () => void;
   onAddTags: () => void;
-  onMove: () => void;
   onMoveNotebook: () => void;
   onDelete: () => void;
   busy?: boolean;
@@ -64,7 +63,6 @@ function BulkActionsBar({
   onPinSelected,
   onUnpinSelected,
   onAddTags,
-  onMove,
   onMoveNotebook,
   onDelete,
   busy,
@@ -86,87 +84,77 @@ function BulkActionsBar({
   };
 
   return (
-    <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 z-50 border-t border-primary/20 bg-base-100/95 px-4 py-3 shadow-[0_-4px_24px_rgba(0,0,0,0.1)] backdrop-blur-md">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-          <ListChecksIcon className="size-4" />
-          <span>{summary}</span>
-          <button
-            type="button"
-            className="btn btn-ghost btn-xs text-base-content/70"
-            onClick={onClearSelection}
-            disabled={busy}
-          >
-            <XIcon className="size-3" />
-            Clear
-          </button>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <ActionButton
-            icon={PinIcon}
-            label="Pin"
-            onClick={onPinSelected}
-            disabled={busy}
-          />
-          <ActionButton
-            icon={PinOffIcon}
-            label="Unpin"
-            onClick={onUnpinSelected}
-            disabled={busy}
-          />
-          <ActionButton
-            icon={TagsIcon}
-            label="Add tags"
-            onClick={onAddTags}
-            disabled={busy}
-          />
-          <ActionButton
-            icon={BoxesIcon}
-            label="Move"
-            onClick={onMove}
-            disabled={busy}
-          />
-          <ActionButton
-            icon={FolderIcon}
-            label="Move to notebook"
-            onClick={onMoveNotebook}
-            disabled={busy}
-          />
-          {notebookOptions.length > 0 && (
-            <div className="flex items-center gap-2">
-              <label htmlFor="bulk-move-notebook" className="sr-only">
-                Move selected notes to notebook
-              </label>
-              <select
-                id="bulk-move-notebook"
-                className="select select-bordered select-sm"
-                defaultValue=""
-                onChange={handleQuickMoveChange}
-                disabled={busy}
-              >
-                <option value="" disabled>
-                  Quick move…
+    <div className="ds-bulk">
+      <div className="ds-bulk-count">
+        <ListChecksIcon size={12} />
+        <span>{summary}</span>
+        <button
+          type="button"
+          className="ds-chip"
+          onClick={onClearSelection}
+          disabled={busy}
+          style={{ marginLeft: 6 }}
+        >
+          <XIcon size={10} /> Clear
+        </button>
+      </div>
+      <div className="ds-bulk-actions">
+        <ActionButton
+          icon={PinIcon}
+          label="Pin"
+          onClick={onPinSelected}
+          disabled={busy}
+        />
+        <ActionButton
+          icon={PinOffIcon}
+          label="Unpin"
+          onClick={onUnpinSelected}
+          disabled={busy}
+        />
+        <ActionButton
+          icon={TagsIcon}
+          label="Tags"
+          onClick={onAddTags}
+          disabled={busy}
+        />
+        <ActionButton
+          icon={FolderIcon}
+          label="Move"
+          onClick={onMoveNotebook}
+          disabled={busy}
+        />
+        {notebookOptions.length > 0 && (
+          <>
+            <label htmlFor="bulk-move-notebook" className="sr-only">
+              Move selected notes to notebook
+            </label>
+            <select
+              id="bulk-move-notebook"
+              className="ds-chip"
+              defaultValue=""
+              onChange={handleQuickMoveChange}
+              disabled={busy}
+              style={{ padding: "4px 8px" }}
+            >
+              <option value="" disabled>
+                Quick move…
+              </option>
+              <option value="__uncategorized">Uncategorized</option>
+              {notebookOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
                 </option>
-                <option value="__uncategorized">Uncategorized</option>
-                {notebookOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <ActionButton
-            icon={Trash2Icon}
-            label="Delete"
-            onClick={onDelete}
-            disabled={busy}
-          />
-          <span className="hidden items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary sm:flex">
-            <CheckIcon className="size-3.5" />
-            Multi-select active
-          </span>
-        </div>
+              ))}
+            </select>
+          </>
+        )}
+        <ActionButton
+          icon={Trash2Icon}
+          label="Delete"
+          onClick={onDelete}
+          disabled={busy}
+          danger
+        />
       </div>
     </div>
   );
