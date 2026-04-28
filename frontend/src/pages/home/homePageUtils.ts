@@ -24,11 +24,11 @@ export const NOTES_PER_PAGE = 6;
 export const NOTEBOOK_ANALYTICS_ENABLED =
   (import.meta.env.VITE_ENABLE_NOTEBOOK_ANALYTICS ?? "false") === "true";
 
-export const mergeOrder = (primary: any[] = [], fallback: any[] = []) => {
+export const mergeOrder = (primary: unknown[] = [], fallback: unknown[] = []) => {
   const fallbackStrings = new Set(
     fallback
-      .map((id: any) =>
-        typeof id === "string" ? id : (id?.toString?.() ?? null),
+      .map((id: unknown) =>
+        typeof id === "string" ? id : ((id as { toString?: () => string })?.toString?.() ?? null),
       )
       .filter(Boolean),
   );
@@ -57,10 +57,9 @@ export const mergeOrder = (primary: any[] = [], fallback: any[] = []) => {
 
 export const noop = () => {};
 
-export const getNoteId = (note: any) => {
+export const getNoteId = (note: { _id?: string; id?: string } | null | undefined) => {
   if (!note) return null;
-  const rawId = note._id ?? note.id;
-  return typeof rawId === "string" ? rawId : (rawId?.toString?.() ?? null);
+  return note._id ?? note.id ?? null;
 };
 
 export const sortLabelMap: Record<string, string> = {
@@ -71,7 +70,7 @@ export const sortLabelMap: Record<string, string> = {
   custom: "Custom order",
 };
 
-export const normalizeSortDirection = (value: any) => {
+export const normalizeSortDirection = (value: unknown) => {
   if (typeof value === "number") {
     return value >= 0 ? "asc" : "desc";
   }
@@ -101,7 +100,7 @@ export const sortOrderToSavedSort = (order: string) => {
   }
 };
 
-export const savedSortToSortOrder = (sortSpec: any) => {
+export const savedSortToSortOrder = (sortSpec: Record<string, unknown> | null | undefined) => {
   if (!sortSpec || typeof sortSpec !== "object") {
     return "newest";
   }
@@ -149,5 +148,5 @@ export const notebookIconComponents: Record<string, React.ComponentType<{ classN
   Brain: BrainIcon,
 };
 
-export const getNotebookDroppableId = (notebookId: any) =>
+export const getNotebookDroppableId = (notebookId: string | null | undefined) =>
   `notebook:${notebookId ?? "uncategorized"}`;

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { LoaderIcon, UserPlusIcon } from "lucide-react";
 import useAuth from "../hooks/useAuth";
 import Logo from "../Components/Logo";
+import { safeRedirectPath } from "../lib/safeRedirect";
 
 const RegisterPage = () => {
   const { register, user, initializing } = useAuth();
@@ -17,8 +18,9 @@ const RegisterPage = () => {
 
   useEffect(() => {
     if (!initializing && user) {
-      const redirectTo =
-        (location.state as Record<string, string> | null)?.from ?? "/app";
+      const redirectTo = safeRedirectPath(
+        (location.state as Record<string, string> | null)?.from,
+      );
       navigate(redirectTo, { replace: true });
     }
   }, [user, initializing, navigate, location.state]);
@@ -43,11 +45,9 @@ const RegisterPage = () => {
     setLoading(true);
     try {
       await register({ name: trimmedName, email: normalizedEmail, password });
-      const nextPath =
-        typeof (location.state as Record<string, string> | null)?.from ===
-        "string"
-          ? (location.state as Record<string, string>).from
-          : "/app";
+      const nextPath = safeRedirectPath(
+        (location.state as Record<string, string> | null)?.from,
+      );
       const params = new URLSearchParams({ email: normalizedEmail });
       if (nextPath) {
         params.set("next", nextPath);

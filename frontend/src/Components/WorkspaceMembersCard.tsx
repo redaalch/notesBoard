@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LoaderIcon, ShieldCheckIcon, UserPlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import api from "../lib/axios";
-import { extractApiError } from "../lib/sanitize";
+import { extractApiError } from "../lib/extractApiError";
 
 export interface WorkspaceMember {
   id: string;

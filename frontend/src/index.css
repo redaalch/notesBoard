@@ -10,6 +10,7 @@
   :root {
     color-scheme: light;
     font-family:
+      "Geist",
       "Inter",
       "Segoe UI",
       system-ui,
@@ -212,6 +213,7 @@
   h5,
   h6 {
     font-family:
+      "Geist",
       "Inter",
       "Segoe UI",
       system-ui,

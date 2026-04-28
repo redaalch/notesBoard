@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, lazy, Suspense } from "react";
 import "../styles/editor.css";
 import {
   BubbleMenu,
@@ -23,7 +23,7 @@ import {
   CodeIcon,
 } from "lucide-react";
 import type { AppIcon } from "../types/icon";
-import VoiceInputButton from "./VoiceInputButton";
+const VoiceInputButton = lazy(() => import("./VoiceInputButton"));
 
 /* ── Toolbar Button ── */
 
@@ -193,7 +193,9 @@ const SimpleEditor = ({
         role="presentation"
         onClick={() => editor?.chain().focus("end").run()}
       />
-      <VoiceInputButton editor={editor} />
+      <Suspense fallback={null}>
+        <VoiceInputButton editor={editor} />
+      </Suspense>
     </div>
   );
 };

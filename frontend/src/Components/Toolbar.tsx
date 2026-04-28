@@ -1,7 +1,6 @@
 import { type ReactNode } from "react";
-import { m, AnimatePresence } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { ListChecksIcon, MoveIcon, XIcon } from "lucide-react";
-import { cn } from "../lib/cn";
 import FilterPopover, { type FilterPopoverProps } from "./FilterPopover";
 
 export interface Tab {
@@ -11,30 +10,21 @@ export interface Tab {
 }
 
 export interface ToolbarProps {
-  /** Content tabs (All / Recent / Long / Short) */
   tabs: Tab[];
   activeTab: string;
   onTabChange: (id: string) => void;
-  /** Filter popover props */
   filterProps: FilterPopoverProps;
-  /** Selection mode */
   selectionMode: boolean;
   onToggleSelection: () => void;
-  /** Customize/reorder mode */
   customizeMode: boolean;
   onToggleCustomize: () => void;
   customizeDisabled: boolean;
-  /** Active filter chips */
   filterChips?: { key: string; label: string; onClear: () => void }[];
-  /** Tag chips */
   selectedTags?: string[];
   onRemoveTag?: (tag: string) => void;
-  /** Reset all filters */
   onResetFilters?: () => void;
   filtersApplied?: boolean;
-  /** Customize mode info bar */
   savingOrder?: boolean;
-  /** Extra content (for mobile filter button, etc.) */
   children?: ReactNode;
 }
 
@@ -56,103 +46,56 @@ function Toolbar({
   savingOrder,
 }: ToolbarProps) {
   return (
-    <div className="relative z-20 space-y-2">
-      {/* Main toolbar row */}
-      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 rounded-2xl border border-base-content/[0.06] bg-base-100/80 px-2 sm:px-3 py-2 shadow-sm backdrop-blur-xl">
-        {/* Tabs — horizontal scroll with fade masks on mobile */}
-        <div
-          className="relative flex-1 min-w-0 overflow-hidden"
-        >
-          {/* Fade masks for scroll edges (mobile only) */}
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-base-100/80 to-transparent z-[2] sm:hidden" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-3 bg-gradient-to-l from-base-100/80 to-transparent z-[2] sm:hidden" />
-          <div
-            className="flex items-center gap-0.5 sm:gap-1 overflow-x-auto scrollbar-none"
-            role="tablist"
-            aria-label="Note filters"
-          >
-            {tabs.map((tab) => {
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  tabIndex={isActive ? 0 : -1}
-                  onClick={() => onTabChange(tab.id)}
-                  className={cn(
-                    "relative inline-flex items-center gap-1 sm:gap-1.5 whitespace-nowrap rounded-lg px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-sm font-medium transition-colors duration-200",
-                    isActive
-                      ? "text-primary"
-                      : "text-base-content/40 sm:text-base-content/60 sm:hover:text-base-content sm:hover:bg-base-300/20",
-                  )}
-                >
-                  {isActive && (
-                    <m.span
-                      layoutId="toolbar-tab-indicator"
-                      className="absolute inset-0 rounded-lg bg-primary/10"
-                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                    />
-                  )}
-                  <span className="relative z-[1]">{tab.label}</span>
-                  <span
-                    className={cn(
-                      "relative z-[1] text-[10px] sm:text-xs tabular-nums",
-                      isActive ? "text-primary/70" : "text-base-content/30 sm:text-base-content/40",
-                    )}
-                  >
-                    {tab.badge}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+    <div className="ds-subtb-wrap">
+      <div className="ds-subtb">
+        <div className="ds-tabs" role="tablist" aria-label="Note filters">
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                tabIndex={isActive ? 0 : -1}
+                onClick={() => onTabChange(tab.id)}
+                className={`ds-tab${isActive ? " on" : ""}`}
+              >
+                <span>{tab.label}</span>
+                <span className="ds-badge">{tab.badge}</span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Right-side controls */}
-        <div className="flex items-center gap-1 sm:gap-1.5">
-          {/* Filter popover */}
-          <FilterPopover {...filterProps} />
+        <div className="ds-tb-spacer" />
 
-          {/* Select toggle — hidden on mobile unless active */}
+        <FilterPopover {...filterProps} />
+
+        <button
+          type="button"
+          onClick={onToggleSelection}
+          className={`ds-chip${selectionMode ? " on" : ""}`}
+          title={selectionMode ? "Exit selection" : "Select notes"}
+        >
+          <ListChecksIcon size={12} />
+          <span>{selectionMode ? "Done" : "Select"}</span>
+        </button>
+
+        {!selectionMode && (
           <button
             type="button"
-            onClick={onToggleSelection}
-            className={cn(
-              "btn btn-sm gap-1.5 rounded-lg",
-              selectionMode ? "btn-primary" : "btn-outline hidden sm:inline-flex",
-            )}
-            title={selectionMode ? "Exit selection" : "Select notes"}
+            onClick={onToggleCustomize}
+            disabled={customizeDisabled}
+            className={`ds-chip${customizeMode ? " on" : ""}`}
+            title={customizeMode ? "Finish reordering" : "Reorder notes"}
           >
-            <ListChecksIcon className="size-4" />
-            <span className="hidden sm:inline">
-              {selectionMode ? "Done" : "Select"}
-            </span>
+            <MoveIcon size={12} />
+            <span>{customizeMode ? "Done" : "Reorder"}</span>
           </button>
-
-          {/* Customize order — hidden on mobile unless active */}
-          {!selectionMode && (
-            <button
-              type="button"
-              onClick={onToggleCustomize}
-              disabled={customizeDisabled}
-              className={cn(
-                "btn btn-sm gap-1.5 rounded-lg",
-                customizeMode ? "btn-primary" : "btn-outline hidden sm:inline-flex",
-              )}
-              title={customizeMode ? "Finish reordering" : "Reorder notes"}
-            >
-              <MoveIcon className="size-4" />
-              <span className="hidden md:inline">
-                {customizeMode ? "Done" : "Reorder"}
-              </span>
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* Customize mode info */}
       <AnimatePresence>
         {customizeMode && (
           <m.div
@@ -160,16 +103,14 @@ function Toolbar({
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2 }}
-            className="overflow-hidden"
+            style={{ overflow: "hidden" }}
           >
-            <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm">
-              <MoveIcon className="size-4 text-primary" />
-              <span className="text-base-content/80">
-                Drag cards to reorder. Changes save automatically.
-              </span>
+            <div className="ds-alert">
+              <MoveIcon size={12} />
+              <span>Drag cards to reorder. Changes save automatically.</span>
               {savingOrder && (
-                <span className="ml-auto text-xs font-medium text-primary">
-                  Saving...
+                <span style={{ marginLeft: "auto", color: "var(--ds-accent)" }}>
+                  Saving…
                 </span>
               )}
             </div>
@@ -177,7 +118,6 @@ function Toolbar({
         )}
       </AnimatePresence>
 
-      {/* Active filter chips */}
       <AnimatePresence>
         {filtersApplied &&
           (filterChips.length > 0 || selectedTags.length > 0) && (
@@ -186,43 +126,36 @@ function Toolbar({
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2 }}
-              className="flex flex-wrap items-center gap-1.5 overflow-hidden"
+              className="ds-chips-row"
             >
               {filterChips.map(({ key, label, onClear }) => (
-                <m.button
+                <button
                   key={key}
                   type="button"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.15 }}
                   onClick={onClear}
-                  className="inline-flex items-center gap-1 rounded-full border border-base-content/[0.08] bg-base-content/[0.04] px-2.5 py-1 text-xs font-medium text-base-content/65 transition hover:bg-base-content/[0.08] hover:text-base-content"
+                  className="ds-chip"
                 >
                   <span>{label}</span>
-                  <XIcon className="size-3" />
-                </m.button>
+                  <XIcon size={10} />
+                </button>
               ))}
               {selectedTags.map((tag) => (
-                <m.button
+                <button
                   key={`tag-${tag}`}
                   type="button"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.15 }}
                   onClick={() => onRemoveTag?.(tag)}
-                  className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/[0.06] px-2.5 py-1 text-xs font-medium text-primary transition hover:bg-primary/10"
+                  className="ds-chip on"
                 >
                   <span>{tag}</span>
-                  <XIcon className="size-3" />
-                </m.button>
+                  <XIcon size={10} />
+                </button>
               ))}
               {onResetFilters && (
                 <button
                   type="button"
                   onClick={onResetFilters}
-                  className="text-xs font-medium text-base-content/50 hover:text-base-content transition-colors ml-1"
+                  className="ds-chip"
+                  style={{ marginLeft: 4 }}
                 >
                   Clear all
                 </button>

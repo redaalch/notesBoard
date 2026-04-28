@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Link,
   useLocation,
@@ -12,6 +12,8 @@ import {
   RotateCcwIcon,
 } from "lucide-react";
 import useAuth from "../hooks/useAuth";
+import { safeRedirectPath } from "../lib/safeRedirect";
+import { extractApiError } from "../lib/extractApiError";
 
 type VerifyStatus = "instructions" | "verifying" | "success" | "error";
 
@@ -33,48 +35,61 @@ const VerifyEmailPage = () => {
   const nextParam =
     searchParams.get("next") ??
     (location.state as Record<string, string> | null)?.next;
-  const nextPath = useMemo(() => {
-    if (typeof nextParam === "string" && nextParam.startsWith("/")) {
-      return nextParam;
-    }
-    return "/app";
-  }, [nextParam]);
+  const nextPath = useMemo(
+    () => safeRedirectPath(nextParam),
+    [nextParam],
+  );
 
   const [status, setStatus] = useState<VerifyStatus>(
     token ? "verifying" : "instructions",
   );
   const [errorMessage, setErrorMessage] = useState("");
   const [retrying, setRetrying] = useState(false);
+  // Prevents duplicate verify calls if the effect re-fires before the first
+  // request completes (e.g. rapid mount/unmount in StrictMode).
+  const verifyingRef = useRef(false);
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!token) {
+    if (!token || verifyingRef.current) {
       return;
     }
 
     let cancelled = false;
+    verifyingRef.current = true;
 
-    const timeoutId = setTimeout(async () => {
+    const run = async () => {
       setStatus("verifying");
       try {
         await verifyEmail(token);
         if (cancelled) return;
         setStatus("success");
-        setTimeout(() => {
+        redirectTimerRef.current = setTimeout(() => {
+          redirectTimerRef.current = null;
           navigate(nextPath, { replace: true });
         }, 1200);
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (cancelled) return;
-        const message =
-          error.response?.data?.message ??
-          "We couldn't verify your email. The link may have expired.";
-        setErrorMessage(message);
+        setErrorMessage(
+          extractApiError(
+            error,
+            "We couldn't verify your email. The link may have expired.",
+          ),
+        );
         setStatus("error");
+      } finally {
+        verifyingRef.current = false;
       }
-    }, 0);
+    };
+
+    run();
 
     return () => {
       cancelled = true;
-      clearTimeout(timeoutId);
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+        redirectTimerRef.current = null;
+      }
     };
   }, [token, verifyEmail, navigate, nextPath]);
 
@@ -94,14 +109,20 @@ const VerifyEmailPage = () => {
     try {
       await verifyEmail(token);
       setStatus("success");
-      setTimeout(() => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+      }
+      redirectTimerRef.current = setTimeout(() => {
+        redirectTimerRef.current = null;
         navigate(nextPath, { replace: true });
       }, 1200);
-    } catch (error: any) {
-      const message =
-        error.response?.data?.message ??
-        "We couldn't verify your email. The link may have expired.";
-      setErrorMessage(message);
+    } catch (error: unknown) {
+      setErrorMessage(
+        extractApiError(
+          error,
+          "We couldn't verify your email. The link may have expired.",
+        ),
+      );
       setStatus("error");
     } finally {
       setRetrying(false);

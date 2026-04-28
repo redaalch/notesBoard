@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeftIcon, LoaderIcon, MailIcon } from "lucide-react";
 import { toast } from "sonner";
 import api from "../lib/axios";
+import { extractApiError } from "../lib/extractApiError";
 
 const ForgotPasswordPage = () => {
   const [email, setEmail] = useState("");
@@ -31,11 +32,13 @@ const ForgotPasswordPage = () => {
       toast.success(
         "If an account exists, you'll receive a reset email shortly.",
       );
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ??
-        "We couldn't send the reset email. Please try again.";
-      toast.error(message);
+    } catch (error: unknown) {
+      toast.error(
+        extractApiError(
+          error,
+          "We couldn't send the reset email. Please try again.",
+        ),
+      );
     } finally {
       setLoading(false);
     }

@@ -1,9 +1,4 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import {
-  initializeOfflineSync,
-  subscribeOfflineStatus,
-  triggerManualSync,
-} from "../lib/offlineSyncManager";
 import type { OfflineStatusSnapshot } from "../lib/offlineSyncManager";
 import OfflineSyncContext from "./offlineSyncContext";
 
@@ -21,15 +16,28 @@ export const OfflineSyncProvider = ({ children }: OfflineSyncProviderProps) => {
   });
 
   useEffect(() => {
-    initializeOfflineSync();
-    const unsubscribe = subscribeOfflineStatus(setStatus);
-    return () => unsubscribe();
+    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
+
+    void import("../lib/offlineSyncManager").then((mod) => {
+      if (cancelled) return;
+      mod.initializeOfflineSync();
+      unsubscribe = mod.subscribeOfflineStatus(setStatus);
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, []);
 
   const value = useMemo(
     () => ({
       ...status,
-      syncNow: triggerManualSync,
+      syncNow: async () => {
+        const mod = await import("../lib/offlineSyncManager");
+        await mod.triggerManualSync();
+      },
     }),
     [status],
   );

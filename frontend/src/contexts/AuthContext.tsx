@@ -9,7 +9,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import api from "../lib/axios";
-import { extractApiError } from "../lib/sanitize";
+import { extractApiError } from "../lib/extractApiError";
 
 import AuthContext, {
   type AuthUser,
@@ -170,7 +170,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         toast.success(`Welcome back, ${profile.name}`);
         return profile;
       } catch (error: unknown) {
-        const status = (error as any)?.response?.status;
+        const status = (error as { response?: { status?: number } })?.response
+          ?.status;
         const message = extractApiError(
           error,
           "Failed to log in. Check credentials.",
@@ -200,7 +201,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         toast.success(message);
         return { message };
       } catch (error: unknown) {
-        const data = (error as any)?.response?.data;
+        const data = (
+          error as {
+            response?: {
+              data?: { errors?: { message?: string }[] };
+            };
+          } | null
+        )?.response?.data;
         // Prefer the first field-specific validation message over the generic one
         const fieldMsg = data?.errors?.[0]?.message;
         const message =

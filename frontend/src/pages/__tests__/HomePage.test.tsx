@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
+import { LazyMotion, domAnimation } from "framer-motion";
 
 vi.mock("../../lib/axios", () => ({
   default: {
@@ -29,8 +30,17 @@ vi.mock("../../hooks/useSemanticSearch", () => ({
   }),
 }));
 
+type NavbarMockProps = {
+  searchQuery: string;
+  onSearchChange: (v: string) => void;
+  onMobileSidebarClick: () => void;
+};
 vi.mock("../../Components/Navbar", () => ({
-  default: ({ searchQuery, onSearchChange, onMobileSidebarClick }: any) => (
+  default: ({
+    searchQuery,
+    onSearchChange,
+    onMobileSidebarClick,
+  }: NavbarMockProps) => (
     <div>
       <button type="button" onClick={onMobileSidebarClick}>
         open-side
@@ -44,8 +54,17 @@ vi.mock("../../Components/Navbar", () => ({
   ),
 }));
 
+type SidebarMockProps = {
+  onSelectNotebook: (id: string) => void;
+  onCreateNotebook?: () => void;
+  onDeleteNotebook?: (nb: { id: string; name: string; noteCount: number }) => void;
+};
 vi.mock("../../Components/Sidebar", () => ({
-  default: ({ onSelectNotebook, onCreateNotebook, onDeleteNotebook }: any) => (
+  default: ({
+    onSelectNotebook,
+    onCreateNotebook,
+    onDeleteNotebook,
+  }: SidebarMockProps) => (
     <div>
       <button type="button" onClick={() => onSelectNotebook("all")}>
         notebook-all
@@ -65,15 +84,19 @@ vi.mock("../../Components/Sidebar", () => ({
   ),
 }));
 
+type ToolbarMockProps = {
+  onToggleSelection: () => void;
+  filterProps?: { onSortOrderChange?: (v: string) => void };
+};
 vi.mock("../../Components/Toolbar", () => ({
-  default: ({ onToggleSelection, filterProps }: any) => (
+  default: ({ onToggleSelection, filterProps }: ToolbarMockProps) => (
     <div>
       <button type="button" onClick={onToggleSelection}>
         toggle-selection
       </button>
       <select
         aria-label="sort-order"
-        onChange={(e: any) => filterProps?.onSortOrderChange?.(e.target.value)}
+        onChange={(e) => filterProps?.onSortOrderChange?.(e.target.value)}
       >
         <option value="newest">newest</option>
         <option value="oldest">oldest</option>
@@ -83,8 +106,29 @@ vi.mock("../../Components/Toolbar", () => ({
   ),
 }));
 
+type NoteCardMockProps = {
+  note: {
+    _id: string;
+    title: string;
+    tags?: string[];
+  };
+  selectionMode?: boolean;
+  selected?: boolean;
+  onSelectionChange?: (
+    id: string,
+    checked: boolean,
+    ctx: { event: { shiftKey: boolean } },
+  ) => void;
+  onTagClick?: (tag: string) => void;
+};
 vi.mock("../../Components/NoteCard", () => ({
-  default: ({ note, selectionMode, selected, onSelectionChange, onTagClick }: any) => (
+  default: ({
+    note,
+    selectionMode,
+    selected,
+    onSelectionChange,
+    onTagClick,
+  }: NoteCardMockProps) => (
     <article>
       <h3>{note.title}</h3>
       {(note.tags ?? []).map((tag: string) => (
@@ -114,7 +158,7 @@ vi.mock("../../Components/NoteCard", () => ({
 }));
 
 vi.mock("../../Components/BulkActionsBar", () => ({
-  default: ({ onAddTags }: any) => (
+  default: ({ onAddTags }: { onAddTags: () => void }) => (
     <div>
       <button type="button" onClick={onAddTags}>
         add-tags
@@ -123,8 +167,12 @@ vi.mock("../../Components/BulkActionsBar", () => ({
   ),
 }));
 
+type TagInputMockProps = {
+  value?: string[];
+  onChange: (v: string[]) => void;
+};
 vi.mock("../../Components/TagInput", () => ({
-  default: ({ value, onChange }: any) => (
+  default: ({ value, onChange }: TagInputMockProps) => (
     <input
       aria-label="tag-input"
       value={(value ?? []).join(",")}
@@ -137,6 +185,9 @@ vi.mock("../../Components/TagInput", () => ({
 
 import HomePage from "../HomePage";
 import api from "../../lib/axios";
+import AuthContext, {
+  type AuthContextValue,
+} from "../../contexts/authContext";
 
 const mockedApi = api as unknown as {
   get: Mock;
@@ -144,6 +195,24 @@ const mockedApi = api as unknown as {
   put: Mock;
   patch: Mock;
   delete: Mock;
+};
+
+const authContextValue: AuthContextValue = {
+  user: {
+    id: "user-1",
+    name: "Test User",
+    email: "test@example.com",
+  },
+  accessToken: "test-token",
+  initializing: false,
+  login: vi.fn(),
+  register: vi.fn(),
+  updateProfile: vi.fn(),
+  changePassword: vi.fn(),
+  resendVerificationEmail: vi.fn(),
+  verifyEmail: vi.fn(),
+  logout: vi.fn(),
+  refresh: vi.fn(async () => "test-token"),
 };
 
 const createNotes = (count: number) =>
@@ -161,7 +230,24 @@ const createNotes = (count: number) =>
     };
   });
 
-const buildApiGetMock = (notes: any[]) => {
+const createNotebook = (overrides?: {
+  id?: string;
+  name?: string;
+  color?: string;
+  noteCount?: number;
+}) => ({
+  id: overrides?.id ?? "nb-1",
+  name: overrides?.name ?? "TestNB",
+  color: overrides?.color ?? "#60a5fa",
+  noteCount: overrides?.noteCount ?? 3,
+});
+
+type TestNote = ReturnType<typeof createNotes>[number];
+type TestNotebook = ReturnType<typeof createNotebook>;
+const buildApiGetMock = (
+  notes: TestNote[],
+  notebooks: TestNotebook[] = [],
+) => {
   mockedApi.get.mockImplementation(async (url: string) => {
     if (url === "/notes") {
       return { data: { data: notes } };
@@ -179,18 +265,10 @@ const buildApiGetMock = (notes: any[]) => {
       };
     }
     if (url === "/notebooks") {
-      return { data: { notebooks: [], uncategorizedCount: notes.length } };
+      return { data: { notebooks, uncategorizedCount: notes.length } };
     }
     if (url === "/templates") {
       return { data: [] };
-    }
-    if (url === "/boards") {
-      return {
-        data: {
-          boards: [{ id: "board-1", name: "Main Board", workspaceName: "WS" }],
-          defaultBoardId: "board-1",
-        },
-      };
     }
     if (url === "/workspaces") {
       return { data: [] };
@@ -199,7 +277,12 @@ const buildApiGetMock = (notes: any[]) => {
   });
 };
 
-const renderHomePage = () => {
+// Notes render in both a mobile and desktop grid (hidden via CSS media
+// queries), so note text / labels appear twice in the DOM.  Use *AllBy*
+// queries to avoid "found multiple elements" errors.
+const waitForNotes = () => screen.findAllByText("Note 1");
+
+const renderHomePage = (initialEntries = ["/app"]) => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false, gcTime: Infinity },
@@ -208,9 +291,13 @@ const renderHomePage = () => {
   });
 
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={initialEntries}>
       <QueryClientProvider client={queryClient}>
-        <HomePage />
+        <AuthContext.Provider value={authContextValue}>
+          <LazyMotion features={domAnimation}>
+            <HomePage />
+          </LazyMotion>
+        </AuthContext.Provider>
       </QueryClientProvider>
     </MemoryRouter>,
   );
@@ -230,20 +317,20 @@ describe("HomePage", () => {
     const notes = createNotes(8);
     buildApiGetMock(notes);
 
-    renderHomePage();
+    const view = renderHomePage();
 
-    await screen.findByText("Note 1");
-    expect(screen.queryByText("Note 7")).not.toBeInTheDocument();
+    await waitForNotes();
+    expect(screen.queryAllByText("Note 7")).toHaveLength(0);
 
     await userEvent.click(screen.getByRole("button", { name: "2" }));
-    expect(await screen.findByText("Note 7")).toBeInTheDocument();
+    expect((await screen.findAllByText("Note 7")).length).toBeGreaterThan(0);
+    view.unmount();
 
-    await userEvent.clear(screen.getByLabelText("search notes"));
-    await userEvent.type(screen.getByLabelText("search notes"), "Note 7");
+    renderHomePage(["/app?q=Note%207"]);
 
     await waitFor(() => {
-      expect(screen.getByText("Note 7")).toBeInTheDocument();
-      expect(screen.queryByText("Note 1")).not.toBeInTheDocument();
+      expect(screen.getAllByText("Note 7").length).toBeGreaterThan(0);
+      expect(screen.queryAllByText("Note 1")).toHaveLength(0);
     });
   });
 
@@ -253,13 +340,14 @@ describe("HomePage", () => {
 
     renderHomePage();
 
-    await screen.findByText("Note 1");
+    await waitForNotes();
 
     await userEvent.click(
       screen.getByRole("button", { name: "toggle-selection" }),
     );
 
-    await userEvent.click(screen.getByLabelText("select-Note 1"));
+    const checkboxes = screen.getAllByLabelText("select-Note 1");
+    await userEvent.click(checkboxes[0]);
 
     await userEvent.click(
       await screen.findByRole("button", { name: "add-tags" }),
@@ -278,15 +366,15 @@ describe("HomePage", () => {
 
     renderHomePage();
 
-    await screen.findByText("Note 1");
+    await waitForNotes();
 
     await userEvent.click(
       screen.getByRole("button", { name: "toggle-selection" }),
     );
 
-    const firstCheckbox = screen.getByLabelText(
+    const firstCheckbox = screen.getAllByLabelText(
       "select-Note 1",
-    ) as HTMLInputElement;
+    )[0] as HTMLInputElement;
     await userEvent.click(firstCheckbox);
     expect(firstCheckbox.checked).toBe(true);
 
@@ -294,16 +382,16 @@ describe("HomePage", () => {
     await userEvent.click(
       screen.getByRole("button", { name: "toggle-selection" }),
     );
-    expect(screen.queryByLabelText("select-Note 1")).not.toBeInTheDocument();
+    expect(screen.queryAllByLabelText("select-Note 1")).toHaveLength(0);
 
     await userEvent.click(
       screen.getByRole("button", { name: "toggle-selection" }),
     );
 
-    const reopenedCheckbox = (await screen.findByLabelText(
+    const reopenedCheckboxes = await screen.findAllByLabelText(
       "select-Note 1",
-    )) as HTMLInputElement;
-    expect(reopenedCheckbox.checked).toBe(false);
+    );
+    expect((reopenedCheckboxes[0] as HTMLInputElement).checked).toBe(false);
   });
 
   it("filters notes when a tag chip is clicked", async () => {
@@ -312,7 +400,7 @@ describe("HomePage", () => {
 
     renderHomePage();
 
-    await screen.findByText("Note 1");
+    await waitForNotes();
 
     // Click the "alpha" tag on the first visible note
     const tagButtons = screen.getAllByRole("button", { name: "tag-alpha" });
@@ -320,7 +408,7 @@ describe("HomePage", () => {
 
     // All 8 notes have "alpha", so they should all still appear (filtered to that tag)
     await waitFor(() => {
-      expect(screen.getByText("Note 1")).toBeInTheDocument();
+      expect(screen.getAllByText("Note 1").length).toBeGreaterThan(0);
     });
   });
 
@@ -331,17 +419,17 @@ describe("HomePage", () => {
     renderHomePage();
 
     // Wait for page 1 to render (6 notes per page by default)
-    await screen.findByText("Note 1");
+    await waitForNotes();
 
     // Navigate to page 2
     await userEvent.click(screen.getByRole("button", { name: "2" }));
-    expect(await screen.findByText("Note 7")).toBeInTheDocument();
+    expect((await screen.findAllByText("Note 7")).length).toBeGreaterThan(0);
 
     // Change sort to alphabetical — should reset to page 1
     await userEvent.selectOptions(screen.getByLabelText("sort-order"), "alphabetical");
 
     await waitFor(() => {
-      expect(screen.getByText("Note 1")).toBeInTheDocument();
+      expect(screen.getAllByText("Note 1").length).toBeGreaterThan(0);
     });
   });
 
@@ -351,10 +439,10 @@ describe("HomePage", () => {
 
     renderHomePage();
 
-    await screen.findByText("Note 1");
+    await waitForNotes();
 
     await userEvent.click(
-      screen.getByRole("button", { name: "create-notebook" }),
+      screen.getByRole("button", { name: /new notebook/i }),
     );
 
     await waitFor(() => {
@@ -366,14 +454,18 @@ describe("HomePage", () => {
 
   it("opens the delete-notebook confirmation from sidebar", async () => {
     const notes = createNotes(2);
-    buildApiGetMock(notes);
+    buildApiGetMock(notes, [createNotebook()]);
 
     renderHomePage();
 
-    await screen.findByText("Note 1");
+    await waitForNotes();
 
     await userEvent.click(
-      screen.getByRole("button", { name: "delete-notebook" }),
+      screen.getByRole("button", { name: /actions for testnb/i }),
+    );
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^delete$/i }),
     );
 
     await waitFor(() => {

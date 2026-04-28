@@ -7,8 +7,10 @@ import {
   LoaderIcon,
   XCircleIcon,
 } from "lucide-react";
+import axios from "axios";
 import { toast } from "sonner";
 import api from "../lib/axios";
+import { extractApiError } from "../lib/extractApiError";
 
 type InviteStatus = "loading" | "success" | "expired" | "error";
 
@@ -79,12 +81,13 @@ function NotebookInvitePage() {
           setNotebookId(body.notebookId as string);
         }
         toast.success("Notebook invitation accepted");
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (cancelled) return;
-        const errorMessage =
-          error?.response?.data?.message ??
-          "We couldn't accept this invitation.";
-        if (error?.response?.status === 410) {
+        const errorMessage = extractApiError(
+          error,
+          "We couldn't accept this invitation.",
+        );
+        if (axios.isAxiosError(error) && error.response?.status === 410) {
           setStatus("expired");
         } else {
           setStatus("error");

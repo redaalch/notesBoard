@@ -1,10 +1,7 @@
-import { useState, type CSSProperties } from "react";
+import { useState, useRef, type CSSProperties } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { m } from "framer-motion";
-import { useSwipeable } from "react-swipeable";
 import {
-  BookmarkIcon,
-  BookmarkPlusIcon,
   EyeIcon,
   GripVerticalIcon,
   LoaderIcon,
@@ -13,6 +10,8 @@ import {
   TrashIcon,
   UsersIcon,
   SparklesIcon,
+  BookmarkIcon,
+  BookmarkPlusIcon,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -22,12 +21,9 @@ import {
   stripMarkdown,
 } from "../lib/Utils";
 import api from "../lib/axios";
-import { extractApiError } from "../lib/sanitize";
+import { extractApiError } from "../lib/extractApiError";
 import { toast } from "sonner";
 import ConfirmDialog from "./ConfirmDialog";
-
-// ── Tag helpers ──────────────────────────────────────────────────────────────
-// Monochrome tags — color is reserved for semantic meaning only (active filter)
 
 export interface NoteObject {
   _id: string;
@@ -86,6 +82,7 @@ function NoteCard({
   const [pinning, setPinning] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [showActions, setShowActions] = useState(false);
+  const touchStartX = useRef(0);
 
   const handleSelectionChange = (
     checked: boolean,
@@ -198,67 +195,77 @@ function NoteCard({
   const isShared = Boolean(note?.notebookRole && note.notebookRole !== "owner");
   const cleanContent = stripMarkdown(note.content ?? "");
 
-  // Swipe gesture handlers for mobile — left = delete, right = pin
-  const swipeHandlers = useSwipeable({
-    onSwiping: (eventData) => {
-      if (selectionMode || customizeMode || dragging) return;
-      // Allow swiping in both directions
-      if (Math.abs(eventData.deltaX) > 10) {
-        setSwipeOffset(eventData.deltaX);
-        setShowActions(true);
-      }
-    },
-    onSwiped: (eventData) => {
-      if (selectionMode || customizeMode || dragging) return;
-      if (eventData.deltaX < -80) {
-        // Swiped left far enough → show delete
-        setSwipeOffset(-120);
-      } else if (eventData.deltaX > 80) {
-        // Swiped right far enough → show pin
-        setSwipeOffset(120);
-      } else {
-        setSwipeOffset(0);
-        setShowActions(false);
-      }
-    },
-    trackMouse: false,
-    trackTouch: true,
-  });
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (selectionMode || customizeMode || dragging) return;
+    const deltaX = e.touches[0].clientX - touchStartX.current;
+    if (Math.abs(deltaX) > 10) {
+      setSwipeOffset(deltaX);
+      setShowActions(true);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (selectionMode || customizeMode || dragging) return;
+    if (swipeOffset < -80) {
+      setSwipeOffset(-120);
+    } else if (swipeOffset > 80) {
+      setSwipeOffset(120);
+    } else {
+      setSwipeOffset(0);
+      setShowActions(false);
+    }
+  };
+
+  const noteClass = [
+    "ds-note",
+    note.pinned ? "pinned" : "",
+    selected ? "selected" : "",
+    dragging ? "dragging" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <>
-      <div className="relative h-full">
-        {/* Swipe action buttons (behind card) */}
+      <div style={{ position: "relative", height: "100%" }}>
         {showActions && (
           <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-y-0 flex items-center z-0"
             style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              zIndex: 0,
               ...(swipeOffset < 0
-                ? { right: 0, paddingRight: "1rem" }
-                : { left: 0, paddingLeft: "1rem" }),
+                ? { justifyContent: "flex-end", paddingRight: 16 }
+                : { justifyContent: "flex-start", paddingLeft: 16 }),
             }}
           >
             {swipeOffset < 0 ? (
-              /* Left-swipe → delete */
               <button
+                type="button"
+                className="ds-note-ibtn danger"
                 onClick={(e) => {
                   e.stopPropagation();
                   setConfirmOpen(true);
                   setSwipeOffset(0);
                   setShowActions(false);
                 }}
-                className="btn btn-sm btn-error gap-1"
                 aria-label="Delete note"
               >
-                <TrashIcon className="size-4" />
-                Delete
+                <TrashIcon size={14} /> Delete
               </button>
             ) : (
-              /* Right-swipe → pin/unpin */
               <button
+                type="button"
+                className="ds-note-ibtn"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleTogglePin();
@@ -266,41 +273,27 @@ function NoteCard({
                   setShowActions(false);
                 }}
                 disabled={pinning}
-                className="btn btn-sm btn-warning gap-1"
                 aria-label={note.pinned ? "Unpin note" : "Pin note"}
               >
-                {note.pinned ? (
-                  <PinOffIcon className="size-4" />
-                ) : (
-                  <PinIcon className="size-4" />
-                )}
+                {note.pinned ? <PinOffIcon size={14} /> : <PinIcon size={14} />}
                 {note.pinned ? "Unpin" : "Pin"}
               </button>
             )}
           </m.div>
         )}
 
-        {/* Card content (slides on swipe) */}
         <m.article
-          {...swipeHandlers}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
           ref={innerRef as React.Ref<HTMLElement>}
-          style={style}
+          style={{ ...style, position: "relative", zIndex: 1 }}
           {...(cardDragProps ?? {})}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{
-            opacity: 1,
-            y: 0,
-            x: swipeOffset,
-          }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          className={`group/card card premium-card relative z-10 md:h-[180px] cursor-pointer ${
-            note.pinned ? "premium-card--pinned" : ""
-          } ${
-            selected
-              ? "premium-card--selected"
-              : "md:hover:-translate-y-px"
-          } ${dragging ? "opacity-80 shadow-2xl ring-1 ring-primary/50" : ""}`}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0, x: swipeOffset }}
+          exit={{ opacity: 0, scale: 0.97 }}
+          transition={{ type: "spring", stiffness: 300, damping: 24 }}
+          className={noteClass}
           onClick={
             selectionMode
               ? (event: React.MouseEvent) => toggleSelection(event)
@@ -316,199 +309,138 @@ function NoteCard({
           role="group"
           aria-pressed={selectionMode ? selected : undefined}
         >
-          <div className="card-body gap-1 px-3 py-2 md:gap-1.5 md:px-3.5 md:py-3 flex flex-row md:flex-col h-full">
-            {/* ── Mobile: compact horizontal list item ─────────── */}
-            {/* Left side: title + one-line preview + timestamp */}
-            <div className="flex-1 min-w-0 md:contents">
-              {/* Header */}
-              <header className="flex items-start justify-between gap-2">
-                <div className="flex items-start gap-2.5 min-w-0">
-                  {selectionMode && !customizeMode && (
-                    <div className="pt-0.5 shrink-0">
-                      <input
-                        type="checkbox"
-                        className="checkbox checkbox-primary checkbox-sm"
-                        checked={selected}
-                        onChange={(event) => {
-                          event.stopPropagation();
-                          handleSelectionChange(event.target.checked, event);
-                        }}
-                        aria-label={selected ? "Deselect note" : "Select note"}
-                      />
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <h3 className="text-sm font-bold leading-snug tracking-[-0.01em] text-base-content truncate">
-                        {note.title || "Untitled note"}
-                      </h3>
-                      {note.pinned && (
-                        <PinIcon
-                          className="size-3.5 text-amber-500 shrink-0"
-                          aria-label="Pinned"
-                        />
-                      )}
-                      {isShared && (
-                        <UsersIcon
-                          className="size-3 text-base-content/30 shrink-0"
-                          aria-label="Shared"
-                        />
-                      )}
-                      {isViewOnly && (
-                        <span className="text-[10px] font-medium text-base-content/40 shrink-0">
-                          View only
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                {customizeMode && (
+          <header className="ds-note-head">
+            {selectionMode && !customizeMode && (
+              <input
+                type="checkbox"
+                className="ds-note-check"
+                checked={selected}
+                onChange={(event) => {
+                  event.stopPropagation();
+                  handleSelectionChange(event.target.checked, event);
+                }}
+                onClick={(e) => e.stopPropagation()}
+                aria-label={selected ? "Deselect note" : "Select note"}
+              />
+            )}
+            <h3 className="ds-note-title">{note.title || "Untitled note"}</h3>
+            <div className="ds-note-marks">
+              {note.pinned && (
+                <span className="pin" aria-label="Pinned" title="Pinned">
+                  <PinIcon size={12} />
+                </span>
+              )}
+              {isShared && (
+                <span aria-label="Shared" title="Shared">
+                  <UsersIcon size={12} />
+                </span>
+              )}
+              {isViewOnly && <span className="viewonly">View only</span>}
+            </div>
+            {customizeMode && (
+              <button
+                type="button"
+                className="ds-grip"
+                aria-label="Drag note"
+                ref={dragHandleRef as React.Ref<HTMLButtonElement>}
+                onClick={(e) => e.stopPropagation()}
+                {...(dragHandleProps ?? {})}
+              >
+                <GripVerticalIcon size={12} />
+              </button>
+            )}
+          </header>
+
+          <p className="ds-note-body">
+            {cleanContent?.replace(/\n+/g, " ") ||
+              "No content yet. Tap to open and start writing."}
+          </p>
+
+          {Array.isArray(note.tags) && note.tags.length > 0 && (
+            <div className="ds-note-tags">
+              {note.tags.slice(0, 3).map((tag) => {
+                const normalized = normalizeTag(tag);
+                const isActive = selectedTags.includes(normalized);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    className={`ds-note-tag${isActive ? " active" : ""}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onTagClick?.(normalized);
+                    }}
+                    aria-pressed={isActive}
+                    aria-label={`Filter by tag ${formatTagLabel(tag)}`}
+                  >
+                    {formatTagLabel(tag)}
+                  </button>
+                );
+              })}
+              {note.tags.length > 3 && (
+                <span className="ds-note-tag-more">
+                  +{note.tags.length - 3}
+                </span>
+              )}
+            </div>
+          )}
+
+          <footer className="ds-note-foot">
+            <span className="ds-note-time">{formatRelativeTime(updatedAt)}</span>
+            {!selectionMode && !customizeMode && (
+              <div className="ds-note-actions">
+                {typeof onOpenInsights === "function" && (
                   <button
                     type="button"
-                    className="btn btn-ghost btn-xs btn-circle cursor-grab active:cursor-grabbing shrink-0"
-                    aria-label="Drag note"
-                    ref={dragHandleRef as React.Ref<HTMLButtonElement>}
-                    {...(dragHandleProps ?? {})}
+                    className="ds-note-ibtn"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onOpenInsights(note);
+                    }}
+                    aria-label="Open recommendations and smart view"
+                    title="Smart view"
                   >
-                    <GripVerticalIcon className="size-4" />
+                    <SparklesIcon size={12} />
                   </button>
                 )}
-              </header>
-
-              {/* Content preview — markdown stripped, 2-line max */}
-              <p className="hidden md:block text-[13px] leading-relaxed text-base-content/65 line-clamp-2">
-                {cleanContent?.replace(/\n+/g, " ") ||
-                  "No content yet. Tap to open and start writing."}
-              </p>
-              {/* Mobile: one-line preview */}
-              <p className="md:hidden text-xs leading-normal text-base-content/60 truncate">
-                {cleanContent || "No content yet"}
-              </p>
-
-              {/* Tags — monochrome, max 2 visible */}
-              {Array.isArray(note.tags) && note.tags.length > 0 && (
-                <div className="hidden md:flex items-center gap-1 mt-0.5">
-                  {note.tags.slice(0, 2).map((tag) => {
-                    const normalized = normalizeTag(tag);
-                    const isActive = selectedTags.includes(normalized);
-
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
-                          isActive
-                            ? "bg-primary/15 text-primary"
-                            : "bg-base-content/[0.06] text-base-content/55 hover:text-base-content/75 hover:bg-base-content/[0.1]"
-                        }`}
-                        onClick={() => onTagClick?.(normalized)}
-                        aria-pressed={isActive}
-                        aria-label={`Filter by tag ${formatTagLabel(tag)}`}
-                      >
-                        {formatTagLabel(tag)}
-                      </button>
-                    );
-                  })}
-                  {note.tags.length > 2 && (
-                    <span className="text-[10px] text-base-content/40 font-medium self-center">
-                      +{note.tags.length - 2}
-                    </span>
+                <button
+                  type="button"
+                  className="ds-note-ibtn"
+                  onClick={handleTogglePin}
+                  disabled={pinning}
+                  aria-label={note.pinned ? "Unpin note" : "Pin note"}
+                  title={note.pinned ? "Unpin" : "Pin"}
+                >
+                  {pinning ? (
+                    <LoaderIcon size={12} className="ds-spin" />
+                  ) : note.pinned ? (
+                    <BookmarkIcon size={12} />
+                  ) : (
+                    <BookmarkPlusIcon size={12} />
                   )}
-                </div>
-              )}
-
-              {/* Footer: timestamp left, hover-revealed actions right */}
-              <footer className="hidden md:flex items-center justify-between gap-2 mt-auto pt-1.5 border-t border-base-content/[0.08]">
-                <span className="text-[10px] text-base-content/45 whitespace-nowrap tabular-nums">
-                  {formatRelativeTime(updatedAt)}
-                </span>
-                {!selectionMode && !customizeMode && (
-                  <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover/card:opacity-100 focus-within:opacity-100 transition-opacity duration-150">
-                    {typeof onOpenInsights === "function" ? (
-                      <div
-                        className="tooltip tooltip-top"
-                        data-tip="Smart view"
-                      >
-                        <button
-                          className="btn btn-ghost btn-xs btn-circle"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            onOpenInsights(note);
-                          }}
-                          aria-label="Open recommendations and smart view"
-                        >
-                          <SparklesIcon className="size-3.5" />
-                        </button>
-                      </div>
-                    ) : null}
-                    <div
-                      className="tooltip tooltip-top"
-                      data-tip={note.pinned ? "Unpin" : "Pin"}
-                    >
-                      <button
-                        className="btn btn-ghost btn-xs btn-circle"
-                        onClick={handleTogglePin}
-                        disabled={pinning}
-                        aria-label={note.pinned ? "Unpin note" : "Pin note"}
-                      >
-                        {pinning ? (
-                          <LoaderIcon className="size-3.5 animate-spin" />
-                        ) : note.pinned ? (
-                          <BookmarkIcon className="size-3.5" />
-                        ) : (
-                          <BookmarkPlusIcon className="size-3.5" />
-                        )}
-                      </button>
-                    </div>
-                    <div
-                      className="tooltip tooltip-top"
-                      data-tip="View note"
-                    >
-                      <Link
-                        to={`/note/${note._id}`}
-                        className="btn btn-ghost btn-xs btn-circle"
-                        aria-label="View note"
-                      >
-                        <EyeIcon className="size-3.5" />
-                      </Link>
-                    </div>
-                    <div className="tooltip tooltip-top" data-tip="Delete">
-                      <button
-                        className="btn btn-ghost btn-xs btn-circle text-error/70 hover:text-error hover:bg-error/10"
-                        onClick={openConfirm}
-                        aria-label="Delete note"
-                      >
-                        <TrashIcon className="size-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </footer>
-
-              {/* Mobile footer — just timestamp */}
-              <span className="md:hidden text-[10px] text-base-content/50 whitespace-nowrap">
-                {note.updatedAt
-                  ? formatRelativeTime(updatedAt)
-                  : formatRelativeTime(createdAt)}
-              </span>
-            </div>
-            {/* end mobile wrapper */}
-
-            {/* Mobile: pin + tag count (right side) */}
-            <div className="flex md:hidden flex-col items-end justify-between gap-1 shrink-0 pl-2">
-              {note.pinned && (
-                <PinIcon
-                  className="size-3 text-amber-500/70"
-                  aria-label="Pinned"
-                />
-              )}
-              {Array.isArray(note.tags) && note.tags.length > 0 && (
-                <span className="text-[10px] text-base-content/30">
-                  {note.tags.length} tag{note.tags.length !== 1 ? "s" : ""}
-                </span>
-              )}
-            </div>
-          </div>
+                </button>
+                <Link
+                  to={`/note/${note._id}`}
+                  className="ds-note-ibtn"
+                  aria-label="View note"
+                  title="View"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <EyeIcon size={12} />
+                </Link>
+                <button
+                  type="button"
+                  className="ds-note-ibtn danger"
+                  onClick={openConfirm}
+                  aria-label="Delete note"
+                  title="Delete"
+                >
+                  <TrashIcon size={12} />
+                </button>
+              </div>
+            )}
+          </footer>
         </m.article>
       </div>
 

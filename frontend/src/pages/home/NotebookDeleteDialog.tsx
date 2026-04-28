@@ -1,17 +1,27 @@
 import { AlertTriangleIcon } from "lucide-react";
 
+export interface DeleteStateNotebook {
+  id: string;
+  name?: string;
+  noteCount?: number;
+}
+
+export interface DeleteState {
+  notebook: DeleteStateNotebook;
+  mode: string;
+  targetNotebookId: string;
+  deleteCollaborative: boolean;
+}
+
 interface NotebookDeleteDialogProps {
-  deleteState: {
-    notebook: any;
-    mode: string;
-    targetNotebookId: string;
-    deleteCollaborative: boolean;
-  } | null;
-  notebooks: any[];
+  deleteState: DeleteState | null;
+  notebooks: { id: string; name: string }[];
   loading: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  onUpdateState: (updater: (prev: any) => any) => void;
+  onUpdateState: (
+    updater: (prev: DeleteState | null) => DeleteState | null,
+  ) => void;
 }
 
 export default function NotebookDeleteDialog({
@@ -58,7 +68,7 @@ export default function NotebookDeleteDialog({
                 className="radio radio-sm"
                 checked={deleteState.mode === "move"}
                 onChange={() =>
-                  onUpdateState((prev: any) =>
+                  onUpdateState((prev) =>
                     prev ? { ...prev, mode: "move" } : prev,
                   )
                 }
@@ -73,7 +83,7 @@ export default function NotebookDeleteDialog({
                   className="select select-bordered select-sm mt-2 w-full max-w-xs"
                   value={deleteState.targetNotebookId ?? "uncategorized"}
                   onChange={(event) =>
-                    onUpdateState((prev: any) =>
+                    onUpdateState((prev) =>
                       prev
                         ? { ...prev, targetNotebookId: event.target.value }
                         : prev,
@@ -83,9 +93,7 @@ export default function NotebookDeleteDialog({
                 >
                   <option value="uncategorized">Uncategorized</option>
                   {notebooks
-                    .filter(
-                      (entry) => entry.id !== deleteState.notebook?.id,
-                    )
+                    .filter((entry) => entry.id !== deleteState.notebook.id)
                     .map((entry) => (
                       <option key={entry.id} value={entry.id}>
                         {entry.name}
@@ -101,7 +109,7 @@ export default function NotebookDeleteDialog({
                 className="radio radio-sm"
                 checked={deleteState.mode === "delete"}
                 onChange={() =>
-                  onUpdateState((prev: any) =>
+                  onUpdateState((prev) =>
                     prev ? { ...prev, mode: "delete" } : prev,
                   )
                 }
@@ -117,7 +125,7 @@ export default function NotebookDeleteDialog({
                     className="checkbox checkbox-sm"
                     checked={Boolean(deleteState.deleteCollaborative)}
                     onChange={(event) =>
-                      onUpdateState((prev: any) =>
+                      onUpdateState((prev) =>
                         prev
                           ? {
                               ...prev,

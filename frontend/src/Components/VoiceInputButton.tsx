@@ -111,8 +111,6 @@ const VoiceInputButton = ({ editor }: VoiceInputButtonProps) => {
 
   if (!isSupported || !voiceEnabled) return null;
 
-  const isExpanded = isRecording || isTranscribing || previewText !== null;
-
   return (
     <AnimatePresence mode="wait">
       {/* ── Preview: transcript ready ── */}

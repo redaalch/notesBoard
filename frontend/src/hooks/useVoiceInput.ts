@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../lib/axios";
-import { extractApiError } from "../lib/sanitize";
+import { extractApiError } from "../lib/extractApiError";
 
 export interface UseVoiceInputOptions {
   /** Called with the transcribed text on success */

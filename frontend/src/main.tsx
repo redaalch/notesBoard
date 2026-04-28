@@ -5,12 +5,12 @@ import "./index.css";
 import App from "./App";
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
-
-const ToasterProvider = lazy(() => import("./Components/ToasterProvider"));
 import { CommandPaletteProvider } from "./contexts/CommandPaletteContext";
 import { OfflineSyncProvider } from "./contexts/OfflineSyncContext";
-import PwaInstallPrompt from "./Components/PwaInstallPrompt";
 import { syncServiceWorkerRegistration } from "./lib/serviceWorkerLifecycle";
+
+const ToasterProvider = lazy(() => import("./Components/ToasterProvider"));
+const PwaInstallPrompt = lazy(() => import("./Components/PwaInstallPrompt"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -35,7 +35,9 @@ createRoot(document.getElementById("root")!).render(
           <AuthProvider>
             <CommandPaletteProvider>
               <App />
-              <PwaInstallPrompt />
+              <Suspense fallback={null}>
+                <PwaInstallPrompt />
+              </Suspense>
             </CommandPaletteProvider>
             <Suspense fallback={null}>
               <ToasterProvider />

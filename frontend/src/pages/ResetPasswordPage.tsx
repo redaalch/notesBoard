@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { CheckCircleIcon, LoaderIcon, LockIcon } from "lucide-react";
 import { toast } from "sonner";
 import api from "../lib/axios";
+import { extractApiError } from "../lib/extractApiError";
 
 const ResetPasswordPage = () => {
   const [searchParams] = useSearchParams();
@@ -35,11 +36,13 @@ const ResetPasswordPage = () => {
       setPassword("");
       setConfirmPassword("");
       toast.success("Password updated. You can now sign in.");
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ??
-        "We couldn't reset your password. Please request a new link.";
-      toast.error(message);
+    } catch (error: unknown) {
+      toast.error(
+        extractApiError(
+          error,
+          "We couldn't reset your password. Please request a new link.",
+        ),
+      );
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,4 @@
-import { forwardRef, type SVGProps } from "react";
+import { type SVGProps } from "react";
 
 /**
  * Custom SVG icons that match the LucideIcon type signature.

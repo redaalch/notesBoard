@@ -4,7 +4,7 @@ import { NOTEBOOK_COLORS, NOTEBOOK_ICONS } from "@shared/notebookOptions";
 import { notebookIconComponents } from "./homePageUtils";
 
 interface NotebookFormDialogProps {
-  formState: { mode: string; notebook?: any } | null;
+  formState: { mode: string; notebook?: { id?: string; name?: string; color?: string | null; icon?: string | null } } | null;
   onClose: () => void;
   onSubmit: (payload: {
     name: string;
@@ -43,13 +43,13 @@ export default function NotebookFormDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40 px-4 py-10"
+      className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40 px-3 py-4 sm:px-4 sm:py-10"
       role="dialog"
       aria-modal="true"
       onClick={onClose}
     >
       <form
-        className="w-full max-w-lg rounded-2xl border border-base-content/10 bg-base-100 p-6 shadow-2xl"
+        className="w-full max-w-sm sm:max-w-lg rounded-2xl border border-base-content/10 bg-base-100 p-4 sm:p-6 shadow-2xl"
         onClick={(event) => event.stopPropagation()}
         onSubmit={handleSubmit}
       >

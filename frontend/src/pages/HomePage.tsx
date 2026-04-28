@@ -6,7 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
-  memo,
+  type ChangeEvent,
 } from "react";
 import {
   useMutation,
@@ -14,7 +14,7 @@ import {
   useQueryClient,
   keepPreviousData,
 } from "@tanstack/react-query";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import {
   DndContext,
   PointerSensor,
@@ -22,64 +22,81 @@ import {
   useSensors,
   DragOverlay,
   defaultDropAnimationSideEffects,
-  useDraggable,
-  useDroppable,
 } from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  rectSortingStrategy,
-  useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import {
   AlertTriangleIcon,
-  BookmarkIcon,
-  BrainIcon,
-  BriefcaseBusinessIcon,
-  CalendarIcon,
-  CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
   FilterIcon,
-  LightbulbIcon,
-  ListTodoIcon,
-  NotebookIcon,
-  NotebookPenIcon,
-  PaletteIcon,
-  PlusIcon,
-  RocketIcon,
-  SparklesIcon,
-  StarIcon,
-  TagIcon,
-  TargetIcon,
-  WorkflowIcon,
-  BookOpenIcon,
-  LayersIcon,
+  XIcon,
 } from "lucide-react";
-import { NOTEBOOK_COLORS, NOTEBOOK_ICONS } from "@shared/notebookOptions";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import Navbar from "../Components/Navbar";
-import Sidebar from "../Components/Sidebar";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import MobileBottomNav from "../Components/MobileBottomNav";
 import Toolbar from "../Components/Toolbar";
+import DashboardShell from "../Components/dashboard/DashboardShell";
+import DashboardSidebar, {
+  type DashboardView,
+  type NotebookMenuActions,
+  type SidebarNotebook,
+} from "../Components/dashboard/DashboardSidebar";
+import DashboardTopbar from "../Components/dashboard/DashboardTopbar";
+import TweaksPanel from "../Components/dashboard/TweaksPanel";
 import RateLimitedUI from "../Components/RateLimitedUI";
-import TagInput from "../Components/TagInput";
-import ConfirmDialog from "../Components/ConfirmDialog";
-import TemplateGalleryModal from "../Components/TemplateGalleryModal";
 import api from "../lib/axios";
+import { extractApiError } from "../lib/extractApiError";
 import { toast } from "sonner";
 import NoteCard from "../Components/NoteCard";
 import NotesNotFound from "../Components/NotesNotFound";
 import NoteSkeleton from "../Components/NoteSkeleton";
 import { type TagStats } from "../Components/NotesStats";
-import { countWords, formatTagLabel, normalizeTag } from "../lib/Utils";
-import { useCommandPalette } from "../contexts/CommandPaletteContext";
+import type {
+  ApiError,
+  FilterChip,
+  SmartViewParams,
+  SelectionMeta,
+  NotebookRef,
+} from "../types/api";
+import type {
+  NoteForInsights,
+  SavedQuery,
+} from "../Components/NotebookInsightsDrawer";
+import { countWords, normalizeTag } from "../lib/Utils";
 import useSemanticSearch from "../hooks/useSemanticSearch";
-
-// ── Lazy-loaded heavy dialogs (code-split) ────────────────────────────
+import useNotebookDialogs from "../hooks/useNotebookDialogs";
+import { useHomeCommandPalette } from "./home/useHomeCommandPalette";
+import {
+  NOTES_PER_PAGE,
+  NOTEBOOK_ANALYTICS_ENABLED,
+  mergeOrder,
+  getNoteId,
+  sortLabelMap,
+  sortOrderToSavedSort,
+  savedSortToSortOrder,
+  BULK_SUCCESS_MESSAGES,
+} from "./home/homePageUtils";
+import { useHomeDnd } from "./home/useHomeDnd";
+import { useHomeFilterSync } from "./home/useHomeFilterSync";
+import { useHomeKeyboardShortcuts } from "./home/useHomeKeyboardShortcuts";
+import { useNotebookCrud } from "./home/useNotebookCrud";
+import {
+  SortableNoteCard,
+  DraggableBoardNote,
+  NotebookDropZone,
+} from "./home/HomePageDnD";
+// ── Lazy-loaded dialogs (code-split, all behind user actions) ──────────
+const ConfirmDialog = lazy(() => import("../Components/ConfirmDialog"));
+const TemplateGalleryModal = lazy(
+  () => import("../Components/TemplateGalleryModal"),
+);
+const NotebookFormDialog = lazy(() => import("./home/NotebookFormDialog"));
+const NotebookDeleteDialog = lazy(() => import("./home/NotebookDeleteDialog"));
+const BulkMoveNotebookDialog = lazy(
+  () => import("./home/BulkMoveNotebookDialog"),
+);
+const BulkTagDialog = lazy(() => import("./home/BulkTagDialog"));
 const NotebookTemplateGalleryModal = lazy(
   () => import("../Components/NotebookTemplateGalleryModal"),
 );
@@ -106,253 +123,10 @@ const NotebookInsightsDrawer = lazy(
   () => import("../Components/NotebookInsightsDrawer"),
 );
 
-const FILTER_STORAGE_KEY = "notesboard-filters-v1";
-const NOTES_PER_PAGE = 6;
-const NOTEBOOK_ANALYTICS_ENABLED =
-  (import.meta.env.VITE_ENABLE_NOTEBOOK_ANALYTICS ?? "false") === "true";
-
-const mergeOrder = (primary: any[] = [], fallback: any[] = []) => {
-  const fallbackStrings = new Set(
-    fallback
-      .map((id: any) =>
-        typeof id === "string" ? id : (id?.toString?.() ?? null),
-      )
-      .filter(Boolean),
-  );
-
-  const result: string[] = [];
-  const seen = new Set<string>();
-
-  primary.forEach((id) => {
-    const strId = typeof id === "string" ? id : id?.toString?.();
-    if (strId && !seen.has(strId) && fallbackStrings.has(strId)) {
-      result.push(strId);
-      seen.add(strId);
-    }
-  });
-
-  fallback.forEach((id) => {
-    const strId = typeof id === "string" ? id : id?.toString?.();
-    if (strId && !seen.has(strId)) {
-      result.push(strId);
-      seen.add(strId);
-    }
-  });
-
-  return result;
-};
-
-const noop = () => {};
-
-const getNoteId = (note) => {
-  if (!note) return null;
-  const rawId = note._id ?? note.id;
-  return typeof rawId === "string" ? rawId : (rawId?.toString?.() ?? null);
-};
-
-const SortableNoteCard = memo(function SortableNoteCard({
-  note,
-  selectedTags,
-  onTagClick,
-  onOpenNoteInsights,
-}: any) {
-  const id = getNoteId(note);
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    setActivatorNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id });
-
-  const style: any = {
-    transform: CSS.Transform.toString(transform),
-    transition:
-      transition ??
-      (transform ? "transform 180ms cubic-bezier(0.2, 0, 0, 1)" : undefined),
-    zIndex: isDragging ? 2 : undefined,
-    pointerEvents: isDragging ? "none" : undefined,
-    touchAction: "none",
-    willChange: "transform",
-  };
-
-  return (
-    <NoteCard
-      note={note}
-      customizeMode
-      selectionMode={false}
-      selected={false}
-      onSelectionChange={noop}
-      selectedTags={selectedTags}
-      onTagClick={onTagClick}
-      innerRef={setNodeRef}
-      dragHandleProps={{ ...attributes, ...listeners }}
-      dragHandleRef={setActivatorNodeRef}
-      style={style}
-      dragging={isDragging}
-      onOpenInsights={onOpenNoteInsights}
-    />
-  );
-});
-
-const sortLabelMap = {
-  newest: "Newest first",
-  oldest: "Oldest first",
-  alphabetical: "A → Z",
-  updated: "Recently updated",
-  custom: "Custom order",
-};
-
-const normalizeSortDirection = (value) => {
-  if (typeof value === "number") {
-    return value >= 0 ? "asc" : "desc";
-  }
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    if (["asc", "ascending", "1", "true"].includes(normalized)) {
-      return "asc";
-    }
-    if (["desc", "descending", "-1", "false"].includes(normalized)) {
-      return "desc";
-    }
-  }
-  return null;
-};
-
-const sortOrderToSavedSort = (order) => {
-  switch (order) {
-    case "oldest":
-      return { updatedAt: "asc" };
-    case "alphabetical":
-      return { title: "asc" };
-    case "newest":
-    case "updated":
-      return { updatedAt: "desc" };
-    default:
-      return null;
-  }
-};
-
-const savedSortToSortOrder = (sortSpec) => {
-  if (!sortSpec || typeof sortSpec !== "object") {
-    return "newest";
-  }
-
-  if (Object.prototype.hasOwnProperty.call(sortSpec, "title")) {
-    return "alphabetical";
-  }
-
-  if (Object.prototype.hasOwnProperty.call(sortSpec, "updatedAt")) {
-    const direction = normalizeSortDirection(sortSpec.updatedAt);
-    if (direction === "asc") {
-      return "oldest";
-    }
-    return "newest";
-  }
-
-  return "newest";
-};
-
-const BULK_SUCCESS_MESSAGES = {
-  pin: "Pinned selected notes",
-  unpin: "Unpinned selected notes",
-  delete: "Deleted selected notes",
-  addTags: "Tags added to selected notes",
-  move: "Moved notes to the chosen board",
-  moveNotebook: "Updated notebooks for selected notes",
-};
-
-const notebookIconComponents = {
-  Notebook: NotebookIcon,
-  NotebookPen: NotebookPenIcon,
-  Sparkles: SparklesIcon,
-  Lightbulb: LightbulbIcon,
-  Star: StarIcon,
-  Rocket: RocketIcon,
-  Target: TargetIcon,
-  Palette: PaletteIcon,
-  Layers: LayersIcon,
-  BookOpen: BookOpenIcon,
-  Workflow: WorkflowIcon,
-  Calendar: CalendarIcon,
-  ListTodo: ListTodoIcon,
-  Bookmark: BookmarkIcon,
-  BriefcaseBusiness: BriefcaseBusinessIcon,
-  Brain: BrainIcon,
-};
-
-const getNotebookDroppableId = (notebookId) =>
-  `notebook:${notebookId ?? "uncategorized"}`;
-
-function NotebookDropZone({ notebookId, disabled = false, children }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: getNotebookDroppableId(notebookId),
-    disabled,
-    data: { notebookId: notebookId ?? "uncategorized" },
-  });
-
-  return children({
-    setNodeRef: disabled ? undefined : setNodeRef,
-    isOver: !disabled && isOver,
-  });
-}
-
-const DraggableBoardNote = memo(function DraggableBoardNote({
-  note,
-  selectionMode,
-  customizeMode,
-  selected,
-  onSelectionChange,
-  onTagClick,
-  selectedTags,
-  onOpenNoteInsights,
-}: any) {
-  const noteId = getNoteId(note);
-  const disabled = customizeMode;
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({
-      id: noteId,
-      data: { type: "note", noteId },
-      disabled,
-    });
-
-  const dragStyleRaw: any = transform
-    ? {
-        transform: CSS.Transform.toString(transform),
-      }
-    : {};
-
-  if (isDragging) {
-    dragStyleRaw.opacity = 0;
-  }
-
-  const dragStyle = Object.keys(dragStyleRaw).length ? dragStyleRaw : undefined;
-
-  return (
-    <NoteCard
-      note={note}
-      selectionMode={selectionMode}
-      selected={selected}
-      onSelectionChange={onSelectionChange}
-      onTagClick={onTagClick}
-      selectedTags={selectedTags}
-      customizeMode={customizeMode}
-      innerRef={setNodeRef}
-      cardDragProps={disabled ? null : { ...attributes, ...listeners }}
-      style={dragStyle}
-      dragging={isDragging}
-      onOpenInsights={onOpenNoteInsights}
-    />
-  );
-});
-
 function HomePage() {
   const [isRateLimited, setIsRateLimited] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [minWords, setMinWords] = useState(0);
@@ -362,42 +136,31 @@ function HomePage() {
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [tagModalOpen, setTagModalOpen] = useState(false);
-  const [moveModalOpen, setMoveModalOpen] = useState(false);
   const [bulkTags, setBulkTags] = useState<string[]>([]);
-  const [selectedBoardId, setSelectedBoardId] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [customizeMode, setCustomizeMode] = useState(false);
   const [customOrderOverride, setCustomOrderOverride] = useState<string[]>([]);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [activeNotebookId, setActiveNotebookId] = useState("all");
-  const [notebookFormState, setNotebookFormState] = useState<any>(null);
-  const [notebookNameInput, setNotebookNameInput] = useState("");
-  const [notebookColorInput, setNotebookColorInput] = useState<string | null>(
-    null,
-  );
-  const [notebookIconInput, setNotebookIconInput] = useState<string | null>(
-    null,
-  );
-  const [notebookDeleteState, setNotebookDeleteState] = useState<any>(null);
   const [moveNotebookModalOpen, setMoveNotebookModalOpen] = useState(false);
   const [selectedNotebookTargetId, setSelectedNotebookTargetId] =
     useState("uncategorized");
-  const [notebookFormLoading, setNotebookFormLoading] = useState(false);
-  const [notebookDeleteLoading, setNotebookDeleteLoading] = useState(false);
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(
     null,
   );
   const [activeDragNoteIds, setActiveDragNoteIds] = useState<string[]>([]);
   const [a11yMessage, setA11yMessage] = useState("");
-  const [shareNotebookState, setShareNotebookState] = useState<any>(null);
-  const [analyticsNotebook, setAnalyticsNotebook] = useState<any>(null);
+  const notebookDialogs = useNotebookDialogs();
   const [notebookTemplateModalOpen, setNotebookTemplateModalOpen] =
     useState(false);
   const [selectedNotebookTemplateId, setSelectedNotebookTemplateId] = useState<
     string | null
   >(null);
-  const [saveTemplateState, setSaveTemplateState] = useState<any>({
+  const [saveTemplateState, setSaveTemplateState] = useState<{
+    open: boolean;
+    notebook: NotebookRef | null;
+  }>({
     open: false,
     notebook: null,
   });
@@ -408,18 +171,22 @@ function HomePage() {
   );
   const [saveTemplateSubmitting, setSaveTemplateSubmitting] = useState(false);
   const [savedQueryDialogOpen, setSavedQueryDialogOpen] = useState(false);
-  const [appliedSavedQuery, setAppliedSavedQuery] = useState<any>(null);
-  const [publishNotebook, setPublishNotebook] = useState<any>(null);
-  const [historyNotebook, setHistoryNotebook] = useState<any>(null);
-  const [insightsNote, setInsightsNote] = useState<any>(null);
+  const [appliedSavedQuery, setAppliedSavedQuery] = useState<SavedQuery | null>(
+    null,
+  );
+  const [insightsNote, setInsightsNote] = useState<NoteForInsights | null>(
+    null,
+  );
   const [currentPage, setCurrentPage] = useState(1);
   const [searchParams, setSearchParams] = useSearchParams();
   const filterPanelRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedFilters = useRef(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const previousSortRef = useRef("newest");
-  const liveMessageTimeoutRef = useRef<any>(null);
-  const layoutMutationTimeoutRef = useRef<any>(null);
+  const liveMessageTimeoutRef = useRef<number | null>(null);
+  const layoutMutationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const lastLayoutMutationRef = useRef(0);
   const applyingSavedQueryRef = useRef(false);
   const queryClient = useQueryClient();
@@ -433,22 +200,6 @@ function HomePage() {
       ]),
     [queryClient],
   );
-  const openPublishNotebook = useCallback((notebook) => {
-    if (notebook) {
-      setPublishNotebook(notebook);
-    }
-  }, []);
-  const closePublishNotebook = useCallback(() => {
-    setPublishNotebook(null);
-  }, []);
-  const openHistoryNotebook = useCallback((notebook) => {
-    if (notebook) {
-      setHistoryNotebook(notebook);
-    }
-  }, []);
-  const closeHistoryNotebook = useCallback(() => {
-    setHistoryNotebook(null);
-  }, []);
   const openNoteInsights = useCallback((note) => {
     if (note) {
       setInsightsNote(note);
@@ -458,7 +209,7 @@ function HomePage() {
     setInsightsNote(null);
   }, []);
   const handlePublishingChange = useCallback(
-    async ({ notebookId: updatedNotebookId }: any = {}) => {
+    async ({ notebookId: updatedNotebookId }: { notebookId?: string | null } = {}) => {
       await invalidateNotesCaches();
       if (updatedNotebookId) {
         await queryClient.invalidateQueries({
@@ -469,7 +220,7 @@ function HomePage() {
     [invalidateNotesCaches, queryClient],
   );
   const handleHistoryUndo = useCallback(
-    async ({ notebookId: historyNotebookId }: any = {}) => {
+    async ({ notebookId: historyNotebookId }: { notebookId?: string | null } = {}) => {
       await invalidateNotesCaches();
       await queryClient.invalidateQueries({
         predicate: ({ queryKey }) =>
@@ -509,7 +260,7 @@ function HomePage() {
     [closeNoteInsights, handleSelectNotebook],
   );
   const handleApplySmartView = useCallback(
-    ({ search = "", matchedTag = null, tags = [], noteCount = null }: any) => {
+    ({ search = "", matchedTag = null, tags = [], noteCount = null }: SmartViewParams) => {
       const normalizedTags = Array.isArray(tags)
         ? tags
         : matchedTag
@@ -545,13 +296,11 @@ function HomePage() {
     ],
   );
   const navigate = useNavigate();
-  const { registerCommands } = useCommandPalette();
 
   // ── Semantic / keyword server-side search ─────────────────────────────
   const {
     results: semanticResults,
     searchMode,
-    isSearching: isSemanticSearching,
     isActive: isServerSearchActive,
   } = useSemanticSearch(searchQuery);
 
@@ -569,8 +318,8 @@ function HomePage() {
     },
     staleTime: 30_000,
     placeholderData: keepPreviousData,
-    retry: (failureCount, error: any) => {
-      if (error?.response?.status === 429) {
+    retry: (failureCount, error: Error) => {
+      if ((error as ApiError)?.response?.status === 429) {
         return false;
       }
       return failureCount < 1;
@@ -585,8 +334,8 @@ function HomePage() {
 
   useEffect(() => {
     if (!notesQuery.isError) return;
-    const error = notesQuery.error as any;
-    console.error("Error fetching notes", error);
+    const error = notesQuery.error as ApiError;
+    if (import.meta.env.DEV) console.error("Error fetching notes", error);
     if (error?.response?.status === 429) {
       setIsRateLimited(true);
     } else if (error?.response?.status === 404 && activeNotebookId !== "all") {
@@ -744,7 +493,7 @@ function HomePage() {
         uncategorizedCount: payload.uncategorizedCount ?? 0,
       };
     },
-    staleTime: 30_000,
+    staleTime: 120_000,
     refetchOnMount: "always",
   });
 
@@ -777,7 +526,13 @@ function HomePage() {
   }, [savedNotebookQueriesQuery.data, savedQueriesEnabled]);
 
   const createSavedNotebookQueryMutation = useMutation({
-    mutationFn: async (payload: any) => {
+    mutationFn: async (payload: {
+      name: string;
+      query: string;
+      filters: { tags?: string[]; minWords?: number } | null;
+      sort: { updatedAt?: string; title?: string } | null;
+      scope: string;
+    }) => {
       if (!savedQueriesEnabled) return null;
       const response = await api.post(
         `/notebooks/${activeNotebookId}/saved-queries`,
@@ -795,45 +550,18 @@ function HomePage() {
         toast.success("Saved view created");
       }
     },
-    onError: (error: any) => {
-      const message =
-        error?.response?.data?.message ??
-        "Unable to save this view. Try a different name.";
-      toast.error(message);
-    },
-  });
-
-  const deleteSavedNotebookQueryMutation = useMutation({
-    mutationFn: async (queryId: any) => {
-      if (!savedQueriesEnabled || !queryId) return null;
-      await api.delete(
-        `/notebooks/${activeNotebookId}/saved-queries/${queryId}`,
-      );
-      return queryId;
-    },
-    onSuccess: async (queryId) => {
-      await queryClient.invalidateQueries({
-        queryKey: ["notebook-saved-queries", activeNotebookId],
-      });
-      if (appliedSavedQuery?.id === queryId) {
-        setAppliedSavedQuery(null);
-      }
-      toast.success("Saved view deleted");
-    },
-    onError: (error: any) => {
-      const message =
-        error?.response?.data?.message ?? "Unable to delete this saved view";
-      toast.error(message);
+    onError: (error: Error) => {
+      toast.error(extractApiError(error, "Unable to save this view. Try a different name."));
     },
   });
 
   const touchSavedNotebookQueryMutation = useMutation({
-    mutationFn: async ({ notebookId, queryId }: any) => {
+    mutationFn: async ({ notebookId, queryId }: { notebookId: string; queryId: string }) => {
       if (!notebookId || !queryId) return null;
       await api.post(`/notebooks/${notebookId}/saved-queries/${queryId}/use`);
       return queryId;
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.warn("Failed to update saved query usage", error);
     },
   });
@@ -842,6 +570,26 @@ function HomePage() {
     () => notebooksQuery.data?.notebooks ?? [],
     [notebooksQuery.data],
   );
+  const {
+    notebookFormState,
+    notebookFormLoading,
+    notebookDeleteState,
+    notebookDeleteLoading,
+    setNotebookDeleteState,
+    openCreateNotebook,
+    openRenameNotebook,
+    closeNotebookForm,
+    submitNotebookForm,
+    openDeleteNotebook,
+    closeNotebookDelete,
+    confirmNotebookDelete,
+  } = useNotebookCrud({
+    notebooks,
+    activeNotebookId,
+    handleSelectNotebook,
+    invalidateNotesCaches,
+    queryClient,
+  });
   const uncategorizedNoteCount = notebooksQuery.data?.uncategorizedCount ?? 0;
   // Persist the "all" count so it stays correct when viewing a specific notebook.
   // The notes query for "all" returns every accessible note; when viewing a
@@ -865,9 +613,6 @@ function HomePage() {
     }
     return undefined;
   }, [activeNotebookId]);
-  const notebooksLoading = notebooksQuery.isLoading;
-  const notebooksError = notebooksQuery.isError;
-
   const moveNotesToNotebook = useCallback(
     async ({ noteIds, targetNotebookId, skipLoader = false }) => {
       const ids = Array.isArray(noteIds) ? noteIds.filter(Boolean) : [];
@@ -916,10 +661,8 @@ function HomePage() {
         );
 
         await invalidateNotesCaches();
-      } catch (error: any) {
-        const message =
-          error?.response?.data?.message ??
-          "Failed to move notes to the selected notebook";
+      } catch (error: unknown) {
+        const message = extractApiError(error, "Failed to move notes to the selected notebook");
         toast.error(message);
         setA11yMessage(message);
       } finally {
@@ -947,8 +690,8 @@ function HomePage() {
   );
 
   const updateLayoutMutation = useMutation({
-    mutationFn: async ({ noteIds, contextId }: any) => {
-      const payload: any = { noteIds };
+    mutationFn: async ({ noteIds, contextId }: { noteIds: string[]; contextId?: string }) => {
+      const payload: { noteIds: string[]; notebookId?: string } = { noteIds };
       if (contextId && contextId !== "all") {
         payload.notebookId = contextId;
       }
@@ -970,144 +713,28 @@ function HomePage() {
         data.noteIds,
       );
     },
-    onError: (error: any) => {
-      const message =
-        error?.response?.data?.message ?? "Failed to save note layout";
-      toast.error(message);
+    onError: (error: Error) => {
+      toast.error(extractApiError(error, "Failed to save note layout"));
       layoutQuery.refetch().catch(() => {});
     },
   });
 
-  const handleDragStart = useCallback(
-    ({ active }) => {
-      const activeId =
-        typeof active?.id === "string"
-          ? active.id
-          : (active?.id?.toString?.() ?? null);
-      if (!activeId) return;
-
-      // Batch state updates in a single frame
-      requestAnimationFrame(() => {
-        setActiveDragId(activeId);
-
-        if (
-          selectionMode &&
-          selectedNoteIds.includes(activeId) &&
-          selectedNoteIds.length > 0
-        ) {
-          setActiveDragNoteIds(selectedNoteIds);
-        } else {
-          setActiveDragNoteIds([activeId]);
-        }
-      });
-    },
-    [selectionMode, selectedNoteIds],
-  );
-
-  const handleDragCancel = useCallback(() => {
-    setActiveDragId(null);
-    setActiveDragNoteIds([]);
-  }, []);
-
-  const handleDragEnd = useCallback(
-    ({ active, over }) => {
-      const activeId =
-        typeof active?.id === "string"
-          ? active.id
-          : (active?.id?.toString?.() ?? null);
-
-      setActiveDragId(null);
-      setActiveDragNoteIds([]);
-
-      if (!activeId) {
-        return;
-      }
-
-      const overId =
-        typeof over?.id === "string"
-          ? over.id
-          : (over?.id?.toString?.() ?? null);
-
-      if (overId && overId.startsWith("notebook:")) {
-        const targetNotebookId =
-          over?.data?.current?.notebookId ?? overId.replace("notebook:", "");
-        const normalizedTarget =
-          targetNotebookId === "uncategorized" || targetNotebookId === "all"
-            ? "uncategorized"
-            : targetNotebookId;
-
-        const idsToMove =
-          selectionMode && selectedNoteIds.includes(activeId)
-            ? activeDragNoteIds
-            : [activeId];
-
-        moveNotesToNotebook({
-          noteIds: Array.from(new Set(idsToMove.filter(Boolean))),
-          targetNotebookId: normalizedTarget,
-          skipLoader: true,
-        });
-        return;
-      }
-
-      if (!customizeMode || !overId || activeId === overId) {
-        return;
-      }
-
-      // Use requestAnimationFrame to batch DOM updates
-      requestAnimationFrame(() => {
-        setCustomOrderOverride((prev) => {
-          const baseline = prev.length
-            ? mergeOrder(prev, allNoteIds)
-            : mergeOrder(layoutOrder, allNoteIds);
-          const oldIndex = baseline.indexOf(activeId);
-          const newIndex = baseline.indexOf(overId);
-
-          if (oldIndex === -1 || newIndex === -1) {
-            return baseline;
-          }
-
-          const reordered = arrayMove(baseline, oldIndex, newIndex);
-
-          // Debounce mutations: Only allow one mutation every 500ms
-          const now = Date.now();
-          if (now - lastLayoutMutationRef.current < 500) {
-            // Clear existing timeout
-            if (layoutMutationTimeoutRef.current) {
-              clearTimeout(layoutMutationTimeoutRef.current);
-            }
-            // Schedule mutation for later
-            layoutMutationTimeoutRef.current = setTimeout(() => {
-              lastLayoutMutationRef.current = Date.now();
-              updateLayoutMutation.mutate({
-                noteIds: reordered,
-                contextId: activeNotebookId ?? "all",
-              });
-            }, 500);
-          } else {
-            // Execute immediately if enough time has passed
-            lastLayoutMutationRef.current = now;
-            updateLayoutMutation.mutate({
-              noteIds: reordered,
-              contextId: activeNotebookId ?? "all",
-            });
-          }
-
-          return reordered;
-        });
-      });
-    },
-    [
-      activeDragNoteIds,
-      customizeMode,
-      allNoteIds,
-      layoutOrder,
-      updateLayoutMutation,
-      activeNotebookId,
-      moveNotesToNotebook,
-      selectionMode,
-      selectedNoteIds,
-    ],
-  );
+  const { handleDragStart, handleDragCancel, handleDragEnd } = useHomeDnd({
+    selectionMode,
+    customizeMode,
+    selectedNoteIds,
+    activeDragNoteIds,
+    allNoteIds,
+    layoutOrder,
+    activeNotebookId,
+    lastLayoutMutationRef,
+    layoutMutationTimeoutRef,
+    updateLayoutMutation,
+    moveNotesToNotebook,
+    setActiveDragId,
+    setActiveDragNoteIds,
+    setCustomOrderOverride,
+  });
 
   const tagStatsQuery = useQuery<TagStats>({
     queryKey: ["tag-stats"],
@@ -1127,7 +754,7 @@ function HomePage() {
 
   useEffect(() => {
     if (tagStatsQuery.isError) {
-      console.error("Error fetching tag stats", tagStatsQuery.error);
+      if (import.meta.env.DEV) console.error("Error fetching tag stats", tagStatsQuery.error);
     }
   }, [tagStatsQuery.isError, tagStatsQuery.error]);
 
@@ -1145,29 +772,6 @@ function HomePage() {
     return [];
   }, [tagInsights]);
 
-  const boardsQuery = useQuery({
-    queryKey: ["boards"],
-    queryFn: async () => {
-      const response = await api.get("/boards");
-      const payload = response.data ?? {};
-      return {
-        boards: Array.isArray(payload.boards) ? payload.boards : [],
-        defaultBoardId: payload.defaultBoardId ?? null,
-      };
-    },
-    staleTime: 300_000,
-    enabled:
-      selectionMode ||
-      moveModalOpen ||
-      templateModalOpen ||
-      notebookTemplateModalOpen,
-  });
-
-  const boardOptions = useMemo(() => {
-    return boardsQuery.data?.boards ?? [];
-  }, [boardsQuery.data]);
-  const defaultBoardId = boardsQuery.data?.defaultBoardId ?? null;
-
   const workspacesQuery = useQuery({
     queryKey: ["workspaces"],
     queryFn: async () => {
@@ -1177,16 +781,6 @@ function HomePage() {
     enabled: notebookTemplateModalOpen,
     staleTime: 120_000,
   });
-
-  const templateBoardOptions = useMemo(
-    () =>
-      boardOptions.map((board) => ({
-        id: board.id,
-        name: board.name,
-        workspaceName: board.workspaceName ?? "",
-      })),
-    [boardOptions],
-  );
 
   const templateWorkspaceOptions = useMemo(
     () =>
@@ -1198,167 +792,32 @@ function HomePage() {
         : [],
     [workspacesQuery.data],
   );
-  useEffect(() => {
-    if (hasInitializedFilters.current) return;
-    if (typeof window === "undefined") return;
-
-    const params = Object.fromEntries(searchParams.entries());
-    let storedFilters: any = {};
-    try {
-      const raw = localStorage.getItem(FILTER_STORAGE_KEY);
-      if (raw) {
-        storedFilters = JSON.parse(raw);
-      }
-    } catch (error: any) {
-      console.warn("Unable to read stored filters", error);
-    }
-
-    const initialNotebookRaw =
-      params.notebook ?? storedFilters.activeNotebookId ?? "all";
-    const normalizedNotebook =
-      typeof initialNotebookRaw === "string" && initialNotebookRaw.trim()
-        ? initialNotebookRaw
-        : "all";
-
-    setActiveNotebookId(normalizedNotebook);
-
-    const initialSearch = params.q ?? storedFilters.searchQuery ?? "";
-    setSearchQuery(initialSearch);
-
-    const initialMin = Number(params.minWords ?? storedFilters.minWords ?? 0);
-    setMinWords(Number.isFinite(initialMin) ? initialMin : 0);
-
-    const allowedTabs = new Set(["all", "recent", "long", "short"]);
-    const initialTab = params.tab ?? storedFilters.activeTab ?? "all";
-    setActiveTab(allowedTabs.has(initialTab) ? initialTab : "all");
-
-    const allowedSorts = new Set([
-      "newest",
-      "oldest",
-      "alphabetical",
-      "updated",
-      "custom",
-    ]);
-    const initialSort = params.sort ?? storedFilters.sortOrder ?? "newest";
-    setSortOrder(allowedSorts.has(initialSort) ? initialSort : "newest");
-
-    const tagsSource = params.tags ?? storedFilters.selectedTags ?? [];
-    const tagList = Array.isArray(tagsSource)
-      ? tagsSource
-      : typeof tagsSource === "string"
-        ? tagsSource.split(",")
-        : [];
-
-    const normalizedTags = Array.from(
-      new Set(tagList.map((tag) => normalizeTag(tag)).filter(Boolean)),
-    );
-    setSelectedTags(normalizedTags);
-
-    hasInitializedFilters.current = true;
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (!hasInitializedFilters.current) return;
-    if (typeof window === "undefined") return;
-
-    const params: Record<string, string> = {};
-    const trimmedQuery = searchQuery.trim();
-    if (trimmedQuery) params.q = trimmedQuery;
-    if (Number(minWords) > 0) params.minWords = String(minWords);
-    if (activeTab !== "all") params.tab = activeTab;
-    if (sortOrder !== "newest") params.sort = sortOrder;
-    if (selectedTags.length) params.tags = selectedTags.join(",");
-    if (activeNotebookId && activeNotebookId !== "all") {
-      params.notebook = activeNotebookId;
-    }
-
-    setSearchParams(params, { replace: true });
-
-    try {
-      localStorage.setItem(
-        FILTER_STORAGE_KEY,
-        JSON.stringify({
-          searchQuery,
-          minWords: Number(minWords) || 0,
-          activeTab,
-          sortOrder,
-          selectedTags,
-          activeNotebookId,
-        }),
-      );
-    } catch (error: any) {
-      console.warn("Unable to persist filters", error);
-    }
-  }, [
-    searchQuery,
-    minWords,
-    activeTab,
-    sortOrder,
-    selectedTags,
-    activeNotebookId,
+  useHomeFilterSync({
+    searchParams,
     setSearchParams,
-  ]);
-
-  useEffect(() => {
-    if (!appliedSavedQuery) return;
-    if (applyingSavedQueryRef.current) return;
-
-    const savedSearch = (appliedSavedQuery?.query ?? "").trim();
-    if (savedSearch !== searchQuery.trim()) {
-      setAppliedSavedQuery(null);
-      return;
-    }
-
-    const savedTags = Array.isArray(appliedSavedQuery?.filters?.tags)
-      ? (Array.from(
-          new Set(
-            appliedSavedQuery.filters.tags
-              .map((tag) => normalizeTag(tag))
-              .filter(Boolean),
-          ),
-        ) as string[])
-      : [];
-    const currentTags = Array.from(
-      new Set(selectedTags.map((tag) => normalizeTag(tag)).filter(Boolean)),
-    ) as string[];
-    const tagsMatch =
-      savedTags.length === currentTags.length &&
-      savedTags.every((tag) => currentTags.includes(tag));
-    if (!tagsMatch) {
-      setAppliedSavedQuery(null);
-      return;
-    }
-
-    const normalizedSortOrder = sortOrder === "updated" ? "newest" : sortOrder;
-    const savedOrder = savedSortToSortOrder(appliedSavedQuery?.sort);
-    if (normalizedSortOrder !== savedOrder) {
-      setAppliedSavedQuery(null);
-      return;
-    }
-
-    const savedMinWords = Number(appliedSavedQuery?.filters?.minWords) || 0;
-    if (savedMinWords !== (Number(minWords) || 0)) {
-      setAppliedSavedQuery(null);
-    }
-  }, [
-    appliedSavedQuery,
+    hasInitializedFiltersRef: hasInitializedFilters,
     applyingSavedQueryRef,
-    minWords,
+    activeNotebookId,
+    setActiveNotebookId,
     searchQuery,
-    selectedTags,
+    setSearchQuery,
+    minWords,
+    setMinWords,
+    activeTab,
+    setActiveTab,
     sortOrder,
-  ]);
+    setSortOrder,
+    selectedTags,
+    setSelectedTags,
+    appliedSavedQuery,
+    setAppliedSavedQuery,
+  });
 
   useEffect(() => {
     if (!savedQueriesEnabled && savedQueryDialogOpen) {
       setSavedQueryDialogOpen(false);
     }
   }, [savedQueriesEnabled, savedQueryDialogOpen]);
-
-  const isFetchingNotes = notesQuery.isFetching;
-
-  const closeDrawer = () => setDrawerOpen(false);
-  const openDrawer = () => setDrawerOpen(true);
 
   const recentNotes = useMemo(
     () =>
@@ -1403,7 +862,7 @@ function HomePage() {
   const filtersApplied = notebookFilterActive || hasGeneralFilters;
 
   const activeFilterChips = useMemo(() => {
-    const chips: any[] = [];
+    const chips: FilterChip[] = [];
     if (appliedSavedQuery) {
       chips.push({
         key: "saved-query",
@@ -1484,7 +943,7 @@ function HomePage() {
   const filteredNotes = useMemo(() => {
     // ── When server-side search is active, use its ranked results ──────
     if (isServerSearchActive && semanticResults.length > 0) {
-      let serverNotes = semanticResults as any[];
+      const serverNotes = semanticResults;
 
       // Still apply non-search filters on top of server results
       const byWords = serverNotes.filter(
@@ -1610,14 +1069,24 @@ function HomePage() {
     Math.ceil(filteredNotes.length / NOTES_PER_PAGE),
   );
   const safeCurrentPage = Math.min(currentPage, totalPages);
+
+  // Mobile: progressive "load more"; Desktop: traditional pagination
+  const [mobileVisibleCount, setMobileVisibleCount] = useState(NOTES_PER_PAGE);
+  const mobileNotes = useMemo(
+    () => filteredNotes.slice(0, mobileVisibleCount),
+    [filteredNotes, mobileVisibleCount],
+  );
+  const hasMoreMobile = mobileVisibleCount < filteredNotes.length;
+
   const paginatedNotes = useMemo(() => {
     const start = (safeCurrentPage - 1) * NOTES_PER_PAGE;
     return filteredNotes.slice(start, start + NOTES_PER_PAGE);
   }, [filteredNotes, safeCurrentPage]);
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 / mobile count when filters change
   useEffect(() => {
     setCurrentPage(1);
+    setMobileVisibleCount(NOTES_PER_PAGE);
   }, [
     activeTab,
     searchQuery,
@@ -1720,8 +1189,8 @@ function HomePage() {
   const selectionCount = selectedNoteIds.length;
 
   const handleNoteSelectionChange = useCallback(
-    (noteId, checked, meta: any = {}) => {
-      const shiftKey = Boolean(meta?.event?.shiftKey || meta?.shiftKey);
+    (noteId: string, checked: boolean, meta: SelectionMeta = {}) => {
+      const shiftKey = Boolean((meta?.event as { shiftKey?: boolean } | null)?.shiftKey || meta?.shiftKey);
       const noteIndex = noteIndexLookup.get(noteId);
 
       setSelectedNoteIds((prev) => {
@@ -1733,7 +1202,7 @@ function HomePage() {
           const rangeIds = filteredNotes
             .slice(start, end + 1)
             .map((note) => getNoteId(note))
-            .filter(Boolean);
+            .filter((id): id is string => Boolean(id));
 
           if (checked) {
             const union = new Set(prev);
@@ -1809,11 +1278,9 @@ function HomePage() {
         setSelectedNoteIds([]);
         setSelectionMode(false);
         await invalidateNotesCaches();
-      } catch (error: any) {
-        console.error("Bulk action failed", error);
-        const message =
-          error.response?.data?.message ?? "Failed to update selected notes";
-        toast.error(message);
+      } catch (error: unknown) {
+        if (import.meta.env.DEV) console.error("Bulk action failed", error);
+        toast.error(extractApiError(error, "Failed to update selected notes"));
       } finally {
         setBulkActionLoading(false);
       }
@@ -1824,7 +1291,6 @@ function HomePage() {
   const handleBulkPin = () => performBulkAction("pin");
   const handleBulkUnpin = () => performBulkAction("unpin");
   const handleBulkAddTags = () => setTagModalOpen(true);
-  const handleBulkMove = () => setMoveModalOpen(true);
   const handleBulkMoveNotebook = () => setMoveNotebookModalOpen(true);
   const handleBulkDelete = () => setDeleteDialogOpen(true);
 
@@ -1838,16 +1304,6 @@ function HomePage() {
     setTagModalOpen(false);
     setBulkTags([]);
     await performBulkAction("addTags", { tags: normalized });
-  };
-
-  const submitBulkMove = async () => {
-    if (!selectedBoardId) {
-      toast.error("Choose a board to move notes into");
-      return;
-    }
-
-    setMoveModalOpen(false);
-    await performBulkAction("move", { boardId: selectedBoardId });
   };
 
   const submitBulkMoveNotebook = async () => {
@@ -1887,8 +1343,6 @@ function HomePage() {
   const toggleSelectionMode = () => {
     setSelectionMode((prev) => !prev);
   };
-
-  const openTemplateGallery = () => setTemplateModalOpen(true);
 
   const handleTemplateSelect = (template) => {
     if (!template) return;
@@ -1941,10 +1395,8 @@ function HomePage() {
         }
         await queryClient.invalidateQueries({ queryKey: ["notebooks"] });
         await queryClient.invalidateQueries({ queryKey: ["notes"] });
-      } catch (error: any) {
-        const message =
-          error.response?.data?.message ?? "Failed to use notebook template";
-        toast.error(message);
+      } catch (error: unknown) {
+        toast.error(extractApiError(error, "Failed to use notebook template"));
       } finally {
         setNotebookTemplateImporting(false);
       }
@@ -1969,10 +1421,8 @@ function HomePage() {
           queryKey: ["notebook-templates"],
         });
         await refetchNotebookTemplates();
-      } catch (error: any) {
-        const message =
-          error.response?.data?.message ?? "Failed to delete template";
-        toast.error(message);
+      } catch (error: unknown) {
+        toast.error(extractApiError(error, "Failed to delete template"));
       } finally {
         setDeletingTemplateId(null);
       }
@@ -2014,19 +1464,91 @@ function HomePage() {
       if (response.data?.id) {
         setSelectedNotebookTemplateId(response.data.id);
       }
-    } catch (error: any) {
-      const message =
-        error.response?.data?.message ?? "Failed to save notebook template";
-      toast.error(message);
+    } catch (error: unknown) {
+      toast.error(extractApiError(error, "Failed to save notebook template"));
     } finally {
       setSaveTemplateSubmitting(false);
     }
   };
 
-  const openSavedQueryDialog = useCallback(() => {
-    if (!savedQueriesEnabled) return;
-    setSavedQueryDialogOpen(true);
-  }, [savedQueriesEnabled]);
+  const importFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleImportFileChange = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      if (!file) return;
+      const lower = file.name.toLowerCase();
+      if (
+        !lower.endsWith(".zip") &&
+        !lower.endsWith(".md") &&
+        !lower.endsWith(".markdown")
+      ) {
+        toast.error("Upload a .md or .zip file");
+        return;
+      }
+      if (file.size > 20 * 1024 * 1024) {
+        toast.error("File is too large (max 20 MB)");
+        return;
+      }
+      const toastId = toast.loading(`Importing ${file.name}…`);
+      try {
+        const form = new FormData();
+        form.append("file", file);
+        const response = await api.post("/notebooks/import", form, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        const { notebook, importedCount, skippedCount } = response.data ?? {};
+        await invalidateNotesCaches();
+        toast.success(
+          `Imported ${importedCount} note${importedCount === 1 ? "" : "s"} into ${notebook?.name ?? "notebook"}${
+            skippedCount ? ` (${skippedCount} skipped)` : ""
+          }`,
+          { id: toastId },
+        );
+        if (notebook?.id) {
+          handleSelectNotebook(notebook.id);
+        }
+      } catch (error) {
+        toast.error(extractApiError(error, "Failed to import notebook"), {
+          id: toastId,
+        });
+      }
+    },
+    [handleSelectNotebook, invalidateNotesCaches],
+  );
+
+  const handleExportNotebook = useCallback(
+    async (notebook) => {
+      if (!notebook?.id) return;
+      const toastId = toast.loading(`Preparing ${notebook.name} export…`);
+      try {
+        const response = await api.get(`/notebooks/${notebook.id}/export`, {
+          responseType: "blob",
+        });
+        const blob = new Blob([response.data], {
+          type: response.headers["content-type"] ?? "application/zip",
+        });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        const safeName =
+          (notebook.name || "notebook").replace(/[^\w\- ]+/g, "").trim() ||
+          "notebook";
+        anchor.href = url;
+        anchor.download = `${safeName}.zip`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        toast.success(`Exported ${notebook.name}`, { id: toastId });
+      } catch (error) {
+        toast.error(extractApiError(error, "Failed to export notebook"), {
+          id: toastId,
+        });
+      }
+    },
+    [],
+  );
 
   const closeSavedQueryDialog = useCallback(() => {
     setSavedQueryDialogOpen(false);
@@ -2095,7 +1617,7 @@ function HomePage() {
       const trimmedName = name.trim();
       if (!trimmedName) return;
 
-      const filters: any = {};
+      const filters: { tags?: string[]; minWords?: number } = {};
       const normalizedSelectedTags = selectedTags
         .map((tag) => normalizeTag(tag))
         .filter(Boolean);
@@ -2137,151 +1659,6 @@ function HomePage() {
     ],
   );
 
-  const handleDeleteSavedQuery = useCallback(
-    (queryId) => {
-      if (!queryId) return;
-      deleteSavedNotebookQueryMutation.mutate(queryId);
-    },
-    [deleteSavedNotebookQueryMutation],
-  );
-
-  const openCreateNotebook = () => {
-    setNotebookFormState({ mode: "create" });
-    setNotebookNameInput("");
-    setNotebookColorInput(null);
-    setNotebookIconInput(null);
-  };
-
-  const openRenameNotebook = (notebook) => {
-    if (!notebook) return;
-    setNotebookFormState({ mode: "edit", notebook });
-    setNotebookNameInput(notebook.name ?? "");
-    setNotebookColorInput(notebook.color ?? null);
-    setNotebookIconInput(notebook.icon ?? null);
-  };
-
-  const openShareNotebook = (notebook) => {
-    if (!notebook) return;
-    setShareNotebookState(notebook);
-  };
-
-  const closeShareNotebook = () => {
-    setShareNotebookState(null);
-  };
-
-  const closeNotebookAnalytics = useCallback(() => {
-    setAnalyticsNotebook(null);
-  }, []);
-
-  const closeNotebookForm = () => {
-    setNotebookFormState(null);
-    setNotebookNameInput("");
-    setNotebookColorInput(null);
-    setNotebookIconInput(null);
-    setNotebookFormLoading(false);
-  };
-
-  const handleNotebookFormSubmit = async (event) => {
-    event.preventDefault();
-    const name = notebookNameInput.trim();
-    if (!name) {
-      toast.error("Notebook name is required");
-      return;
-    }
-
-    setNotebookFormLoading(true);
-    try {
-      let response;
-      const payload = {
-        name,
-        color: notebookColorInput ?? null,
-        icon: notebookIconInput ?? null,
-      };
-      if (notebookFormState?.mode === "edit" && notebookFormState?.notebook) {
-        response = await api.patch(
-          `/notebooks/${notebookFormState.notebook.id}`,
-          payload,
-        );
-        toast.success("Notebook renamed");
-      } else {
-        response = await api.post("/notebooks", payload);
-        toast.success("Notebook created");
-      }
-
-      await queryClient.invalidateQueries({ queryKey: ["notebooks"] });
-      await queryClient.invalidateQueries({ queryKey: ["notes"] });
-
-      if (notebookFormState?.mode !== "edit") {
-        const createdId = response?.data?.id;
-        if (createdId) {
-          handleSelectNotebook(createdId);
-        }
-      }
-
-      closeNotebookForm();
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ?? "Unable to save notebook";
-      toast.error(message);
-    } finally {
-      setNotebookFormLoading(false);
-    }
-  };
-
-  const openDeleteNotebook = (notebook) => {
-    if (!notebook) return;
-    const fallbackTarget =
-      notebooks.find((entry) => entry.id !== notebook.id)?.id ??
-      "uncategorized";
-    setNotebookDeleteState({
-      notebook,
-      mode: notebook.noteCount ? "move" : "delete",
-      targetNotebookId: fallbackTarget,
-      deleteCollaborative: false,
-    });
-  };
-
-  const closeNotebookDelete = () => {
-    setNotebookDeleteState(null);
-    setNotebookDeleteLoading(false);
-  };
-
-  const confirmNotebookDelete = async () => {
-    if (!notebookDeleteState?.notebook) return;
-    const { notebook, mode, targetNotebookId, deleteCollaborative } =
-      notebookDeleteState;
-
-    const payload: any = { mode, deleteCollaborative };
-    if (mode === "move") {
-      if (targetNotebookId && targetNotebookId !== "uncategorized") {
-        payload.targetNotebookId = targetNotebookId;
-      }
-    }
-
-    setNotebookDeleteLoading(true);
-    try {
-      await api.delete(`/notebooks/${notebook.id}`, { data: payload });
-      toast.success(`Deleted ${notebook.name}`);
-      if (activeNotebookId === notebook.id) {
-        if (mode === "move" && targetNotebookId) {
-          handleSelectNotebook(targetNotebookId);
-        } else {
-          handleSelectNotebook("all");
-        }
-      }
-
-      await invalidateNotesCaches();
-
-      closeNotebookDelete();
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ?? "Failed to delete notebook";
-      toast.error(message);
-    } finally {
-      setNotebookDeleteLoading(false);
-    }
-  };
-
   useEffect(() => {
     if (!drawerOpen) return undefined;
 
@@ -2302,81 +1679,18 @@ function HomePage() {
     }
   }, [selectionMode]);
 
-  useEffect(() => {
-    const isInteractiveElement = (element) => {
-      if (!element) return false;
-      const tagName = element.tagName;
-      if (!tagName) return false;
-      const normalized = tagName.toLowerCase();
-      if (
-        normalized === "input" ||
-        normalized === "textarea" ||
-        normalized === "select"
-      ) {
-        return true;
-      }
-      if (element.isContentEditable) return true;
-      return false;
-    };
-
-    const handleKeyDown = (event) => {
-      if (isInteractiveElement(event.target)) return;
-
-      // / → focus search input
-      if (event.key === "/" && !event.metaKey && !event.ctrlKey) {
-        event.preventDefault();
-        searchInputRef.current?.focus();
-        return;
-      }
-
-      // n → navigate to create note (unless modifier keys)
-      if (
-        event.key === "n" &&
-        !event.metaKey &&
-        !event.ctrlKey &&
-        !event.altKey
-      ) {
-        event.preventDefault();
-        navigate("/create");
-        return;
-      }
-
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
-        if (!filteredNotes.length) return;
-        event.preventDefault();
-        const allIds = filteredNotes
-          .map((note) => getNoteId(note))
-          .filter(Boolean);
-        setSelectionMode(true);
-        setSelectedNoteIds(allIds);
-        setLastSelectedIndex(allIds.length ? allIds.length - 1 : null);
-        return;
-      }
-
-      if (event.key === "Escape") {
-        if (mobileSidebarOpen) {
-          event.preventDefault();
-          setMobileSidebarOpen(false);
-          return;
-        }
-        if (selectionMode || selectedNoteIds.length) {
-          event.preventDefault();
-          setSelectedNoteIds([]);
-          setSelectionMode(false);
-          setLastSelectedIndex(null);
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
+  useHomeKeyboardShortcuts({
     filteredNotes,
     selectionMode,
-    selectedNoteIds.length,
+    selectedNoteIds,
     mobileSidebarOpen,
     navigate,
-  ]);
+    searchInputRef,
+    setSelectionMode,
+    setSelectedNoteIds,
+    setLastSelectedIndex,
+    setMobileSidebarOpen,
+  });
 
   useEffect(() => {
     if (customizeMode && sortOrder !== "custom") {
@@ -2384,22 +1698,6 @@ function HomePage() {
       setCustomOrderOverride([]);
     }
   }, [customizeMode, sortOrder]);
-
-  useEffect(() => {
-    if (!moveModalOpen || !boardOptions.length) return;
-    setSelectedBoardId((previous) => {
-      if (previous && boardOptions.some((board) => board.id === previous)) {
-        return previous;
-      }
-      if (
-        defaultBoardId &&
-        boardOptions.some((board) => board.id === defaultBoardId)
-      ) {
-        return defaultBoardId;
-      }
-      return boardOptions[0]?.id ?? "";
-    });
-  }, [moveModalOpen, boardOptions, defaultBoardId]);
 
   useEffect(() => {
     if (!moveNotebookModalOpen) return;
@@ -2435,70 +1733,202 @@ function HomePage() {
     };
   }, [a11yMessage]);
 
-  useEffect(() => {
-    const cleanup = registerCommands([
-      {
-        id: "home:toggle-selection",
-        label: selectionMode
-          ? "Exit multi-select mode"
-          : "Enter multi-select mode",
-        section: "Notes",
-        keywords: ["bulk", "multi-select", "select"],
-        action: () => setSelectionMode((prev) => !prev),
-      },
-      {
-        id: "home:focus-search",
-        label: "Focus notes search",
-        section: "Notes",
-        shortcut: "/",
-        action: () => searchInputRef.current?.focus(),
-      },
-      {
-        id: "home:open-templates",
-        label: "Browse note templates",
-        section: "Notes",
-        action: () => setTemplateModalOpen(true),
-      },
-      {
-        id: "home:open-notebook-templates",
-        label: "Browse notebook templates",
-        section: "Notebooks",
-        action: openNotebookTemplateGallery,
-      },
-      {
-        id: "home:toggle-filters",
-        label: drawerOpen ? "Close filters drawer" : "Open filters drawer",
-        section: "Notes",
-        action: () => setDrawerOpen((prev) => !prev),
-      },
-    ]);
-    return cleanup;
-  }, [
-    drawerOpen,
-    openNotebookTemplateGallery,
-    registerCommands,
+  useHomeCommandPalette({
     selectionMode,
-  ]);
+    drawerOpen,
+    searchInputRef,
+    onToggleSelectionMode: useCallback(
+      () => setSelectionMode((prev) => !prev),
+      [],
+    ),
+    onOpenTemplates: useCallback(() => setTemplateModalOpen(true), []),
+    onOpenNotebookTemplates: openNotebookTemplateGallery,
+    onToggleDrawer: useCallback(() => setDrawerOpen((prev) => !prev), []),
+  });
+
+  // ── Map activeNotebookId + tab + search flags to DashboardSidebar view ──
+  const currentView: DashboardView = useMemo(() => {
+    if (activeNotebookId === "uncategorized") return "uncategorized";
+    if (
+      activeNotebookId &&
+      activeNotebookId !== "all" &&
+      activeNotebookId !== "uncategorized"
+    ) {
+      return `notebook:${activeNotebookId}` as DashboardView;
+    }
+    if (selectedTags.length === 1) {
+      return `tag:${selectedTags[0]}` as DashboardView;
+    }
+    if (activeTab === "pinned") return "pinned";
+    return "all";
+  }, [activeNotebookId, selectedTags, activeTab]);
+
+  const handleSelectDashboardView = useCallback(
+    (view: DashboardView) => {
+      if (view === "dashboard") {
+        navigate("/home");
+        return;
+      }
+      if (view === "templates") {
+        navigate("/create");
+        return;
+      }
+      if (view === "trash") {
+        setActiveTab("all");
+        return;
+      }
+      if (view === "all") {
+        handleSelectNotebook("all");
+        setActiveTab("all");
+        setSelectedTags([]);
+        return;
+      }
+      if (view === "pinned") {
+        setActiveTab("pinned");
+        return;
+      }
+      if (view === "uncategorized") {
+        handleSelectNotebook("uncategorized");
+        setActiveTab("all");
+        return;
+      }
+      if (view.startsWith("notebook:")) {
+        handleSelectNotebook(view.slice("notebook:".length));
+        setActiveTab("all");
+        return;
+      }
+      if (view.startsWith("tag:")) {
+        const tag = view.slice("tag:".length);
+        setSelectedTags([normalizeTag(tag)]);
+      }
+    },
+    [navigate, handleSelectNotebook, setActiveTab, setSelectedTags],
+  );
+
+  const closeMobileSidebar = useCallback(() => {
+    setMobileSidebarOpen(false);
+  }, []);
+
+  const handleSelectMobileDashboardView = useCallback(
+    (view: DashboardView) => {
+      handleSelectDashboardView(view);
+      closeMobileSidebar();
+    },
+    [closeMobileSidebar, handleSelectDashboardView],
+  );
+
+  useEffect(() => {
+    if (!mobileSidebarOpen || typeof document === "undefined") return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileSidebarOpen]);
+
+  const buildNotebookActions = useCallback(
+    (afterAction?: () => void): NotebookMenuActions => ({
+      onRename: (id) => {
+        const nb = notebooks.find((n) => n.id === id);
+        if (!nb) return;
+        afterAction?.();
+        openRenameNotebook(nb);
+      },
+      onShare: (id) => {
+        const nb = notebooks.find((n) => n.id === id);
+        if (!nb) return;
+        afterAction?.();
+        notebookDialogs.share.open(nb);
+      },
+      onPublish: (id) => {
+        const nb = notebooks.find((n) => n.id === id);
+        if (!nb) return;
+        afterAction?.();
+        notebookDialogs.publish.open(nb);
+      },
+      onHistory: (id) => {
+        const nb = notebooks.find((n) => n.id === id);
+        if (!nb) return;
+        afterAction?.();
+        notebookDialogs.history.open(nb);
+      },
+      onAnalytics: NOTEBOOK_ANALYTICS_ENABLED
+        ? (id) => {
+            const nb = notebooks.find((n) => n.id === id);
+            if (!nb) return;
+            afterAction?.();
+            notebookDialogs.analytics.open(nb);
+          }
+        : undefined,
+      onSaveAsTemplate: (id) => {
+        const nb = notebooks.find((n) => n.id === id);
+        if (!nb) return;
+        afterAction?.();
+        openSaveNotebookTemplate(nb);
+      },
+      onExport: (id) => {
+        const nb = notebooks.find((n) => n.id === id);
+        if (!nb) return;
+        afterAction?.();
+        handleExportNotebook(nb);
+      },
+      onDelete: (id) => {
+        const nb = notebooks.find((n) => n.id === id);
+        if (!nb) return;
+        afterAction?.();
+        openDeleteNotebook(nb);
+      },
+    }),
+    [
+      handleExportNotebook,
+      notebookDialogs.analytics,
+      notebookDialogs.history,
+      notebookDialogs.publish,
+      notebookDialogs.share,
+      notebooks,
+      openDeleteNotebook,
+      openRenameNotebook,
+      openSaveNotebookTemplate,
+    ],
+  );
+
+  const sidebarNotebookActions = useMemo(
+    () => buildNotebookActions(),
+    [buildNotebookActions],
+  );
+
+  const mobileNotebookActions = useMemo(
+    () => buildNotebookActions(closeMobileSidebar),
+    [buildNotebookActions, closeMobileSidebar],
+  );
+
+  const sidebarNotebooks: SidebarNotebook[] = useMemo(
+    () =>
+      notebooks.map((nb) => ({
+        id: nb.id,
+        name: nb.name,
+        color: nb.color ?? null,
+        noteCount: nb.noteCount ?? 0,
+      })),
+    [notebooks],
+  );
+
+  const sidebarTags = useMemo(
+    () =>
+      (tagInsights?.tags ?? []).map((t) => ({
+        tag: t._id,
+        count: t.count,
+      })),
+    [tagInsights],
+  );
+
+  const lastSynced = useMemo(
+    () => (notesQuery.dataUpdatedAt ? new Date(notesQuery.dataUpdatedAt) : null),
+    [notesQuery.dataUpdatedAt],
+  );
 
   return (
-    <div className="flex min-h-screen flex-col pb-16 lg:pb-0">
-      <Navbar
-        onMobileSidebarClick={() => setMobileSidebarOpen(true)}
-        defaultNotebookId={
-          activeNotebookId &&
-          activeNotebookId !== "all" &&
-          activeNotebookId !== "uncategorized"
-            ? activeNotebookId
-            : null
-        }
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        searchInputRef={searchInputRef}
-        onOpenTemplates={openTemplateGallery}
-        mobileSearchOpen={mobileSearchOpen}
-        onMobileSearchOpen={setMobileSearchOpen}
-      />
-
+    <DashboardShell>
       {isRateLimited && (
         <RateLimitedUI onDismiss={() => setIsRateLimited(false)} />
       )}
@@ -2507,58 +1937,28 @@ function HomePage() {
         {a11yMessage}
       </div>
 
-      <div className="flex flex-1">
-        {/* Sidebar */}
-        <Sidebar
-          activeNotebookId={activeNotebookId}
-          onSelectNotebook={handleSelectNotebook}
-          notebooks={notebooks}
-          uncategorizedCount={uncategorizedNoteCount}
-          totalCount={totalNotebookCount}
-          loading={notebooksLoading}
-          error={notebooksError}
-          onCreateNotebook={openCreateNotebook}
-          onBrowseTemplates={openNotebookTemplateGallery}
-          onShareNotebook={openShareNotebook}
-          onPublishNotebook={openPublishNotebook}
-          onHistoryNotebook={openHistoryNotebook}
-          onAnalyticsNotebook={
-            NOTEBOOK_ANALYTICS_ENABLED ? setAnalyticsNotebook : undefined
-          }
-          onRenameNotebook={openRenameNotebook}
-          onSaveAsTemplate={openSaveNotebookTemplate}
-          onDeleteNotebook={openDeleteNotebook}
-          analyticsEnabled={NOTEBOOK_ANALYTICS_ENABLED}
-          savedQueriesEnabled={savedQueriesEnabled}
-          savedQueries={savedNotebookQueries}
-          savedQueriesLoading={savedNotebookQueriesQuery.isLoading}
-          appliedSavedQuery={appliedSavedQuery}
-          onApplySavedQuery={handleApplySavedQuery}
-          onDeleteSavedQuery={handleDeleteSavedQuery}
-          onSaveCurrentView={openSavedQueryDialog}
-          savingView={createSavedNotebookQueryMutation.isPending}
-          noteCount={notes.length}
-          pinnedCount={pinnedCount}
-          avgWords={avgWords}
-          mobileOpen={mobileSidebarOpen}
-          onMobileClose={() => setMobileSidebarOpen(false)}
-          renderNotebookDropZone={(notebookId, children) => (
-            <NotebookDropZone notebookId={notebookId} disabled={customizeMode}>
-              {children}
-            </NotebookDropZone>
-          )}
-          dragDisabled={customizeMode}
-        />
+      <DashboardSidebar
+        notebooks={sidebarNotebooks}
+        tags={sidebarTags}
+        allNotesCount={totalNotebookCount}
+        pinnedCount={pinnedCount}
+        uncategorizedCount={uncategorizedNoteCount}
+        activeView={currentView}
+        onSelectView={handleSelectDashboardView}
+        onCreateNotebook={openCreateNotebook}
+        notebookActions={sidebarNotebookActions}
+      />
 
-        {/* Main content */}
+      <div className="ds-main">
+        <DashboardTopbar lastSynced={lastSynced} here="notes" />
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex-1 min-w-0 w-full"
+          className="ds-content"
           role="main"
           aria-label="Notes dashboard"
         >
-          <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 lg:px-8">
+          <div className="ds-content-inner">
             {/* Toolbar */}
             <Toolbar
               tabs={tabConfig}
@@ -2590,7 +1990,7 @@ function HomePage() {
 
             <AnimatePresence mode="wait">
               {loading && (
-                <motion.div
+                <m.div
                   key="skeleton"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -2598,26 +1998,22 @@ function HomePage() {
                   transition={{ duration: 0.2 }}
                 >
                   <NoteSkeleton />
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
 
             {notesQuery.isError && !isRateLimited && (
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="alert alert-error"
+                className="ds-alert"
               >
-                <AlertTriangleIcon className="size-5" />
+                <AlertTriangleIcon size={14} />
                 <div>
-                  <h3 className="font-bold">
-                    We couldn&apos;t load your notes
-                  </h3>
-                  <p className="text-sm">
-                    Please refresh or try again in a moment.
-                  </p>
+                  <h4>We couldn&apos;t load your notes</h4>
+                  <p>Please refresh or try again in a moment.</p>
                 </div>
-              </motion.div>
+              </m.div>
             )}
 
             {/* ── Notes stats bar ──────────────────────────────────── */}
@@ -2633,10 +2029,10 @@ function HomePage() {
                   <SortableContext
                     items={filteredNotes
                       .map((note) => getNoteId(note))
-                      .filter(Boolean)}
+                      .filter((id): id is string => Boolean(id))}
                     strategy={rectSortingStrategy}
                   >
-                    <div className="grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    <div className="ds-notes-grid">
                       {filteredNotes.map((note) => {
                         const id = getNoteId(note);
                         if (!id) return null;
@@ -2653,7 +2049,45 @@ function HomePage() {
                     </div>
                   </SortableContext>
                 ) : (
-                  <motion.div
+                  <>
+                  {/* Mobile: progressive load */}
+                  <div className="ds-notes-grid ds-mobile-only">
+                    {mobileNotes.map((note) => {
+                      const id = getNoteId(note);
+                      if (!id) return null;
+                      const isSelected = selectedNoteIdSet.has(id);
+                      return (
+                        <DraggableBoardNote
+                          key={id}
+                          note={note}
+                          selectionMode={selectionMode}
+                          customizeMode={customizeMode}
+                          selected={isSelected}
+                          onSelectionChange={handleNoteSelectionChange}
+                          onTagClick={
+                            selectionMode ? undefined : toggleTagSelection
+                          }
+                          selectedTags={selectedTags}
+                          onOpenNoteInsights={openNoteInsights}
+                        />
+                      );
+                    })}
+                    {hasMoreMobile && (
+                      <button
+                        type="button"
+                        className="ds-chip"
+                        style={{ alignSelf: "center", marginTop: 6 }}
+                        onClick={() =>
+                          setMobileVisibleCount((c) => c + NOTES_PER_PAGE)
+                        }
+                      >
+                        Load more
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Desktop: paginated grid */}
+                  <m.div
                     key={`page-${safeCurrentPage}-${activeNotebookId}-${activeTab}`}
                     initial={false}
                     animate="visible"
@@ -2662,14 +2096,14 @@ function HomePage() {
                         transition: { staggerChildren: 0.04 },
                       },
                     }}
-                    className="grid grid-cols-1 gap-4 md:gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-3"
+                    className="ds-notes-grid ds-desktop-only"
                   >
                     {paginatedNotes.map((note) => {
                       const id = getNoteId(note);
                       if (!id) return null;
                       const isSelected = selectedNoteIdSet.has(id);
                       return (
-                        <motion.div
+                        <m.div
                           key={id}
                           initial={{ opacity: 0, y: 16 }}
                           animate={{
@@ -2695,10 +2129,11 @@ function HomePage() {
                             selectedTags={selectedTags}
                             onOpenNoteInsights={openNoteInsights}
                           />
-                        </motion.div>
+                        </m.div>
                       );
                     })}
-                  </motion.div>
+                  </m.div>
+                  </>
                 )}
                 <DragOverlay dropAnimation={dropAnimation}>
                   {activeDragNote ? (
@@ -2708,7 +2143,7 @@ function HomePage() {
                       selectionMode={selectionMode}
                       selected={
                         selectionMode &&
-                        selectedNoteIdSet.has(getNoteId(activeDragNote))
+                        selectedNoteIdSet.has(getNoteId(activeDragNote) ?? "")
                       }
                       selectedTags={selectedTags}
                       onTagClick={
@@ -2723,9 +2158,8 @@ function HomePage() {
 
             {/* ── Pagination controls + compact stats ─────────────── */}
             {!loading && filteredNotes.length > 0 && (
-              <div className="flex flex-col items-center gap-2 pt-2 pb-4">
-                {/* Compact stats */}
-                <p className="text-[11px] tabular-nums text-base-content/40">
+              <div className="ds-pager ds-desktop-only">
+                <p className="ds-pstats">
                   {filteredNotes.length}{" "}
                   {filteredNotes.length === 1 ? "note" : "notes"}
                   {" · "}
@@ -2740,26 +2174,25 @@ function HomePage() {
                   )}
                 </p>
 
-                {/* Page buttons */}
                 {totalPages > 1 && !customizeMode && (
-                  <div className="flex items-center justify-center gap-1.5">
+                  <div className="ds-pctrls">
                     <button
                       type="button"
                       onClick={() => setCurrentPage(1)}
                       disabled={safeCurrentPage === 1}
-                      className="btn btn-sm btn-ghost btn-circle"
+                      className="ds-chip"
                       title="First page"
                     >
-                      <ChevronsLeftIcon className="size-4" />
+                      <ChevronsLeftIcon size={12} />
                     </button>
                     <button
                       type="button"
                       onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                       disabled={safeCurrentPage === 1}
-                      className="btn btn-sm btn-ghost btn-circle"
+                      className="ds-chip"
                       title="Previous page"
                     >
-                      <ChevronLeftIcon className="size-4" />
+                      <ChevronLeftIcon size={12} />
                     </button>
 
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map(
@@ -2768,11 +2201,7 @@ function HomePage() {
                           key={page}
                           type="button"
                           onClick={() => setCurrentPage(page)}
-                          className={`btn btn-sm btn-circle ${
-                            page === safeCurrentPage
-                              ? "btn-primary"
-                              : "btn-ghost"
-                          }`}
+                          className={`ds-chip${page === safeCurrentPage ? " on" : ""}`}
                         >
                           {page}
                         </button>
@@ -2785,19 +2214,19 @@ function HomePage() {
                         setCurrentPage((p) => Math.min(totalPages, p + 1))
                       }
                       disabled={safeCurrentPage === totalPages}
-                      className="btn btn-sm btn-ghost btn-circle"
+                      className="ds-chip"
                       title="Next page"
                     >
-                      <ChevronRightIcon className="size-4" />
+                      <ChevronRightIcon size={12} />
                     </button>
                     <button
                       type="button"
                       onClick={() => setCurrentPage(totalPages)}
                       disabled={safeCurrentPage === totalPages}
-                      className="btn btn-sm btn-ghost btn-circle"
+                      className="ds-chip"
                       title="Last page"
                     >
-                      <ChevronsRightIcon className="size-4" />
+                      <ChevronsRightIcon size={12} />
                     </button>
                   </div>
                 )}
@@ -2806,33 +2235,31 @@ function HomePage() {
 
             <AnimatePresence>
               {showFilterEmptyState && (
-                <motion.div
+                <m.div
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.25 }}
-                  className="flex flex-col items-center gap-4 rounded-2xl border border-info/20 bg-info/5 px-6 py-10 text-center"
+                  className="ds-empty"
                 >
-                  <div className="rounded-full bg-info/10 p-3">
-                    <FilterIcon className="size-6 text-info" />
+                  <div className="ds-empty-icon">
+                    <FilterIcon size={16} />
                   </div>
-                  <div className="max-w-sm space-y-1">
-                    <h3 className="text-base font-semibold text-base-content">
-                      No notes match your filters
-                    </h3>
-                    <p className="text-sm text-base-content/60">
-                      Try adjusting the search, tab, or word count slider to
-                      broaden your results.
-                    </p>
+                  <h3>No notes match your filters</h3>
+                  <p>
+                    Try adjusting the search, tab, or word count slider to
+                    broaden your results.
+                  </p>
+                  <div className="ds-empty-actions">
+                    <button
+                      type="button"
+                      onClick={resetFilters}
+                      className="ds-chip"
+                    >
+                      Clear all filters
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={resetFilters}
-                    className="btn btn-outline btn-sm"
-                  >
-                    Clear all filters
-                  </button>
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
 
@@ -2843,353 +2270,79 @@ function HomePage() {
               !notesQuery.isPlaceholderData && (
                 <NotesNotFound createLinkState={createPageState} />
               )}
+
+            {selectionMode && selectionCount > 0 && (
+              <Suspense fallback={null}>
+                <BulkActionsBar
+                  selectedCount={selectionCount}
+                  onClearSelection={handleClearSelection}
+                  onPinSelected={handleBulkPin}
+                  onUnpinSelected={handleBulkUnpin}
+                  onAddTags={handleBulkAddTags}
+                  onMoveNotebook={handleBulkMoveNotebook}
+                  onDelete={handleBulkDelete}
+                  busy={bulkActionLoading}
+                  notebookOptions={notebooks}
+                  onQuickMoveNotebook={handleQuickMoveNotebook}
+                />
+              </Suspense>
+            )}
           </div>
         </main>
       </div>
 
-      {/* Mobile FAB */}
-      <motion.div
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.3, type: "spring", stiffness: 400, damping: 20 }}
-        className="fixed bottom-6 right-4 z-40 lg:hidden"
-      >
-        <Link
-          to="/create"
-          state={createPageState}
-          className="btn btn-primary btn-circle shadow-lg shadow-primary/30"
-          aria-label="Create a new note"
-        >
-          <PlusIcon className="size-6" />
-        </Link>
-      </motion.div>
+      <TweaksPanel />
 
-      {/* Bulk actions bar */}
-      {selectionMode && selectionCount > 0 && (
+      <input
+        ref={importFileInputRef}
+        type="file"
+        accept=".md,.markdown,.zip,text/markdown,application/zip"
+        className="hidden"
+        onChange={handleImportFileChange}
+      />
+
+      {notebookFormState && (
         <Suspense fallback={null}>
-          <BulkActionsBar
-            selectedCount={selectionCount}
-            onClearSelection={handleClearSelection}
-            onPinSelected={handleBulkPin}
-            onUnpinSelected={handleBulkUnpin}
-            onAddTags={handleBulkAddTags}
-            onMove={handleBulkMove}
-            onMoveNotebook={handleBulkMoveNotebook}
-            onDelete={handleBulkDelete}
-            busy={bulkActionLoading}
-            notebookOptions={notebooks}
-            onQuickMoveNotebook={handleQuickMoveNotebook}
+          <NotebookFormDialog
+            formState={notebookFormState}
+            onClose={closeNotebookForm}
+            onSubmit={submitNotebookForm}
+            loading={notebookFormLoading}
           />
         </Suspense>
       )}
 
-      {notebookFormState && (
-        <div
-          className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40 px-4 py-10"
-          role="dialog"
-          aria-modal="true"
-          onClick={closeNotebookForm}
-        >
-          <form
-            className="w-full max-w-lg rounded-2xl border border-base-content/10 bg-base-100 p-6 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-            onSubmit={handleNotebookFormSubmit}
-          >
-            <h3 className="text-lg font-semibold">
-              {notebookFormState.mode === "edit"
-                ? "Rename notebook"
-                : "Create a notebook"}
-            </h3>
-            <p className="mt-1 text-sm text-base-content/60">
-              {notebookFormState.mode === "edit"
-                ? "Update the name to keep your notebooks organized."
-                : "Group related notes together for quick access."}
-            </p>
-            <label className="form-control mt-4">
-              <span className="label">
-                <span className="label-text">Notebook name</span>
-              </span>
-              <input
-                type="text"
-                value={notebookNameInput}
-                onChange={(event) => setNotebookNameInput(event.target.value)}
-                className="input input-bordered"
-                placeholder="e.g. Product ideas"
-                required
-                autoFocus
-              />
-            </label>
-            <div className="mt-6">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-base-content">
-                  Color <span className="text-base-content/60">(optional)</span>
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-xs"
-                  onClick={() => setNotebookColorInput(null)}
-                  disabled={!notebookColorInput}
-                >
-                  Clear color
-                </button>
-              </div>
-              <p className="mt-1 text-xs text-base-content/60">
-                Highlight this notebook with a color accent.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {NOTEBOOK_COLORS.map((option) => {
-                  const isSelected = notebookColorInput === option.value;
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setNotebookColorInput(option.value)}
-                      aria-pressed={isSelected}
-                      aria-label={`${option.label} color`}
-                      className={`relative flex size-9 items-center justify-center rounded-full border border-white/50 shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100 ${
-                        isSelected
-                          ? "ring-2 ring-primary/70 ring-offset-2 ring-offset-base-100"
-                          : "hover:scale-105"
-                      }`}
-                      style={{ backgroundColor: option.value }}
-                    >
-                      {isSelected ? (
-                        <CheckIcon
-                          className="size-4"
-                          style={{ color: option.textColor }}
-                        />
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="mt-6">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-base-content">
-                  Icon <span className="text-base-content/60">(optional)</span>
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-xs"
-                  onClick={() => setNotebookIconInput(null)}
-                  disabled={!notebookIconInput}
-                >
-                  Clear icon
-                </button>
-              </div>
-              <p className="mt-1 text-xs text-base-content/60">
-                Icons help notebooks stand out across the workspace.
-              </p>
-              <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                {NOTEBOOK_ICONS.map((option) => {
-                  const isSelected = notebookIconInput === option.name;
-                  const IconComponent =
-                    notebookIconComponents[option.name] ?? NotebookIcon;
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      title={option.label}
-                      onClick={() => setNotebookIconInput(option.name)}
-                      aria-pressed={isSelected}
-                      className={`flex flex-col items-center gap-1 rounded-lg border px-3 py-2 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100 ${
-                        isSelected
-                          ? "border-primary/80 bg-primary/10 text-primary"
-                          : "border-base-300/80 text-base-content/70 hover:border-base-400 hover:text-base-content"
-                      }`}
-                    >
-                      <IconComponent className="size-5" aria-hidden="true" />
-                      <span className="truncate text-center">
-                        {option.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="mt-6 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={closeNotebookForm}
-                disabled={notebookFormLoading}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn btn-primary btn-sm"
-                disabled={notebookFormLoading}
-              >
-                {notebookFormLoading ? "Saving..." : "Save notebook"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      {notebookDeleteState ? (
+        <Suspense fallback={null}>
+          <NotebookDeleteDialog
+            deleteState={notebookDeleteState}
+            notebooks={notebooks}
+            loading={notebookDeleteLoading}
+            onClose={closeNotebookDelete}
+            onConfirm={confirmNotebookDelete}
+            onUpdateState={setNotebookDeleteState}
+          />
+        </Suspense>
+      ) : null}
 
-      {notebookDeleteState && (
-        <div
-          className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40 px-4 py-10"
-          role="dialog"
-          aria-modal="true"
-          onClick={closeNotebookDelete}
-        >
-          <div
-            className="w-full max-w-xl rounded-2xl border border-base-content/10 bg-base-100 p-6 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start gap-3">
-              <div className="rounded-full bg-warning/20 p-2 text-warning">
-                <AlertTriangleIcon className="size-5" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold">Delete notebook?</h3>
-                <p className="mt-1 text-sm text-base-content/70">
-                  {notebookDeleteState.notebook?.noteCount
-                    ? `${notebookDeleteState.notebook.noteCount} notes are inside this notebook.`
-                    : "This notebook is empty."}
-                </p>
-              </div>
-            </div>
-
-            {notebookDeleteState.notebook?.noteCount ? (
-              <div className="mt-4 space-y-3">
-                <label className="flex items-start gap-3 rounded-xl border border-base-300/60 bg-base-200/70 px-4 py-3">
-                  <input
-                    type="radio"
-                    name="notebook-delete-mode"
-                    className="radio radio-sm"
-                    checked={notebookDeleteState.mode === "move"}
-                    onChange={() =>
-                      setNotebookDeleteState((prev) =>
-                        prev ? { ...prev, mode: "move" } : prev,
-                      )
-                    }
-                  />
-                  <div>
-                    <p className="font-medium">Move notes elsewhere</p>
-                    <p className="text-sm text-base-content/70">
-                      Keep note content by moving it to another notebook or
-                      uncategorized.
-                    </p>
-                    <select
-                      className="select select-bordered select-sm mt-2 w-full max-w-xs"
-                      value={
-                        notebookDeleteState.targetNotebookId ?? "uncategorized"
-                      }
-                      onChange={(event) =>
-                        setNotebookDeleteState((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                targetNotebookId: event.target.value,
-                              }
-                            : prev,
-                        )
-                      }
-                      disabled={notebookDeleteState.mode !== "move"}
-                    >
-                      <option value="uncategorized">Uncategorized</option>
-                      {notebooks
-                        .filter(
-                          (entry) =>
-                            entry.id !== notebookDeleteState.notebook?.id,
-                        )
-                        .map((entry) => (
-                          <option key={entry.id} value={entry.id}>
-                            {entry.name}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                </label>
-                <label className="flex items-start gap-3 rounded-xl border border-base-300/60 bg-base-200/70 px-4 py-3">
-                  <input
-                    type="radio"
-                    name="notebook-delete-mode"
-                    className="radio radio-sm"
-                    checked={notebookDeleteState.mode === "delete"}
-                    onChange={() =>
-                      setNotebookDeleteState((prev) =>
-                        prev ? { ...prev, mode: "delete" } : prev,
-                      )
-                    }
-                  />
-                  <div>
-                    <p className="font-medium text-error">Delete notes</p>
-                    <p className="text-sm text-base-content/70">
-                      Permanently remove the notebook and all notes inside it.
-                    </p>
-                    <label className="mt-2 flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        className="checkbox checkbox-sm"
-                        checked={Boolean(
-                          notebookDeleteState.deleteCollaborative,
-                        )}
-                        onChange={(event) =>
-                          setNotebookDeleteState((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  deleteCollaborative: event.target.checked,
-                                }
-                              : prev,
-                          )
-                        }
-                        disabled={notebookDeleteState.mode !== "delete"}
-                      />
-                      <span>
-                        Also delete collaborative documents for these notes
-                      </span>
-                    </label>
-                  </div>
-                </label>
-              </div>
-            ) : null}
-
-            <div className="mt-6 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={closeNotebookDelete}
-                disabled={notebookDeleteLoading}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-error btn-sm"
-                onClick={confirmNotebookDelete}
-                disabled={notebookDeleteLoading}
-              >
-                {notebookDeleteLoading ? "Deleting..." : "Delete notebook"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {publishNotebook ? (
+      {notebookDialogs.publish.value ? (
         <Suspense fallback={null}>
           <NotebookPublishDialog
-            notebook={publishNotebook}
+            notebook={notebookDialogs.publish.value}
             open
-            onClose={closePublishNotebook}
+            onClose={notebookDialogs.publish.close}
             onUpdated={handlePublishingChange}
           />
         </Suspense>
       ) : null}
 
-      {historyNotebook ? (
+      {notebookDialogs.history.value ? (
         <Suspense fallback={null}>
           <NotebookHistoryDialog
-            notebook={historyNotebook}
+            notebook={notebookDialogs.history.value}
             notebooks={notebooks}
             open
-            onClose={closeHistoryNotebook}
+            onClose={notebookDialogs.history.close}
             onUndoSuccess={handleHistoryUndo}
           />
         </Suspense>
@@ -3209,76 +2362,34 @@ function HomePage() {
         />
       </Suspense>
 
-      {shareNotebookState ? (
+      {notebookDialogs.share.value ? (
         <Suspense fallback={null}>
           <NotebookShareDialog
-            notebook={shareNotebookState}
+            notebook={notebookDialogs.share.value}
             open
-            onClose={closeShareNotebook}
+            onClose={notebookDialogs.share.close}
           />
         </Suspense>
       ) : null}
 
-      {moveNotebookModalOpen && (
-        <div
-          className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40 px-4 py-10"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setMoveNotebookModalOpen(false)}
-        >
-          <div
-            className="w-full max-w-lg rounded-2xl border border-base-content/10 bg-base-100 p-6 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold">Move notes to a notebook</h3>
-            <p className="mt-1 text-sm text-base-content/60">
-              Choose the destination notebook. Notes moved to Uncategorized keep
-              their content intact.
-            </p>
-            <div className="mt-4 space-y-2">
-              <select
-                className="select select-bordered w-full"
-                value={selectedNotebookTargetId}
-                onChange={(event) =>
-                  setSelectedNotebookTargetId(event.target.value)
-                }
-              >
-                <option value="uncategorized">Uncategorized</option>
-                {notebooks.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="mt-6 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => setMoveNotebookModalOpen(false)}
-                disabled={bulkActionLoading}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={submitBulkMoveNotebook}
-                disabled={bulkActionLoading}
-              >
-                Move notes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Suspense fallback={null}>
+        <BulkMoveNotebookDialog
+          open={moveNotebookModalOpen}
+          notebooks={notebooks}
+          selectedTargetId={selectedNotebookTargetId}
+          onTargetChange={setSelectedNotebookTargetId}
+          onClose={() => setMoveNotebookModalOpen(false)}
+          onSubmit={submitBulkMoveNotebook}
+          loading={bulkActionLoading}
+        />
+      </Suspense>
 
-      {NOTEBOOK_ANALYTICS_ENABLED && analyticsNotebook ? (
+      {NOTEBOOK_ANALYTICS_ENABLED && notebookDialogs.analytics.value ? (
         <Suspense fallback={null}>
           <NotebookAnalyticsDialog
-            notebook={analyticsNotebook}
+            notebook={notebookDialogs.analytics.value}
             open
-            onClose={closeNotebookAnalytics}
+            onClose={notebookDialogs.analytics.close}
           />
         </Suspense>
       ) : null}
@@ -3307,7 +2418,6 @@ function HomePage() {
           detail={notebookTemplateDetail}
           detailLoading={notebookTemplateDetailLoading}
           workspaceOptions={templateWorkspaceOptions}
-          boardOptions={templateBoardOptions}
           onDeleteTemplate={handleDeleteNotebookTemplate}
           deletingTemplateId={deletingTemplateId}
           onImport={handleNotebookTemplateImport}
@@ -3335,122 +2445,16 @@ function HomePage() {
         />
       </Suspense>
 
-      {tagModalOpen && (
-        <div
-          className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40 px-4 py-10"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setTagModalOpen(false)}
-        >
-          <div
-            className="w-full max-w-lg rounded-2xl border border-base-content/10 bg-base-100 p-6 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold">
-              Add tags to selected notes
-            </h3>
-            <p className="mt-1 text-sm text-base-content/60">
-              Tags are lowercased automatically. You can add up to eight tags
-              per note.
-            </p>
-            <div className="mt-4">
-              <Suspense
-                fallback={
-                  <div className="h-10 animate-pulse rounded bg-base-200" />
-                }
-              >
-                <TagInput value={bulkTags} onChange={setBulkTags} />
-              </Suspense>
-            </div>
-            <div className="mt-6 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => setTagModalOpen(false)}
-                disabled={bulkActionLoading}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={submitBulkTags}
-                disabled={bulkActionLoading}
-              >
-                Apply tags
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {moveModalOpen && (
-        <div
-          className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40 px-4 py-10"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setMoveModalOpen(false)}
-        >
-          <div
-            className="w-full max-w-lg rounded-2xl border border-base-content/10 bg-base-100 p-6 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold">
-              Move notes to another board
-            </h3>
-            <p className="mt-1 text-sm text-base-content/60">
-              Choose where the selected notes should live. Pinned status and
-              tags stay intact.
-            </p>
-            <div className="mt-4 space-y-2">
-              {boardsQuery.isLoading ? (
-                <p className="text-sm text-base-content/60">
-                  Loading boards...
-                </p>
-              ) : boardOptions.length ? (
-                <select
-                  className="select select-bordered w-full"
-                  value={selectedBoardId}
-                  onChange={(event) => setSelectedBoardId(event.target.value)}
-                >
-                  {boardOptions.map((board) => (
-                    <option key={board.id} value={board.id}>
-                      {board.workspaceName
-                        ? `${board.workspaceName} · ${board.name}`
-                        : board.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <p className="rounded-lg bg-base-200/70 px-4 py-3 text-sm text-base-content/60">
-                  No boards available yet. Create another board to move notes
-                  into.
-                </p>
-              )}
-            </div>
-            <div className="mt-6 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => setMoveModalOpen(false)}
-                disabled={bulkActionLoading}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={submitBulkMove}
-                disabled={
-                  bulkActionLoading || !boardOptions.length || !selectedBoardId
-                }
-              >
-                Move notes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Suspense fallback={null}>
+        <BulkTagDialog
+          open={tagModalOpen}
+          tags={bulkTags}
+          onTagsChange={setBulkTags}
+          onClose={() => setTagModalOpen(false)}
+          onSubmit={submitBulkTags}
+          loading={bulkActionLoading}
+        />
+      </Suspense>
 
       <Suspense fallback={null}>
         <ConfirmDialog
@@ -3466,9 +2470,64 @@ function HomePage() {
         />
       </Suspense>
 
+      <AnimatePresence>
+        {mobileSidebarOpen && (
+          <m.div
+            className="ds-mobile-sidebar-layer"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+          >
+            <button
+              type="button"
+              className="ds-mobile-sidebar-backdrop"
+              aria-label="Close notebook navigation"
+              onClick={closeMobileSidebar}
+            />
+            <m.aside
+              className="ds-mobile-sidebar-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Notebook navigation"
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", stiffness: 340, damping: 34 }}
+            >
+              <div className="ds-mobile-sidebar-head">
+                <span>Navigation</span>
+                <button
+                  type="button"
+                  className="ds-mini-btn"
+                  onClick={closeMobileSidebar}
+                  aria-label="Close notebook navigation"
+                >
+                  <XIcon size={12} />
+                  Close
+                </button>
+              </div>
+              <DashboardSidebar
+                notebooks={sidebarNotebooks}
+                tags={sidebarTags}
+                allNotesCount={totalNotebookCount}
+                pinnedCount={pinnedCount}
+                uncategorizedCount={uncategorizedNoteCount}
+                activeView={currentView}
+                onSelectView={handleSelectMobileDashboardView}
+                onCreateNotebook={() => {
+                  closeMobileSidebar();
+                  openCreateNotebook();
+                }}
+                notebookActions={mobileNotebookActions}
+              />
+            </m.aside>
+          </m.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Mobile bottom navigation ─────────────────────────── */}
       <MobileBottomNav
-        onSearchClick={() => setMobileSearchOpen(true)}
         onNotebooksClick={() => setMobileSidebarOpen(true)}
         defaultNotebookId={
           activeNotebookId &&
@@ -3478,7 +2537,7 @@ function HomePage() {
             : null
         }
       />
-    </div>
+    </DashboardShell>
   );
 }
 

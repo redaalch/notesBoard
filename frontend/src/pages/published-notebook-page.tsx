@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "../lib/axios";
+import { extractApiError } from "../lib/extractApiError";
 import Navbar from "../Components/Navbar";
 import NoteSkeleton from "../Components/NoteSkeleton";
 
@@ -64,9 +65,10 @@ const PublishedNotebookPage = () => {
   }
 
   if (isError) {
-    const message =
-      (error as any)?.response?.data?.message ??
-      "Unable to load this published notebook.";
+    const message = extractApiError(
+      error,
+      "Unable to load this published notebook.",
+    );
     return (
       <div className="min-h-screen bg-base-200">
         <Navbar hideAuthLinks />
@@ -132,7 +134,7 @@ const PublishedNotebookPage = () => {
           </div>
         ) : (
           <section className="grid gap-6 sm:grid-cols-2">
-            {notes.map((note: any) => (
+            {notes.map((note: { id: string; title?: string; pinned?: boolean; content?: string; contentText?: string; tags?: string[]; updatedAt?: string; createdAt?: string }) => (
               <article
                 key={note.id}
                 className="rounded-xl border border-base-300 bg-base-100 p-6 shadow-sm"

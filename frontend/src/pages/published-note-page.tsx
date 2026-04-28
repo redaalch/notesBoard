@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import DOMPurify from "dompurify";
 import api from "../lib/axios";
+import { sanitizeHtml } from "../lib/sanitize";
+import { extractApiError } from "../lib/extractApiError";
 import Navbar from "../Components/Navbar";
 
 const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
@@ -64,9 +65,10 @@ const PublishedNotePage = () => {
   }
 
   if (isError) {
-    const message =
-      (error as any)?.response?.data?.message ??
-      "Unable to load this published note.";
+    const message = extractApiError(
+      error,
+      "Unable to load this published note.",
+    );
     return (
       <div className="min-h-screen bg-base-200">
         <Navbar hideAuthLinks />
@@ -135,7 +137,7 @@ const PublishedNotePage = () => {
           {note.richContent ? (
             <div
               className="prose prose-lg max-w-none leading-relaxed text-base-content"
-              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(note.richContent) }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(note.richContent) }}
             />
           ) : (
             <div className="prose prose-lg max-w-none whitespace-pre-wrap leading-relaxed text-base-content">

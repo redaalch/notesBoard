@@ -1,6 +1,8 @@
 import {
   createContext,
+  lazy,
   type ReactNode,
+  Suspense,
   useCallback,
   useContext,
   useEffect,
@@ -11,7 +13,11 @@ import {
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import useAuth from "../hooks/useAuth";
-import CommandPalette from "../Components/CommandPalette";
+
+const CommandPalette = lazy(() => import("../Components/CommandPalette"));
+const KeyboardShortcutsHelp = lazy(
+  () => import("../Components/KeyboardShortcutsHelp"),
+);
 
 export interface PaletteCommand {
   id: string;
@@ -274,6 +280,19 @@ export const CommandPaletteProvider = ({
 
       // ── Help ────────────────────────────────────────────────────────
       {
+        id: "core:keyboard-shortcuts",
+        label: "Keyboard shortcuts",
+        description: "Show the keyboard shortcut cheatsheet",
+        section: "Help",
+        shortcut: "?",
+        keywords: ["shortcut", "cheatsheet", "keyboard", "help", "keys"],
+        action: () => {
+          window.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "?", bubbles: true }),
+          );
+        },
+      },
+      {
         id: "core:privacy-policy",
         label: "Privacy Policy",
         description: "View our privacy policy",
@@ -290,7 +309,7 @@ export const CommandPaletteProvider = ({
         action: () => navigate("/terms"),
       },
     ]);
-  }, [navigate, registerCommands, closePalette, logout]);
+  }, [navigate, registerCommands, logout]);
 
   const contextValue: CommandPaletteContextValue = useMemo(
     () => ({
@@ -307,7 +326,10 @@ export const CommandPaletteProvider = ({
   return (
     <CommandPaletteContext.Provider value={contextValue}>
       {children}
-      <CommandPalette />
+      <Suspense fallback={null}>
+        <CommandPalette />
+        <KeyboardShortcutsHelp />
+      </Suspense>
     </CommandPaletteContext.Provider>
   );
 };

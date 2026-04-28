@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import "../../styles/dashboard-shell.css";
 
 export type DsTheme = "dark" | "light";
 export type DsAccent = "violet" | "amber" | "green" | "blue" | "pink";

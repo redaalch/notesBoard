@@ -1,17 +1,24 @@
-import { memo } from "react";
+import { memo, type CSSProperties, type ReactNode } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import NoteCard from "../../Components/NoteCard";
+import NoteCard, { type NoteObject } from "../../Components/NoteCard";
 import { getNoteId, noop, getNotebookDroppableId } from "./homePageUtils";
+
+interface SortableNoteCardProps {
+  note: NoteObject;
+  selectedTags?: string[];
+  onTagClick?: (tag: string) => void;
+  onOpenNoteInsights?: ((note: NoteObject) => void) | null;
+}
 
 export const SortableNoteCard = memo(function SortableNoteCard({
   note,
   selectedTags,
   onTagClick,
   onOpenNoteInsights,
-}: any) {
-  const id = getNoteId(note);
+}: SortableNoteCardProps) {
+  const id = getNoteId(note) ?? "";
   const {
     attributes,
     listeners,
@@ -22,7 +29,7 @@ export const SortableNoteCard = memo(function SortableNoteCard({
     isDragging,
   } = useSortable({ id });
 
-  const style: any = {
+  const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition:
       transition ??
@@ -52,6 +59,17 @@ export const SortableNoteCard = memo(function SortableNoteCard({
   );
 });
 
+interface DraggableBoardNoteProps {
+  note: NoteObject;
+  selectionMode?: boolean;
+  customizeMode?: boolean;
+  selected?: boolean;
+  onSelectionChange?: NoteObject extends infer _T ? React.ComponentProps<typeof NoteCard>["onSelectionChange"] : never;
+  onTagClick?: (tag: string) => void;
+  selectedTags?: string[];
+  onOpenNoteInsights?: ((note: NoteObject) => void) | null;
+}
+
 export const DraggableBoardNote = memo(function DraggableBoardNote({
   note,
   selectionMode,
@@ -61,8 +79,8 @@ export const DraggableBoardNote = memo(function DraggableBoardNote({
   onTagClick,
   selectedTags,
   onOpenNoteInsights,
-}: any) {
-  const noteId = getNoteId(note);
+}: DraggableBoardNoteProps) {
+  const noteId = getNoteId(note) ?? "";
   const disabled = customizeMode;
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
@@ -71,7 +89,7 @@ export const DraggableBoardNote = memo(function DraggableBoardNote({
       disabled,
     });
 
-  const dragStyleRaw: any = transform
+  const dragStyleRaw: CSSProperties = transform
     ? {
         transform: CSS.Transform.toString(transform),
       }
@@ -106,9 +124,9 @@ export function NotebookDropZone({
   disabled = false,
   children,
 }: {
-  notebookId: any;
+  notebookId: string;
   disabled?: boolean;
-  children: (props: { setNodeRef: any; isOver: boolean }) => any;
+  children: (props: { setNodeRef?: (node: HTMLElement | null) => void; isOver: boolean }) => ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: getNotebookDroppableId(notebookId),

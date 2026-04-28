@@ -58,7 +58,28 @@ function getVendorChunkName(id: string): string | null {
     return "vendor-editor-core";
   }
 
-  if (id.includes("framer-motion") || id.includes("motion")) {
+  // Split framer-motion into its eager core (LazyMotion, m, AnimatePresence)
+  // vs the heavy `domAnimation` feature pack (animations + gestures), which
+  // we lazy-load in App.tsx via `LazyMotion features={() => import(...)}`.
+  // Files under `render/dom/features-` and the deep animation/gesture
+  // modules they reach are pushed into a separate chunk that loads after
+  // first paint; everything else stays in `vendor-motion`.
+  if (
+    id.includes("framer-motion") ||
+    id.includes("/motion-dom/") ||
+    id.includes("/motion-utils/")
+  ) {
+    if (
+      id.includes("/render/dom/features-") ||
+      id.includes("/motion/features/animations") ||
+      id.includes("/motion/features/gestures") ||
+      id.includes("/motion/features/animation/") ||
+      id.includes("/motion/features/viewport/") ||
+      id.includes("/gestures/") ||
+      id.includes("/animation/animators/")
+    ) {
+      return "vendor-motion-features";
+    }
     return "vendor-motion";
   }
 
@@ -68,6 +89,20 @@ function getVendorChunkName(id: string): string | null {
 
   if (id.includes("lucide-react")) {
     return "vendor-icons";
+  }
+
+  // Split known libs from the catch-all so each one has its own cache entry.
+  // A change in axios won't bust the DOMPurify or idb cache (and vice versa).
+  if (id.includes("/axios/") || id.includes("/node_modules/axios@")) {
+    return "vendor-http";
+  }
+
+  if (id.includes("dompurify") || id.includes("DOMPurify")) {
+    return "vendor-sanitize";
+  }
+
+  if (id.includes("/idb/") || id.includes("/node_modules/idb@")) {
+    return "vendor-idb";
   }
 
   return "vendor-misc";
@@ -83,6 +118,8 @@ export default defineConfig({
   build: {
     sourcemap: "hidden",
     target: "es2022",
+    cssCodeSplit: true,
+    chunkSizeWarningLimit: 400,
     rollupOptions: {
       output: {
         manualChunks(id) {

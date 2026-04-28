@@ -1,6 +1,6 @@
 interface BulkMoveNotebookDialogProps {
   open: boolean;
-  notebooks: any[];
+  notebooks: { id: string; name: string }[];
   selectedTargetId: string;
   onTargetChange: (value: string) => void;
   onClose: () => void;
@@ -21,13 +21,13 @@ export default function BulkMoveNotebookDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40 px-4 py-10"
+      className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40 px-3 py-4 sm:px-4 sm:py-10"
       role="dialog"
       aria-modal="true"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-2xl border border-base-content/10 bg-base-100 p-6 shadow-2xl"
+        className="w-full max-w-sm sm:max-w-lg rounded-2xl border border-base-content/10 bg-base-100 p-4 sm:p-6 shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <h3 className="text-lg font-semibold">Move notes to a notebook</h3>

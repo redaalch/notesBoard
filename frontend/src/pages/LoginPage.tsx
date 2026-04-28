@@ -1,7 +1,14 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { LogInIcon, LoaderIcon, MailCheckIcon } from "lucide-react";
+import axios from "axios";
 import useAuth from "../hooks/useAuth";
+import Logo from "../Components/Logo";
+import { safeRedirectPath } from "../lib/safeRedirect";
+import { extractApiError } from "../lib/extractApiError";
+
+const isAxiosErrorWithStatus = (error: unknown, status: number): boolean =>
+  axios.isAxiosError(error) && error.response?.status === status;
 
 const LoginPage = () => {
   const { login, user, initializing, resendVerificationEmail } = useAuth();
@@ -18,8 +25,9 @@ const LoginPage = () => {
 
   useEffect(() => {
     if (!initializing && user) {
-      const redirectTo =
-        (location.state as Record<string, string> | null)?.from ?? "/app";
+      const redirectTo = safeRedirectPath(
+        (location.state as Record<string, string> | null)?.from,
+      );
       navigate(redirectTo, { replace: true });
     }
   }, [user, initializing, navigate, location.state]);
@@ -32,14 +40,13 @@ const LoginPage = () => {
     setLoading(true);
     try {
       await login({ email, password });
-      const redirectTo =
-        (location.state as Record<string, string> | null)?.from ?? "/app";
+      const redirectTo = safeRedirectPath(
+        (location.state as Record<string, string> | null)?.from,
+      );
       navigate(redirectTo, { replace: true });
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ?? "Invalid email or password.";
-      setErrorMessage(message);
-      if (error?.response?.status === 403) {
+    } catch (error: unknown) {
+      setErrorMessage(extractApiError(error, "Invalid email or password."));
+      if (isAxiosErrorWithStatus(error, 403)) {
         setPendingVerificationEmail(email.trim());
       }
     } finally {
@@ -68,11 +75,18 @@ const LoginPage = () => {
         className="flex min-h-screen items-center justify-center px-4 py-12"
       >
         <div className="w-full max-w-md">
-          <div className="card bg-base-100 shadow-xl">
+          <div className="mb-6 flex justify-center">
+            <Link to="/" aria-label="NotesBoard home">
+              <Logo size="2.5rem" />
+            </Link>
+          </div>
+          <div className="card border border-base-content/[0.08] bg-base-100 shadow-md">
             <div className="card-body space-y-6">
               <div className="text-center space-y-2">
-                <h1 className="text-2xl font-semibold">Welcome back</h1>
-                <p className="text-base-content/70 text-sm">
+                <h1 className="text-2xl font-bold tracking-tight">
+                  Welcome back
+                </h1>
+                <p className="text-base-content/60 text-sm">
                   Sign in to access your notes and continue where you left off.
                 </p>
               </div>

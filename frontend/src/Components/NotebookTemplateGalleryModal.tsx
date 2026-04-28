@@ -3,7 +3,6 @@ import {
   ArrowRightIcon,
   Building2Icon,
   FileTextIcon,
-  KanbanSquareIcon,
   RefreshCwIcon,
   SearchIcon,
   SparklesIcon,
@@ -22,20 +21,12 @@ interface TemplateNote {
   tags?: string[];
   position?: number;
   workspaceId?: string;
-  boardId?: string;
 }
 
 interface TemplateWorkspaceRef {
   id: string;
   name: string | null;
   noteCount?: number;
-}
-
-interface TemplateBoardRef {
-  id: string;
-  name: string | null;
-  noteCount?: number;
-  workspaceName?: string | null;
 }
 
 interface TemplateSummary {
@@ -53,7 +44,6 @@ interface TemplateDetail {
   tags?: string[];
   notes?: TemplateNote[];
   workspaces?: TemplateWorkspaceRef[];
-  boards?: TemplateBoardRef[];
 }
 
 interface WorkspaceOption {
@@ -61,16 +51,9 @@ interface WorkspaceOption {
   name?: string;
 }
 
-interface BoardOption {
-  id: string;
-  name?: string;
-  workspaceName?: string;
-}
-
 interface ImportOptions {
   workspaceId?: string;
   workspaceMappings?: Record<string, string>;
-  boardMappings?: Record<string, string>;
 }
 
 interface NotebookTemplateGalleryModalProps {
@@ -88,7 +71,6 @@ interface NotebookTemplateGalleryModalProps {
   onClose: () => void;
   onRefresh?: () => void;
   workspaceOptions?: WorkspaceOption[];
-  boardOptions?: BoardOption[];
 }
 
 function NotebookTemplateGalleryModal({
@@ -106,19 +88,16 @@ function NotebookTemplateGalleryModal({
   onClose,
   onRefresh,
   workspaceOptions = [],
-  boardOptions = [],
 }: NotebookTemplateGalleryModalProps) {
   const [query, setQuery] = useState("");
   const [targetWorkspaceId, setTargetWorkspaceId] = useState("");
   const [workspaceMapping, setWorkspaceMapping] = useState<Record<string, string>>({});
-  const [boardMapping, setBoardMapping] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!open) {
       setQuery("");
       setTargetWorkspaceId("");
       setWorkspaceMapping({});
-      setBoardMapping({});
     }
   }, [open]);
 
@@ -158,24 +137,6 @@ function NotebookTemplateGalleryModal({
     return [...base, ...rest];
   }, [workspaceOptions]);
 
-  const normalizedBoardOptions = useMemo(() => {
-    const optionMap = new Map<string, { id: string; label: string }>();
-    if (Array.isArray(boardOptions)) {
-      boardOptions.forEach((option) => {
-        if (!option || !option.id) return;
-        const boardName =
-          typeof option.name === "string" && option.name.trim().length
-            ? option.name.trim()
-            : "Untitled board";
-        const label = option.workspaceName
-          ? `${boardName} - ${option.workspaceName}`
-          : boardName;
-        optionMap.set(option.id, { id: option.id, label });
-      });
-    }
-    return [{ id: "", label: "Create new board" }, ...optionMap.values()];
-  }, [boardOptions]);
-
   const templateWorkspaceRefs = useMemo((): TemplateWorkspaceRef[] => {
     if (!detail) return [];
     if (Array.isArray(detail.workspaces) && detail.workspaces.length) {
@@ -201,13 +162,6 @@ function NotebookTemplateGalleryModal({
     [],
   );
 
-  const handleBoardMappingChange = useCallback(
-    (sourceId: string, value: string) => {
-      setBoardMapping((previous) => ({ ...previous, [sourceId]: value }));
-    },
-    [],
-  );
-
   const handleImportClick = useCallback(() => {
     if (!selectedTemplateId || importing || detailLoading) return;
 
@@ -217,23 +171,13 @@ function NotebookTemplateGalleryModal({
       ),
     );
 
-    const boardMappingsPayload = Object.fromEntries(
-      Object.entries(boardMapping).filter(
-        ([, target]) => typeof target === "string" && target.trim().length,
-      ),
-    );
-
     onImport?.(selectedTemplateId, {
       workspaceId: targetWorkspaceId || undefined,
       workspaceMappings: Object.keys(workspaceMappingsPayload).length
         ? workspaceMappingsPayload
         : undefined,
-      boardMappings: Object.keys(boardMappingsPayload).length
-        ? boardMappingsPayload
-        : undefined,
     });
   }, [
-    boardMapping,
     detailLoading,
     importing,
     onImport,
@@ -242,29 +186,9 @@ function NotebookTemplateGalleryModal({
     workspaceMapping,
   ]);
 
-  const templateBoardRefs = useMemo((): TemplateBoardRef[] => {
-    if (!detail) return [];
-    if (Array.isArray(detail.boards) && detail.boards.length) {
-      return detail.boards;
-    }
-    const counts = new Map<string, number>();
-    (detail.notes ?? []).forEach((note) => {
-      const boardId = note?.boardId ? String(note.boardId) : null;
-      if (!boardId) return;
-      counts.set(boardId, (counts.get(boardId) ?? 0) + 1);
-    });
-    return Array.from(counts.entries()).map(([boardId, noteCount]) => ({
-      id: boardId,
-      name: null,
-      noteCount,
-      workspaceName: null,
-    }));
-  }, [detail]);
-
   const showWorkspaceSection =
     normalizedWorkspaceOptions.length > 1 || templateWorkspaceRefs.length > 0;
   const showWorkspaceMappings = templateWorkspaceRefs.length > 0;
-  const showBoardSection = templateBoardRefs.length > 0;
   const deleting =
     deletingTemplateId && selectedTemplateId === deletingTemplateId;
   const deleteInProgress = Boolean(deletingTemplateId);
@@ -292,14 +216,7 @@ function NotebookTemplateGalleryModal({
       });
       return next;
     });
-    setBoardMapping((previous) => {
-      const next: Record<string, string> = {};
-      templateBoardRefs.forEach((entry) => {
-        next[entry.id] = previous[entry.id] ?? "";
-      });
-      return next;
-    });
-  }, [detail?.id, templateWorkspaceRefs, templateBoardRefs]);
+  }, [detail?.id, templateWorkspaceRefs]);
 
   const handleDeleteClick = useCallback(() => {
     if (!selectedTemplateId || deleteInProgress) return;
@@ -564,67 +481,6 @@ function NotebookTemplateGalleryModal({
                           })}
                         </div>
                       ) : null}
-                    </section>
-                  ) : null}
-                  {showBoardSection ? (
-                    <section className="space-y-3 rounded-2xl border border-base-content/10 bg-base-100/90 p-4 shadow-sm">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-base-content">
-                        <KanbanSquareIcon className="size-4 text-primary" />
-                        <span>Map template boards</span>
-                      </div>
-                      <p className="text-xs text-base-content/60">
-                        Match template boards with existing boards or create new
-                        ones for the imported notebook.
-                      </p>
-                      <div className="space-y-3">
-                        {templateBoardRefs.map((boardRef, index) => {
-                          const label =
-                            typeof boardRef.name === "string" &&
-                            boardRef.name.trim().length
-                              ? boardRef.name.trim()
-                              : `Template board ${index + 1}`;
-                          const noteCount = boardRef.noteCount ?? 0;
-                          const workspaceName =
-                            typeof boardRef.workspaceName === "string" &&
-                            boardRef.workspaceName.trim().length
-                              ? boardRef.workspaceName.trim()
-                              : null;
-                          return (
-                            <div key={boardRef.id} className="space-y-1">
-                              <div className="text-sm font-medium text-base-content">
-                                {label}
-                              </div>
-                              <p className="text-xs text-base-content/60">
-                                {noteCount} note{noteCount === 1 ? "" : "s"}
-                                {workspaceName ? ` from ${workspaceName}` : ""}
-                              </p>
-                              <select
-                                className="select select-bordered select-xs w-full"
-                                value={boardMapping[boardRef.id] ?? ""}
-                                onChange={(
-                                  event: ChangeEvent<HTMLSelectElement>,
-                                ) =>
-                                  handleBoardMappingChange(
-                                    boardRef.id,
-                                    event.target.value,
-                                  )
-                                }
-                              >
-                                {normalizedBoardOptions.map((option) => (
-                                  <option
-                                    key={`${boardRef.id}-${
-                                      option.id || "new"
-                                    }`}
-                                    value={option.id ?? ""}
-                                  >
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          );
-                        })}
-                      </div>
                     </section>
                   ) : null}
                 </div>

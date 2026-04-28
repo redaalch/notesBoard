@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { sanitizeHtml, extractApiError } from "../sanitize";
+import { sanitizeHtml } from "../sanitize";
+import { extractApiError } from "../extractApiError";
 
 // ── sanitizeHtml ───────────────────────────────────────────────────────────
 

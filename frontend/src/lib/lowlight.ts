@@ -1,4 +1,5 @@
 import { createLowlight } from "lowlight";
+import type { LanguageFn } from "highlight.js";
 import plaintext from "highlight.js/lib/languages/plaintext";
 
 const lowlight = createLowlight();
@@ -14,7 +15,7 @@ const LANGUAGE_ALIASES: Record<string, string> = {
   html: "xml",
 };
 
-type HljsLanguageModule = { default: (hljs: unknown) => unknown };
+type HljsLanguageModule = { default: LanguageFn };
 
 const loadingLanguages = new Map<string, Promise<HljsLanguageModule>>();
 const loadedLanguageModules = new Map<string, HljsLanguageModule>();

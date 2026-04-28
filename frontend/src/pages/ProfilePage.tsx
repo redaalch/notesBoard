@@ -103,15 +103,18 @@ function ProfilePage() {
 
     try {
       setProfileLoading(true);
-      const result = await updateProfile(updates);
+      const result = await updateProfile(updates) as {
+        user?: { name?: string; email?: string; emailVerified?: boolean };
+        emailVerificationRequired?: boolean;
+      };
       const updatedUser = result?.user ?? user;
       setPendingVerification(
-        result?.emailVerificationRequired ?? !updatedUser.emailVerified,
+        result?.emailVerificationRequired ?? !updatedUser?.emailVerified,
       );
       setProfileForm((prev) => ({
         ...prev,
-        name: updatedUser.name ?? trimmedName,
-        email: updatedUser.email ?? trimmedEmail,
+        name: updatedUser?.name ?? trimmedName,
+        email: updatedUser?.email ?? trimmedEmail,
         currentPassword: "",
       }));
     } finally {

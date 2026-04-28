@@ -1,14 +1,34 @@
-import {
-  useInView,
-  type IntersectionOptions,
-} from "react-intersection-observer";
+import { useEffect, useRef, useState } from "react";
 
-export const useScrollReveal = (options: IntersectionOptions = {}) => {
-  const { ref, inView } = useInView({
-    triggerOnce: true,
-    threshold: 0.1,
-    ...options,
-  });
+interface ScrollRevealOptions {
+  threshold?: number;
+  rootMargin?: string;
+}
+
+export const useScrollReveal = <TElement extends Element = HTMLDivElement>(
+  options: ScrollRevealOptions = {},
+) => {
+  const { threshold = 0.1, rootMargin } = options;
+  const ref = useRef<TElement | null>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { threshold, rootMargin },
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [threshold, rootMargin]);
 
   return {
     ref,

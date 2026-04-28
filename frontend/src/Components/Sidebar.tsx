@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, m } from "framer-motion";
 import {
@@ -12,6 +12,8 @@ import {
   GlobeIcon,
   HistoryIcon,
   BarChart3Icon,
+  DownloadIcon,
+  UploadIcon,
   NotebookIcon,
   LayersIcon,
   XIcon,
@@ -19,9 +21,8 @@ import {
   InboxIcon,
   ChevronRightIcon,
 } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { cn } from "../lib/cn";
-import { formatTagLabel, normalizeTag } from "../lib/Utils";
 import { notebookIconComponents } from "../pages/home/homePageUtils";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -62,6 +63,7 @@ export interface SidebarProps {
   error?: boolean;
   /** Notebook actions */
   onCreateNotebook: () => void;
+  onImportNotebook?: () => void;
   onBrowseTemplates: () => void;
   onShareNotebook?: (notebook: Notebook) => void;
   onPublishNotebook?: (notebook: Notebook) => void;
@@ -69,6 +71,7 @@ export interface SidebarProps {
   onAnalyticsNotebook?: (notebook: Notebook) => void;
   onRenameNotebook?: (notebook: Notebook) => void;
   onSaveAsTemplate?: (notebook: Notebook) => void;
+  onExportNotebook?: (notebook: Notebook) => void;
   onDeleteNotebook?: (notebook: Notebook) => void;
   /** Analytics enabled */
   analyticsEnabled?: boolean;
@@ -160,6 +163,7 @@ function SidebarContent({
   loading,
   error,
   onCreateNotebook,
+  onImportNotebook,
   onBrowseTemplates,
   onShareNotebook,
   onPublishNotebook,
@@ -167,6 +171,7 @@ function SidebarContent({
   onAnalyticsNotebook,
   onRenameNotebook,
   onSaveAsTemplate,
+  onExportNotebook,
   onDeleteNotebook,
   analyticsEnabled,
   savedQueriesEnabled,
@@ -311,6 +316,16 @@ function SidebarContent({
             >
               <LayoutTemplateIcon className="size-3.5" />
             </button>
+            {onImportNotebook && (
+              <button
+                type="button"
+                onClick={onImportNotebook}
+                className="btn btn-ghost btn-xs btn-circle"
+                title="Import markdown or ZIP"
+              >
+                <UploadIcon className="size-3.5" />
+              </button>
+            )}
             <button
               type="button"
               onClick={onCreateNotebook}
@@ -572,6 +587,16 @@ function SidebarContent({
           >
             <LayoutTemplateIcon className="size-4 text-base-content/70" />
             Save as template
+          </button>
+        )}
+        {onExportNotebook && (
+          <button
+            type="button"
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-base-content transition-colors hover:bg-base-300/25"
+            onClick={(e) => { e.stopPropagation(); onExportNotebook(menuState.notebook); setMenuState(null); }}
+          >
+            <DownloadIcon className="size-4 text-base-content/70" />
+            Export as ZIP
           </button>
         )}
         {onDeleteNotebook && (

@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "../lib/axios";
-import { extractApiError } from "../lib/sanitize";
+import { extractApiError } from "../lib/extractApiError";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */

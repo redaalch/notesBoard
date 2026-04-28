@@ -6,7 +6,7 @@ import { ArrowLeftIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
 
 import Navbar from "../Components/Navbar";
 import api from "../lib/axios";
-import { extractApiError } from "../lib/sanitize";
+import { extractApiError } from "../lib/extractApiError";
 
 interface TrashedNote {
   _id: string;

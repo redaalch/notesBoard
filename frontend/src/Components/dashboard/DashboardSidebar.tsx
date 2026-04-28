@@ -255,10 +255,14 @@ export default function DashboardSidebar({
           {notebooks.slice(0, 16).map((nb) => {
             const active = isActive(`notebook:${nb.id}` as DashboardView);
             return (
-              <div key={nb.id} style={{ position: "relative" }}>
+              <div
+                key={nb.id}
+                className="ds-sb-row"
+                style={{ position: "relative" }}
+              >
                 <button
                   type="button"
-                  className={`ds-sb-item${active ? " active" : ""}`}
+                  className={`ds-sb-item${active ? " active" : ""}${hasMenu ? " has-menu" : ""}`}
                   onClick={() =>
                     go(
                       `notebook:${nb.id}` as DashboardView,
@@ -273,22 +277,23 @@ export default function DashboardSidebar({
                     />
                   </span>
                   <span>{nb.name}</span>
-                  {hasMenu ? (
-                    <button
-                      type="button"
-                      className="ds-sb-menu"
-                      aria-label={`Actions for ${nb.name}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenMenuId((id) => (id === nb.id ? null : nb.id));
-                      }}
-                    >
-                      <MoreHorizontalIcon size={12} />
-                    </button>
-                  ) : (
+                  {!hasMenu && (
                     <span className="ds-num">{nb.noteCount ?? 0}</span>
                   )}
                 </button>
+                {hasMenu && (
+                  <button
+                    type="button"
+                    className="ds-sb-menu"
+                    aria-label={`Actions for ${nb.name}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOpenMenuId((id) => (id === nb.id ? null : nb.id));
+                    }}
+                  >
+                    <MoreHorizontalIcon size={12} />
+                  </button>
+                )}
                 {openMenuId === nb.id && notebookActions && (
                   <div
                     ref={menuRef}

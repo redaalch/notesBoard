@@ -1,4 +1,4 @@
-import { type FormEvent } from "react";
+import { type FormEvent, lazy, Suspense } from "react";
 import {
   CloudIcon,
   EllipsisVerticalIcon,
@@ -13,9 +13,14 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import api from "../lib/axios";
 import TagInput from "../Components/TagInput";
 import SimpleEditor from "../Components/SimpleEditor";
-import TemplateGalleryModal from "../Components/TemplateGalleryModal";
+
+const TemplateGalleryModal = lazy(() => import("../Components/TemplateGalleryModal"));
 import { useCommandPalette } from "../contexts/CommandPaletteContext";
 import { normalizeTag } from "../lib/Utils";
+import type { NoteTemplate } from "../lib/noteTemplates";
+import markdownToHtml from "../lib/markdownToHtml";
+import { sanitizeHtml } from "../lib/sanitize";
+import { extractApiError } from "../lib/extractApiError";
 
 const CreatePage = () => {
   const location = useLocation();
@@ -26,7 +31,7 @@ const CreatePage = () => {
   const [pinned, setPinned] = useState(false);
   const [loading, setLoading] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
-  const [activeTemplate, setActiveTemplate] = useState<any>(null);
+  const [activeTemplate, setActiveTemplate] = useState<NoteTemplate | null>(null);
   const [selectedNotebookId, setSelectedNotebookId] = useState(() => {
     const candidate = location.state?.notebookId;
     if (
@@ -42,35 +47,45 @@ const CreatePage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { registerCommands } = useCommandPalette();
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<{
+    commands: { setContent: (html: string) => void };
+  } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const applyTemplate = useCallback((template: any) => {
+  const applyTemplate = useCallback((template: NoteTemplate) => {
     if (!template) return;
 
     setTitle(template.title ?? "");
     const templateContent = template.content ?? "";
+    const htmlContent = sanitizeHtml(markdownToHtml(templateContent));
     setContent(templateContent);
-    setRichContent(templateContent);
+    setRichContent(htmlContent);
     // If the editor is already mounted, set its content directly
     if (editorRef.current) {
-      editorRef.current.commands.setContent(templateContent);
+      editorRef.current.commands.setContent(htmlContent);
     }
     setTags(
       Array.isArray(template.tags)
         ? template.tags.map((tag: string) => normalizeTag(tag)).filter(Boolean)
         : [],
     );
-    setPinned(Boolean(template.pinned));
     setActiveTemplate(template);
     toast.success(`Loaded the ${template.name} template`);
   }, []);
 
   useEffect(() => {
-    const incomingTemplate = location.state?.template;
+    const incomingTemplate = location.state?.template as NoteTemplate | undefined;
     if (incomingTemplate) {
       applyTemplate(incomingTemplate);
+      navigate(location.pathname, {
+        replace: true,
+        state: selectedNotebookId ? { notebookId: selectedNotebookId } : {},
+      });
+      return;
+    }
+    if (location.state?.openTemplates) {
+      setTemplateModalOpen(true);
       navigate(location.pathname, {
         replace: true,
         state: selectedNotebookId ? { notebookId: selectedNotebookId } : {},
@@ -113,7 +128,7 @@ const CreatePage = () => {
     return cleanup;
   }, [registerCommands]);
 
-  const handleTemplateSelect = (template: any) => {
+  const handleTemplateSelect = (template: NoteTemplate) => {
     if (!template) return;
     setTemplateModalOpen(false);
     applyTemplate(template);
@@ -159,17 +174,15 @@ const CreatePage = () => {
           ? `/app?notebook=${encodeURIComponent(selectedNotebookId)}`
           : "/app";
         window.location.href = destination;
-      } catch (error: any) {
-        console.error("Error creating note", error);
-        if (error.response?.status === 429) {
+      } catch (error: unknown) {
+        if (import.meta.env.DEV) console.error("Error creating note", error);
+        if ((error as { response?: { status?: number } })?.response?.status === 429) {
           toast.error("Slow down! You're creating notes too fast", {
             duration: 4000,
             icon: "💀",
           });
-        } else if (error.response?.data?.message) {
-          toast.error(error.response.data.message);
         } else {
-          toast.error("Failed to create note");
+          toast.error(extractApiError(error, "Failed to create note"));
         }
       } finally {
         setLoading(false);
@@ -199,14 +212,14 @@ const CreatePage = () => {
 
   const notebookLabel = useMemo(() => {
     if (!selectedNotebookId) return "Uncategorized";
-    const nb = notebooks.find((n: any) => n.id === selectedNotebookId);
+    const nb = notebooks.find((n: { id?: string }) => n.id === selectedNotebookId);
     return nb?.name ?? "Uncategorized";
   }, [selectedNotebookId, notebooks]);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-base-100">
       {/* ── Top Bar ── */}
-      <header className="flex items-center justify-between border-b border-base-200/60 px-4 py-2.5 sm:px-6">
+      <header className="flex items-center justify-between border-b border-base-200/60 px-3 py-1.5 sm:px-6 sm:py-2.5">
         {/* Left: Close */}
         <Link
           to="/app"
@@ -285,7 +298,7 @@ const CreatePage = () => {
 
       {/* ── Editor Body ── */}
       <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-2xl px-6 py-10 sm:px-8 lg:py-16">
+        <div className="mx-auto w-full max-w-3xl px-4 py-3 sm:px-8 sm:py-10 lg:py-16">
           {/* Template banner (only if active) */}
           {activeTemplate && (
             <div className="mb-6 flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2 text-xs text-primary">
@@ -300,12 +313,12 @@ const CreatePage = () => {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Note Title"
-            className="w-full border-0 bg-transparent text-4xl font-extrabold leading-tight text-base-content placeholder:text-base-content/20 focus:outline-none focus:ring-0"
+            className="w-full border-0 bg-transparent text-2xl sm:text-3xl lg:text-4xl font-extrabold leading-tight text-base-content placeholder:text-base-content/20 focus:outline-none focus:ring-0"
             autoFocus
           />
 
           {/* Body — TipTap editor with slash commands */}
-          <div className="mt-4">
+          <div className="mt-2 sm:mt-4">
             <SimpleEditor
               initialContent={richContent || content}
               onChange={handleEditorChange}
@@ -318,12 +331,12 @@ const CreatePage = () => {
       </main>
 
       {/* ── Bottom Metadata Bar ── */}
-      <footer className="border-t border-base-200/60 bg-base-100">
-        <div className="mx-auto flex w-full max-w-2xl flex-wrap items-center gap-3 px-6 py-3 sm:px-8">
+      <footer className="sticky bottom-0 z-10 border-t border-base-200/60 bg-base-100/95 backdrop-blur-sm">
+        <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center gap-2 sm:gap-3 px-3 py-2 sm:px-8 sm:py-3">
           {/* Notebook selector */}
           <div className="relative">
             <select
-              className="select select-bordered select-sm h-8 min-h-0 rounded-lg pr-8 text-xs font-medium"
+              className="select select-bordered select-sm h-10 sm:h-8 min-h-0 rounded-lg pr-8 text-xs font-medium"
               value={selectedNotebookId}
               onChange={(event) => setSelectedNotebookId(event.target.value)}
               disabled={notebooksQuery.isLoading}
@@ -331,7 +344,7 @@ const CreatePage = () => {
               <option value="">
                 {notebooksQuery.isLoading ? "Loading…" : "Uncategorized"}
               </option>
-              {notebooks.map((notebook: any) => (
+              {notebooks.map((notebook: { id?: string; name?: string }) => (
                 <option key={notebook.id} value={notebook.id}>
                   {notebook.name}
                 </option>
@@ -354,11 +367,13 @@ const CreatePage = () => {
         </div>
       </footer>
 
-      <TemplateGalleryModal
-        open={templateModalOpen}
-        onClose={() => setTemplateModalOpen(false)}
-        onSelect={handleTemplateSelect}
-      />
+      <Suspense fallback={null}>
+        <TemplateGalleryModal
+          open={templateModalOpen}
+          onClose={() => setTemplateModalOpen(false)}
+          onSelect={handleTemplateSelect}
+        />
+      </Suspense>
     </div>
   );
 };

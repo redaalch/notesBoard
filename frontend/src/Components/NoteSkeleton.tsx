@@ -1,62 +1,17 @@
-import { m } from "framer-motion";
-
 interface NoteSkeletonProps {
   count?: number;
 }
 
 function NoteSkeleton({ count = 6 }: NoteSkeletonProps) {
   return (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <div className="ds-notes-grid">
       {Array.from({ length: count }).map((_, index) => (
-        <m.div
-          key={index}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.05 }}
-          className="card premium-card bg-base-100/60"
-        >
-          <div className="card-body space-y-4">
-            {/* Title skeleton with shimmer */}
-            <m.div
-              animate={{
-                backgroundPosition: ["200% 0", "-200% 0"],
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: "linear",
-              }}
-              className="h-6 w-2/3 bg-gradient-to-r from-base-200 via-base-300 to-base-200 rounded"
-              style={{ backgroundSize: "200% 100%" }}
-            />
-
-            {/* Content skeleton lines with staggered fade */}
-            <div className="space-y-2">
-              <m.div
-                className="h-4 bg-base-200 rounded w-full"
-                animate={{ opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-              />
-              <m.div
-                className="h-4 bg-base-200 rounded w-5/6"
-                animate={{ opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
-              />
-              <m.div
-                className="h-4 bg-base-200 rounded w-2/3"
-                animate={{ opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
-              />
-            </div>
-
-            {/* Action button skeleton */}
-            <m.div
-              className="h-10 bg-base-200 rounded w-full"
-              animate={{ opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 1.5, repeat: Infinity, delay: 0.6 }}
-            />
-          </div>
-        </m.div>
+        <div key={index} className="ds-note ds-skel-card">
+          <div className="ds-skel ds-skel-line w80" />
+          <div className="ds-skel ds-skel-line w100" />
+          <div className="ds-skel ds-skel-line w60" />
+          <div className="ds-skel ds-skel-line w40" />
+        </div>
       ))}
     </div>
   );

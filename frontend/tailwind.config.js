@@ -82,7 +82,12 @@ export default {
         },
       },
       fontFamily: {
+        // Keep Geist first to match `:root` in index.css. Tailwind's preflight
+        // applies `font-family: theme('fontFamily.sans')` to <html>, so any
+        // mismatch here is what gets used until our :root override kicks in
+        // — and any explicit `font-sans`/`font-display` utility class.
         sans: [
+          "Geist",
           "Inter",
           "Segoe UI",
           "system-ui",
@@ -94,6 +99,7 @@ export default {
           "sans-serif",
         ],
         display: [
+          "Geist",
           "Inter",
           "Segoe UI",
           "system-ui",
@@ -103,6 +109,14 @@ export default {
           "Arial",
           "Noto Sans",
           "sans-serif",
+        ],
+        mono: [
+          "Geist Mono",
+          "JetBrains Mono",
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "monospace",
         ],
       },
       fontSize: {
