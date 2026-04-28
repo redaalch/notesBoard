@@ -1685,3 +1685,65 @@
   .ds-sb { display: none; }
   .ds-content { padding: 18px 16px 80px; }
 }
+
+/* ─── Mobile notebook drawer ─────────────────────────────────────────── */
+.ds-mobile-sidebar-layer {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .ds-mobile-sidebar-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: block;
+  }
+
+  .ds-mobile-sidebar-backdrop {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    background: rgba(0, 0, 0, 0.52);
+    backdrop-filter: blur(4px);
+    cursor: pointer;
+  }
+
+  .ds-mobile-sidebar-panel {
+    position: absolute;
+    inset: 0 auto 0 0;
+    display: flex;
+    width: min(88vw, 340px);
+    flex-direction: column;
+    background: var(--ds-bg);
+    border-right: 1px solid var(--ds-line-2);
+    box-shadow: 24px 0 60px rgba(0, 0, 0, 0.45);
+  }
+
+  .ds-mobile-sidebar-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 44px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--ds-line);
+    color: var(--ds-ink-3);
+    font-family: var(--ds-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .ds-mobile-sidebar-panel .ds-sb {
+    position: static;
+    display: flex;
+    width: 100%;
+    height: calc(100% - 44px);
+    border-right: 0;
+    overflow-y: auto;
+  }
+
+  .ds-mobile-sidebar-panel .ds-sb-top {
+    display: none;
+  }
+}
