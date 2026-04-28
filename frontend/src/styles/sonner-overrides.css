@@ -1,0 +1,154 @@
+/* Sonner Toast Notifications - Highly Visible */
+[data-sonner-toaster] {
+  z-index: 9999 !important;
+}
+
+[data-sonner-toaster][data-theme="light"] {
+  --normal-bg: hsl(var(--b1));
+  --normal-border: hsl(var(--b3));
+  --normal-text: hsl(var(--bc));
+
+  --success-bg: hsl(var(--su));
+  --success-border: hsl(var(--su));
+  --success-text: white;
+
+  --error-bg: hsl(var(--er));
+  --error-border: hsl(var(--er));
+  --error-text: white;
+
+  --info-bg: hsl(var(--in));
+  --info-border: hsl(var(--in));
+  --info-text: white;
+
+  --warning-bg: hsl(var(--wa));
+  --warning-border: hsl(var(--wa));
+  --warning-text: white;
+}
+
+[data-sonner-toast] {
+  background: var(--normal-bg) !important;
+  border: 2px solid var(--normal-border) !important;
+  color: var(--normal-text) !important;
+  padding: 16px 20px !important;
+  border-radius: 10px !important;
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  min-width: 320px !important;
+  max-width: 500px !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+[data-sonner-toast][data-type="success"] {
+  background: var(--success-bg) !important;
+  border-color: var(--success-border) !important;
+  color: var(--success-text) !important;
+  box-shadow:
+    0 10px 40px hsla(var(--su) / 0.3),
+    0 0 0 4px hsla(var(--su) / 0.15) !important;
+}
+
+[data-sonner-toast][data-type="error"] {
+  background: var(--error-bg) !important;
+  border-color: var(--error-border) !important;
+  color: var(--error-text) !important;
+  box-shadow:
+    0 10px 40px hsla(var(--er) / 0.3),
+    0 0 0 4px hsla(var(--er) / 0.15) !important;
+}
+
+[data-sonner-toast][data-type="info"] {
+  background: var(--info-bg) !important;
+  border-color: var(--info-border) !important;
+  color: var(--info-text) !important;
+  box-shadow:
+    0 10px 40px hsla(var(--in) / 0.3),
+    0 0 0 4px hsla(var(--in) / 0.15) !important;
+}
+
+[data-sonner-toast][data-type="warning"] {
+  background: var(--warning-bg) !important;
+  border-color: var(--warning-border) !important;
+  color: var(--warning-text) !important;
+  box-shadow:
+    0 10px 40px hsla(var(--wa) / 0.3),
+    0 0 0 4px hsla(var(--wa) / 0.15) !important;
+}
+
+/* Toast content styling */
+[data-sonner-toast] [data-content] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  line-height: 1.5 !important;
+}
+
+[data-sonner-toast] [data-title] {
+  font-weight: 600 !important;
+  font-size: 15px !important;
+}
+
+[data-sonner-toast] [data-description] {
+  opacity: 0.9 !important;
+  font-size: 14px !important;
+}
+
+/* Close button styling */
+[data-sonner-toast] [data-close-button] {
+  background: rgba(0, 0, 0, 0.1) !important;
+  color: currentColor !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 4px !important;
+  opacity: 0.7 !important;
+  transition: all 0.2s !important;
+}
+
+[data-sonner-toast] [data-close-button]:hover {
+  opacity: 1 !important;
+  background: rgba(0, 0, 0, 0.2) !important;
+  transform: scale(1.1) !important;
+}
+
+[data-sonner-toast][data-type="success"] [data-close-button],
+[data-sonner-toast][data-type="error"] [data-close-button],
+[data-sonner-toast][data-type="info"] [data-close-button],
+[data-sonner-toast][data-type="warning"] [data-close-button] {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+}
+
+/* Dark theme adjustments */
+[data-theme="notesDark"] [data-sonner-toaster][data-theme="light"] {
+  --normal-bg: hsl(var(--b1));
+  --normal-border: hsl(var(--b3));
+  --normal-text: hsl(var(--bc));
+}
+
+/* Icon styling */
+[data-sonner-toast] [data-icon] {
+  flex-shrink: 0 !important;
+  width: 20px !important;
+  height: 20px !important;
+}
+
+/* Loading spinner */
+[data-sonner-toast] [data-icon] svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+/* Toast positioning */
+[data-sonner-toaster] {
+  top: 80px !important;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  [data-sonner-toast] {
+    min-width: 280px !important;
+    max-width: calc(100vw - 32px) !important;
+  }
+}
